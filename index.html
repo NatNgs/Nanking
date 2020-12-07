@@ -8,6 +8,7 @@
 
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
 	<script src="scripts/main.js"></script>
 	<script src="scripts/lzw.js"></script>
 </head>
@@ -18,28 +19,28 @@
 	</div>
 	<div id="screen">
 		<input type="file" id="fileToImport"><button onclick="importFile()">Load</button> | 
-		<button onclick="exportFile()">Save</button> <a hidden="hidden" id="fileToExport" download="save.json"></a> | <button onclick="resetData()">Reset</button>
+		<button onclick="exportFile()">Save</button> <a hidden="hidden" id="fileToExport" download="save.lzw"></a> | <button onclick="resetData()">Reset</button>
 		<hr/>
 		Add new entry: <input type="text" id="newEntry"/><button onclick="addNewEntry()">Add</button>
 		<hr/>
 		<table id="theQ">
 			<tr>
 				<td id="a1">
+					<img src="pict/unknown.svg"/><br/>
 					<div class="title"></div>
-					<img src="pict/unknown.png"/><br/>
-					<button>Choose</button>
+					<button>^ Choose</button>
 				</td>
 				<td id="a2">
+					<img src="pict/unknown.svg"/><br/>
 					<div class="title"></div>
-					<img src="pict/unknown.png"/><br/>
-					<button>Choose</button>
+					<button>Choose ^</button>
 				</td>
 			</tr>
 			<tr>
 				<td id="a0" colspan="2">
+					<button id="bSame">No Best</button><br/>
+					<button id="bSkip" onclick="refreshTheQ()">- Skip -</button><br/>
 					<button id="bCant">Unset</button>
-					<button onclick="refreshTheQ()">- Skip -</button>
-					<button id="bSame">Same</button>
 				</td>
 			</tr>
 		</table>
@@ -47,8 +48,8 @@
 			Not enouth entries. <button onclick="refreshTheQ()">Refresh</button>
 		</div>
 	</div>
-	
-	
+
+
 	<!-- Dialogs -->
 	<div id="dialog-updateEntry" hidden="hidden">
 		<b>Tags</b>

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4" height="100px" width="100px">
+	<rect x="0" y="0" width="1" height="1" fill="#666">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="3.1s"
+		/>
+	</rect>
+	<rect x="1" y="0" width="1" height="1" fill="#bbb">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="4.1s"
+		/>
+	</rect>
+	<rect x="2" y="0" width="1" height="1" fill="#000">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="1.1s"
+		/>
+	</rect>
+	<rect x="3" y="0" width="1" height="1" fill="#444">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="2.1s"
+		/>
+	</rect>
+	<rect x="0" y="1" width="1" height="1" fill="#222">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="4.2s"
+		/>
+	</rect>
+	<rect x="1" y="1" width="1" height="1" fill="#ccc">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="1.2s"
+		/>
+	</rect>
+	<rect x="2" y="1" width="1" height="1" fill="#111">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="3.2s"
+		/>
+	</rect>
+	<rect x="3" y="1" width="1" height="1" fill="#555">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="2.2s"
+		/>
+	</rect>
+	<rect x="0" y="2" width="1" height="1" fill="#999">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="2.3s"
+		/>
+	</rect>
+	<rect x="1" y="2" width="1" height="1" fill="#eee">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="4.3s"
+		/>
+	</rect>
+	<rect x="2" y="2" width="1" height="1" fill="#333">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="1.3s"
+		/>
+	</rect>
+	<rect x="3" y="2" width="1" height="1" fill="#ddd">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="3.3s"
+		/>
+	</rect>
+	<rect x="0" y="3" width="1" height="1" fill="#777">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="1.4s"
+		/>
+	</rect>
+	<rect x="1" y="3" width="1" height="1" fill="#fff">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="3.4s"
+		/>
+	</rect>
+	<rect x="2" y="3" width="1" height="1" fill="#aaa">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="2.4s"
+		/>
+	</rect>
+	<rect x="3" y="3" width="1" height="1" fill="#888">
+		<animate attributeName="fill" calcMode="linear" repeatCount="indefinite"
+			values="#000;#fff;#000"
+			keyTimes="0;0.5;1"
+			begin="0s"
+			dur="4.4s"
+		/>
+	</rect>
+</svg>

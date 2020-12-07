@@ -24,7 +24,7 @@
 	position: absolute;
 	left: 0;
 	width: 100%;
-	top: 50%;
+	top: 51%;
 	bottom: 0;
 	overflow-y: auto;
 }
@@ -76,7 +76,7 @@
 	display: none;
 }
 button.cross {
-	background: url("cross.svg");
+	background: url("cross.svg") 1.2em;
 	width: 1.2em;
 	height: 1.2em;
 	border: 0;
@@ -130,8 +130,19 @@ body .ui-widget {
 	z-index: 1000;
 }
 
+#a1, #a2 {
+	width: 50%;
+}
 #a1 > img, #a2 > img {
-	max-width: 49%;
+	max-width: 95%;
 	height: 50vh;
 	object-fit: contain;
+}
+#a1 > button, #a2 > button, #bSame {
+	width: 20vw;
+	height: 2.5em;
+	font-size: 2em;
+}
+.title {
+	font-size: 2em;
 }

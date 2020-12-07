@@ -178,7 +178,6 @@ function updateEntry(entryName) {
 	});
 	
 	// Autocomplete tags
-	console.log(tags.map(a=>a.n).sort())
 	$("#updateEntry-newTagInpt").autocomplete({source: tags.map(a=>a.n).sort()});
 
 	// Show dialog
@@ -228,14 +227,13 @@ function testImage(url, onSuccess, onError, timeout = 1000) {
 	}, timeout); 
 }
 
-const PR=1000; // max score is PR²
 function calcS(a) {
 	const r=a.p+a.e+a.m;
 	if(!r) {
 		a.s = -1;
 		return a;
 	}
-	a.s = ((a.p*PR/r)|0)*PR + ((a.e*(PR-1)/r)|0);
+	a.s = (1+a.p/r-a.m/r)/2
 	return a;
 }
 function pemSort(a,b) {
@@ -303,31 +301,32 @@ function refreshList() {
 
 	function build(theList) {
 		let htmlContent = '';
-		let pts = PR*PR+1, r = -1;
+		let pts = 101, arnk = -1;
 		for(const rnk in theList) {
 			const a = theList[rnk];
-			const t = (a.p+a.e+a.m <= 0 ? -1 : 1/(a.p+a.e+a.m));
-			const rep = (a.p+a.e+a.m) / (a.t*(scores.length-1));
+			const r = a.p + a.e + a.m;
+			const rmax = a.t*(scores.length-1);
+			const t = r <= 0 ? 0 : 1/r;
 			if(a.s < 0) {
-				r = '-';
+				arnk = '-';
+				pts = 0;
 			} else if(pts > a.s) {
 				pts = a.s;
-				r = (rnk|0)+1;
+				arnk = (rnk|0)+1;
 			}
-			let rpts = r==='-'?'-':(theList.length-r)/(theList.length-1);
 
 			htmlContent += `<div class="listE">
 	<div class="coll">
-		<div class="rnk">${r}. </div>
+		<div class="rnk">${arnk}. </div>
 		<div class="name">${a.n}</div>
 		<button class="imgBtn" onclick="updateEntry(\'${a.n}\')"></button>
 	</div>
 	<div class="coll">
-		<span class="sc" style="background-color: rgba(255,255,63,${rpts*.9+.1});">${(rpts*100)|0}</span>
+		<span class="sc" style="background-color: rgba(255,255,63,${pts*.9+.1});">${pts==='-'?'-':(pts*100)|0}</span>
 		<span class="p" style="background-color: rgba(63,255,63,${t*a.p*.9+.1});">+${Math.round(100*t*a.p)}%</span>
 		<span class="e" style="background-color: rgba(255,196,63,${t*a.e*.9+.1});">=${Math.round(100*t*a.e)}%</span>
 		<span class="m" style="background-color: rgba(255,63,63,${t*a.m*.9+.1});">-${Math.round(100*t*a.m)}%</span>
-		<span class="rep" style="background-color: rgba(63,255,255,${1-rep});">/${(100*rep)|0}% (${a.p+a.e+a.m}/${a.t*(scores.length-1)})</span>
+		<span class="rep" style="background-color: rgba(63,255,255,${(r*r)/(rmax*rmax)});">/${(100*r/rmax)|0}% (${r}/${rmax})</span>
 	</div>
 </div>`;
 		}
@@ -338,6 +337,20 @@ function refreshList() {
 	document.getElementById('listTags').innerHTML = build(tags);
 }
 
+function pick2() {
+	let a, b, an, bn;
+	let i=0, max = scores.length;
+	do {
+		// Select random pair
+		a = (Math.random()*scores.length)|0;
+		b = ((a-Math.random()*(scores.length-1)+scores.length)|0)%scores.length;
+		
+		an = scores[a].n;
+		bn = scores[b].n;
+	} while((i++)<=max && ((an<bn?bn:an) in allData.votes[an<bn?an:bn].votes));
+
+	return [a, b];
+}
 function refreshTheQ() {
 	refreshList();
 
@@ -348,11 +361,7 @@ function refreshTheQ() {
 		document.getElementById('theQErr').classList.add("toHide");
 		document.getElementById('theQ').classList.remove("toHide");
 
-		// Select random pair
-		const ia = (Math.random()*scores.length)|0;
-		const ib = ((ia-Math.random()*(scores.length-1)+scores.length)|0)%scores.length;
-		// TODO: check historique pour éviter de proposer le même vote plusieurs fois
-		// TODO: check votes castés ou non, pour proposer de préférence des comparaisons jamais suggérées
+		const [ia, ib] = pick2();
 
 		const a = scores[ia].n;
 		const b = scores[ib].n;
@@ -363,10 +372,13 @@ function refreshTheQ() {
 
 		const pa1 = allData.votes[a].imgs;
 		const pa2 = allData.votes[b].imgs;
-		$('#a1 img').attr('src', pa1.length ? pa1[(Math.random()*pa1.length)|0] : 'pict/unknown.png');
-		$('#a2 img').attr('src', pa2.length ? pa2[(Math.random()*pa2.length)|0] : 'pict/unknown.png');
-
-		console.log({a, b, pa1, pa2})
+		$('#a1 img').attr('src', 'pict/loading.svg'); // force
+		$('#a2 img').attr('src', 'pict/loading.svg'); // force
+		
+		setTimeout(()=>{
+			$('#a1 img').attr('src', pa1.length ? pa1[(Math.random()*pa1.length)|0] : 'pict/unknown.svg');
+			$('#a2 img').attr('src', pa2.length ? pa2[(Math.random()*pa2.length)|0] : 'pict/unknown.svg');
+		}, 100);
 
 		$('#a0 #bSame').attr("onclick", "").unbind("click").click(()=>theQ(a, b, 0));
 		$('#a0 #bCant').attr("onclick", "").unbind("click").click(()=>theQ(a, b, -1));
@@ -388,7 +400,7 @@ function theQ(ia1, ia2, vote) {
 		delete a1.votes[b];
 	}
 	allData.history.push({a1: ia1, a2: ia2, v: vote});
-	while(allData.history.length > 100) {
+	while(allData.history.length > (scores.length * (scores.length-1)/2)) {
 		allData.history.shift();
 	}
 
