@@ -3,6 +3,7 @@ const allData = {
 		/*
 		"name of a1": {
 			imgs: ["http://.../.png", ...],
+			video: "http://...",	// can be null
 			tags: ["tag1", "tag2", ...],
 			votes: {
 				"name of a2": 0/1/2 	// 1=>prefer a1; 2=>prefer a2
@@ -100,21 +101,20 @@ function resetData() {
 
 function addNewEntry() {
 	const nEntr = document.getElementById('newEntry').value;
-	if(nEntr) {
-		if(allData.votes[nEntr]) {
-			alert("Already existing");
-		} else {
-			allData.votes[nEntr] = {
-				imgs: [],
-				tags: [],
-				votes: {}
-			}
-			refreshList();
-			updateEntry(nEntr);
-		}
-	} else {
+	if(!nEntr) {
 		alert("Please fill new entry name");
+		return;
 	}
+	if(allData.votes[nEntr]) {
+		return updateEntry(nEntr);
+	}
+	allData.votes[nEntr] = {
+		imgs: [],
+		tags: [],
+		votes: {}
+	}
+	refreshList();
+	updateEntry(nEntr);
 }
 function updateEntry(entryName) {
 	const dial = $("#dialog-updateEntry");
@@ -153,7 +153,7 @@ function updateEntry(entryName) {
 		newImgs[img] = true;
 		showImg(divImgs, img);
 	}
-	
+
 	const tagInpt = $("#updateEntry-newTagInpt").val("");
 	$("#updateEntry-newTag").unbind("click").click(()=>{
 		const val = tagInpt.val().toLowerCase();
@@ -163,6 +163,7 @@ function updateEntry(entryName) {
 			tagInpt.val("");
 		}
 	});
+
 	const imgInpt = $("#updateEntry-newImgInpt").val("");
 	$("#updateEntry-newImg").unbind("click").click(()=>{
 		const val = imgInpt.val();
@@ -176,23 +177,61 @@ function updateEntry(entryName) {
 			}, 2500);
 		}
 	});
-	
+
+	const nameInpt = $("#updateEntry-name").val(entryName);
+
 	// Autocomplete tags
 	$("#updateEntry-newTagInpt").autocomplete({source: tags.map(a=>a.n).sort()});
 
 	// Show dialog
 	dial.dialog({
-		title: entryName,
+		title: 'Update item',
 		width: 'auto',
 		buttons: {
-			"Confirm": function() {
-				dial.dialog("close");
+			"Delete /!\\": function() {
+				// Remove entry
+				delete allData.votes[entryName];
 
-				// Update Entry
+				// Remove votes
+				for(const d in allData.votes) {
+					if(entryName in allData.votes[d].votes) {
+						delete allData.votes[d].votes[entryName];
+					}
+				}
+
+				dial.dialog("close");
+				refreshTheQ();
+			},
+			"Confirm": function() {
+				// Check new entry name
+				const newEntryName = nameInpt.val().trim();
+				if(!newEntryName) {
+					alert("Value is blank");
+					return;
+				}
+				if(newEntryName !== entryName && allData.votes[newEntryName]) {
+					alert("Another item already have this name");
+					return;
+				}
+
+				// Rename entry
+				allData.votes[newEntryName] = allData.votes[entryName];
+				delete allData.votes[entryName];
+
+				// Rename votes
+				for(const d in allData.votes) {
+					if(entryName in allData.votes[d].votes) {
+						allData.votes[d].votes[newEntryName] = allData.votes[d].votes[entryName];
+						delete allData.votes[d].votes[entryName];
+					}
+				}
+
+				// Update Entry lists
 				entry.tags = Object.keys(newTags).filter(a=>newTags[a]).sort();
 				entry.imgs = Object.keys(newImgs).filter(a=>newImgs[a]).sort();
 
-				refreshList();
+				dial.dialog("close");
+				refreshTheQ();
 			},
 			"Reset": function() {
 				updateEntry(entryName);
@@ -243,7 +282,7 @@ function refreshScores() {
 	// Recompute scores
 	while(scores.length) scores.pop();
 	while(tags.length) tags.pop();
-	
+
 	const tmpScores = {};
 	const tmpTags = {};
 	const allAKeys = Object.keys(allData.votes).sort().reverse(); // reverse order needed
