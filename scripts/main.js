@@ -11,8 +11,8 @@ const allData = {
 		},
 		*/
 	},
-	history: [
-		/*	{a1: "name of a1", a2: "name of a2", v: 0/1/2}, ...  (First is oldest, Last is most recent) */
+	hist: [
+		/*	"name of a1", "name of a2", ...  (First is oldest, Last is most recent) */
 	],
 };
 let scores = [
@@ -50,16 +50,11 @@ function loadData(data) {
 		alert("Error: Cannot read or decode file."); 
 		return;
 	}
-	if(!data || !data.votes || !data.history) {
-		alert("Wrong data format: no votes or no history");
+	if(!data || !data.votes) {
+		alert("Wrong data format: no votes");
 		return;
 	}
-	
-	// Merging history
-	while(data.history.length) {
-		allData.history.unshift(data.history.pop());
-	}
-	
+
 	// Merging votes
 	for(const v in data.votes) {
 		const importData = data.votes[v];
@@ -92,9 +87,9 @@ function loadData(data) {
 	alert("Loaded !");
 }
 function resetData() {
-	if(!history.length || confirm("Confirm reset data ?")) {
+	if(confirm("Confirm reset data ?")) {
 		allData.votes = {};
-		allData.history = [];
+		allData.hist = [];
 	}
 	refreshList();
 }
@@ -113,7 +108,6 @@ function addNewEntry() {
 		tags: [],
 		votes: {}
 	}
-	refreshList();
 	updateEntry(nEntr);
 }
 function updateEntry(entryName) {
@@ -215,14 +209,16 @@ function updateEntry(entryName) {
 				}
 
 				// Rename entry
-				allData.votes[newEntryName] = allData.votes[entryName];
-				delete allData.votes[entryName];
+				if(newEntryName !== entryName) {
+					allData.votes[newEntryName] = allData.votes[entryName];
+					delete allData.votes[entryName];
 
-				// Rename votes
-				for(const d in allData.votes) {
-					if(entryName in allData.votes[d].votes) {
-						allData.votes[d].votes[newEntryName] = allData.votes[d].votes[entryName];
-						delete allData.votes[d].votes[entryName];
+					// Rename votes
+					for(const d in allData.votes) {
+						if(entryName in allData.votes[d].votes) {
+							allData.votes[d].votes[newEntryName] = allData.votes[d].votes[entryName];
+							delete allData.votes[d].votes[entryName];
+						}
 					}
 				}
 
@@ -268,15 +264,24 @@ function testImage(url, onSuccess, onError, timeout = 1000) {
 
 function calcS(a) {
 	const r=a.p+a.e+a.m;
+
+	a.x = r/a.k; // % casted votes
 	if(!r) {
 		a.s = -1;
 		return a;
 	}
-	a.s = (1+a.p/r-a.m/r)/2
+	a.u = (1+(a.p+a.k-r)/a.k-a.m/a.k)/2; // score such as all uncasted votes are in favor
+	a.d = (1+a.p/a.k-(a.m+a.k-r)/a.k)/2; // score such as all uncasted votes are against
+	a.s = (a.u+a.d)/2; // score
 	return a;
 }
 function pemSort(a,b) {
-	return a.s<b.s?1:(a.s===b.s&&a.n<b.n?1:-1); // sort by 1:score; 2:alphabetically
+	return (a.s<b.s?1 // sort by 1:score
+		:(a.s>b.s?-1
+		:(a.x>b.x?1 // 2: rep (% of casted votes)
+		:(a.x<b.x?-1
+		:(a.n<b.n?1 // 3: alphabetically
+		:-1)))));
 }
 function refreshScores() {
 	// Recompute scores
@@ -287,34 +292,79 @@ function refreshScores() {
 	const tmpTags = {};
 	const allAKeys = Object.keys(allData.votes).sort().reverse(); // reverse order needed
 	for(const a1 of allAKeys) {
-		const adv = allData.votes[a1];
+		const adv1 = allData.votes[a1];
 		tmpScores[a1] = {n: a1, p:0, e:0, m:0, t:1}; // init score
 
-		for(const a2 in adv.votes) {
-			const vote = adv.votes[a2];
-			if(a2 <= a1) {
-				// data is wrong; check if data exists in a2, move it if not; then remove it
-				if(!allData.votes[a2].votes[a1]) {
-					allData.votes[a2].votes[a1] = vote;
-				}
-				delete adv.votes[a2];
+		for(const a2 in adv1.votes) {
+			const adv2 = allData.votes[a2];
+			const vote = adv1.votes[a2];
+			if(!adv2 || a2 <= a1) {
+				delete adv1.votes[a2]; // vote is wrong: remove it
 			} else {
 				switch(vote) {
 				case 0:
+					// Update elem score
 					tmpScores[a1].e ++;
 					tmpScores[a2].e ++; // already existing tmpScores[a2] because foreach a1 is reversed alphabetical order
+
+					// Update tags score
+					for(const t1 of adv1.tags) {
+						if(adv2.tags.indexOf(t1)<0) {
+							if(!tmpTags[t1]) tmpTags[t1] = {n: t1, p:0, e:0, m:0, t:0}; // init tag if not exist
+							tmpTags[t1].e++;
+						}
+					}
+					for(const t2 of adv2.tags) {
+						if(adv1.tags.indexOf(t2)<0) {
+							if(!tmpTags[t2]) tmpTags[t2] = {n: t2, p:0, e:0, m:0, t:0}; // init tag if not exist
+							tmpTags[t2].e++;
+						}
+					}
+
 					break;
 				case 1:
+					// Update elem score
 					tmpScores[a1].p ++;
 					tmpScores[a2].m ++; // already existing tmpScores[a2] because foreach a1 is reversed alphabetical order
+
+					// Update tags score
+					for(const t1 of adv1.tags) {
+						if(adv2.tags.indexOf(t1)<0) {
+							if(!tmpTags[t1]) tmpTags[t1] = {n: t1, p:0, e:0, m:0, t:0}; // init tag if not exist
+							tmpTags[t1].p++;
+						}
+					}
+					for(const t2 of adv2.tags) {
+						if(adv1.tags.indexOf(t2)<0) {
+							if(!tmpTags[t2]) tmpTags[t2] = {n: t2, p:0, e:0, m:0, t:0}; // init tag if not exist
+							tmpTags[t2].m++;
+						}
+					}
+
 					break;
 				case 2:
+					// Update elem score
 					tmpScores[a1].m ++;
 					tmpScores[a2].p ++; // already existing tmpScores[a2] because foreach a1 is reversed alphabetical order
+					
+					// Update tags score
+					for(const t1 of adv1.tags) {
+						if(adv2.tags.indexOf(t1)<0) {
+							if(!tmpTags[t1]) tmpTags[t1] = {n: t1, p:0, e:0, m:0, t:0}; // init tag if not exist
+							tmpTags[t1].m++;
+						}
+					}
+					for(const t2 of adv2.tags) {
+						if(adv1.tags.indexOf(t2)<0) {
+							if(!tmpTags[t2]) tmpTags[t2] = {n: t2, p:0, e:0, m:0, t:0}; // init tag if not exist
+							tmpTags[t2].p++;
+						}
+					}
+
 					break;
 				default:
 					// data is wrong, removing the vote data and ignoring it
-					delete adv.votes[a2];
+					delete adv1.votes[a2];
 				}
 			}
 		}
@@ -324,16 +374,15 @@ function refreshScores() {
 		const tags = allData.votes[a].tags;
 		for(const t of tags) {
 			if(!tmpTags[t]) tmpTags[t] = {n: t, p:0, e:0, m:0, t:0}; // init tag if not exist
-			tmpTags[t].p += tmpScores[a].p;
-			tmpTags[t].e += tmpScores[a].e;
-			tmpTags[t].m += tmpScores[a].m;
-			tmpTags[t].t ++;
+			tmpTags[t].t ++; // number of time this tag has been presented
 		}
 	}
 
 	// Convert tmpScores & tmpTags maps => scores & tags ordered lists
-	scores = Object.values(tmpScores).map(calcS).sort(pemSort);
-	tags = Object.values(tmpTags).map(calcS).sort(pemSort);
+	let scoresList = Object.values(tmpScores);
+	let calcK = (a)=>{a.k=a.t*(scoresList.length-a.t); return a;}; // k=max votes to be casted
+	scores = Object.values(tmpScores).map(calcK).map(calcS).sort(pemSort);
+	tags = Object.values(tmpTags).map(calcK).map(calcS).sort(pemSort);
 }
 function refreshList() {
 	refreshScores();
@@ -344,7 +393,6 @@ function refreshList() {
 		for(const rnk in theList) {
 			const a = theList[rnk];
 			const r = a.p + a.e + a.m;
-			const rmax = a.t*(scores.length-1);
 			const t = r <= 0 ? 0 : 1/r;
 			if(a.s < 0) {
 				arnk = '-';
@@ -356,16 +404,23 @@ function refreshList() {
 
 			htmlContent += `<div class="listE">
 	<div class="coll">
-		<div class="rnk">${arnk}. </div>
+		<div class="rnk">${arnk}.&nbsp;</div>
 		<div class="name">${a.n}</div>
 		<button class="imgBtn" onclick="updateEntry(\'${a.n}\')"></button>
 	</div>
 	<div class="coll">
-		<span class="sc" style="background-color: rgba(255,255,63,${pts*.9+.1});">${pts==='-'?'-':(pts*100)|0}</span>
+		<span class="sc" style="background-color: rgba(255,255,63,${pts*.9+.1});">`;
+		
+			if(pts==='-') {
+				htmlContent+='-';
+			} else {
+				htmlContent += `<span>${(100*a.d)|0}&nbsp;-&nbsp;</span><span class="ctr">${(100*a.s).toFixed(1)}</span><span>&nbsp;-&nbsp;${(100*a.u)|0}</span>`
+			}
+			htmlContent += `</span>
 		<span class="p" style="background-color: rgba(63,255,63,${t*a.p*.9+.1});">+${Math.round(100*t*a.p)}%</span>
 		<span class="e" style="background-color: rgba(255,196,63,${t*a.e*.9+.1});">=${Math.round(100*t*a.e)}%</span>
 		<span class="m" style="background-color: rgba(255,63,63,${t*a.m*.9+.1});">-${Math.round(100*t*a.m)}%</span>
-		<span class="rep" style="background-color: rgba(63,255,255,${(r*r)/(rmax*rmax)});">/${(100*r/rmax)|0}% (${r}/${rmax})</span>
+		<span class="rep" style="background-color: rgba(63,255,255,${a.x});">/${(100*a.x)|0}% (${r}/${a.k})</span>
 	</div>
 </div>`;
 		}
@@ -377,18 +432,20 @@ function refreshList() {
 }
 
 function pick2() {
-	let a, b, an, bn;
-	let i=0, max = scores.length;
-	do {
+	let an, bn;
+	const filteredList = Object.keys(allData.votes).filter(a=>allData.hist.indexOf(a)<0);
+	for(let i=filteredList.length; i>0; i--) {
 		// Select random pair
-		a = (Math.random()*scores.length)|0;
-		b = ((a-Math.random()*(scores.length-1)+scores.length)|0)%scores.length;
+		const a = (Math.random()*filteredList.length)|0;
+		const b = ((a-Math.random()*(filteredList.length-1)+filteredList.length)|0)%filteredList.length;
 		
-		an = scores[a].n;
-		bn = scores[b].n;
-	} while((i++)<=max && ((an<bn?bn:an) in allData.votes[an<bn?an:bn].votes));
+		an = filteredList[a];
+		bn = filteredList[b];
+		
+		if(!((an<bn?bn:an) in allData.votes[an<bn?an:bn].votes)) break;
+	}
 
-	return [a, b];
+	return [an, bn];
 }
 function refreshTheQ() {
 	refreshList();
@@ -400,10 +457,7 @@ function refreshTheQ() {
 		document.getElementById('theQErr').classList.add("toHide");
 		document.getElementById('theQ').classList.remove("toHide");
 
-		const [ia, ib] = pick2();
-
-		const a = scores[ia].n;
-		const b = scores[ib].n;
+		const [a, b] = pick2();
 
 		// Fill voting panel
 		$('#a1 .title').text(a);
@@ -429,7 +483,7 @@ function refreshTheQ() {
 function theQ(ia1, ia2, vote) {
 	const a = (ia1<ia2?ia1:ia2);
 	const b = (ia1<ia2?ia2:ia1);
-		
+
 	// vote: -1=Unset; 0=No pref; 1=Pref 1; 2=Pref 2
 	if(vote === 0 || vote === 1 || vote === 2) {
 		const a1 = allData.votes[a];
@@ -438,9 +492,10 @@ function theQ(ia1, ia2, vote) {
 		const a1 = allData.votes[a];
 		delete a1.votes[b];
 	}
-	allData.history.push({a1: ia1, a2: ia2, v: vote});
-	while(allData.history.length > (scores.length * (scores.length-1)/2)) {
-		allData.history.shift();
+	allData.hist.push(ia1);
+	allData.hist.push(ia2);
+	while(allData.hist.length > scores.length/2 -1) {
+		allData.hist.shift();
 	}
 
 	refreshTheQ();

@@ -40,8 +40,12 @@
 	flex: 2;
 }
 .listE .sc {
-	font-weight: bold;
+	display: flex;
 	flex: 3;
+}
+.listE .ctr {
+	flex: auto;
+	font-weight: bold;
 }
 .listE .rep {
 	background-color: #FFF;
