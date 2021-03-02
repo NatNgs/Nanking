@@ -3,7 +3,7 @@ const allData = {
 		/*
 		"name of a1": {
 			imgs: ["http://.../.png", ...],
-			video: "http://...",	// can be null
+			video: "http://...", 	// can be null
 			tags: ["tag1", "tag2", ...],
 			votes: {
 				"name of a2": 0/1/2 	// 1=>prefer a1; 2=>prefer a2
@@ -12,86 +12,18 @@ const allData = {
 		*/
 	},
 	hist: [
-		/*	"name of a1", "name of a2", ...  (First is oldest, Last is most recent) */
+		/*	"name of a1", "name of a2", ... 	// (First is oldest, Last is most recent) */
 	],
 };
 let scores = [
-	// {n: "name of a", p: 42, e: 53, m: 28}  // n:name  p:plus  e:equal  m:minus
+	// {n: "name of a", p: 42, e: 53, m: 28} 	// n:name  p:plus  e:equal  m:minus
 ];
 let tags = [
-	// {n: "tag", p: 42, e: 53, m: 28}	 // n:tag  p:plus  e:equal  m:minus
+	// {n: "tag", p: 42, e: 53, m: 28} 	// n:tag  p:plus  e:equal  m:minus
 ];
 
 function init() {
 	refreshTheQ();
-}
-
-function importFile() {
-	const fileToLoad = document.getElementById("fileToImport").files[0];
-
-	const reader = new FileReader()
-	reader.onload = event => loadData(event.target.result) // desired file content
-	reader.onerror = error => alert("Problem while reading the file.")
-	
-	reader.readAsText(fileToLoad, "UTF-8");
-}
-function exportFile() {
-	const strData = lzwEncodeJson(allData);
-	const blob = new Blob([strData], {type: 'text/plain'});
-	const link = document.getElementById('fileToExport');
-	link.href = window.URL.createObjectURL(blob);
-	link.click();
-}
-function loadData(data) {
-	try { 
-		data = lzwDecodeJson(data); 
-	} catch(e) { 
-		console.error(e);
-		alert("Error: Cannot read or decode file."); 
-		return;
-	}
-	if(!data || !data.votes) {
-		alert("Wrong data format: no votes");
-		return;
-	}
-
-	// Merging votes
-	for(const v in data.votes) {
-		const importData = data.votes[v];
-		if(!allData.votes[v]) {
-			allData.votes[v] = importData;
-		} else {
-			const vdata = allData.votes[v];
-			// Merge imgs
-			while(importData.imgs.length) {
-				vdata.imgs.push(importData.imgs.pop());
-			}
-			vdata.imgs = Array.from(new Set(vdata.imgs)).sort(); // rm duplicates
-
-			// Merge tags
-			while(importData.tags.length) {
-				vdata.tags.push(importData.tags.pop());
-			}
-			vdata.tags = Array.from(new Set(vdata.tags)).sort(); // rm duplicates
-
-			// Merge votes
-			for(const a in importData.votes) {
-				if(!vdata.votes[a]) {
-					vdata.votes[a] = importData.votes[a];
-				}
-			}
-		}
-	}
-
-	refreshList();
-	alert("Loaded !");
-}
-function resetData() {
-	if(confirm("Confirm reset data ?")) {
-		allData.votes = {};
-		allData.hist = [];
-	}
-	refreshList();
 }
 
 function addNewEntry() {
