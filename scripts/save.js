@@ -37,7 +37,7 @@ function toSavable(data) {
 		a1savable = {n: a1Name, p:[], m:[], e:[], t:[]};
 		if(a1Data.imgs && a1Data.imgs.length) a1savable.i = a1Data.imgs.sort();
 		if(a1Data.video) a1savable.v = a1Data.video;
-		
+
 		if(a1Data.votes) {
 			for(const a2Name in a1Data.votes) {
 				const index = vList.indexOf(a2Name);
@@ -54,7 +54,7 @@ function toSavable(data) {
 			for(const tag of a1Data.tags) {
 				let index = savable.t.indexOf(tag);
 				if(index < 0) {
-					savable.t.push(tag); 
+					savable.t.push(tag);
 					index = savable.t.length-1;
 				}
 				nbset_add(a1savable.t, index);
@@ -94,7 +94,7 @@ function fromSavable(savable) {
 		v: [...]
 	*/
 	const data = {votes:{}};
-	
+
 	for(const item of savable.v) {
 		/* item: {
 			n: 'name',
@@ -110,11 +110,11 @@ function fromSavable(savable) {
 			tags: nbset_toList(item.t).map(a=>savable.t[a]),
 			votes: {},
 		}
-		
+
 		for(const a2id of nbset_toList(item.p)) vote.votes[savable.v[a2id].n] = 1;
 		for(const a2id of nbset_toList(item.e)) vote.votes[savable.v[a2id].n] = 0;
 		for(const a2id of nbset_toList(item.m)) vote.votes[savable.v[a2id].n] = 2;
-		
+
 		data.votes[item.n] = vote;
 	}
 
@@ -133,13 +133,16 @@ function fromSavable(savable) {
 }
 
 function importFile() {
-	const fileToLoad = document.getElementById("fileToImport").files[0];
+	const filesToLoad = document.getElementById("fileToImport")
+	resetData()
+	for(const fileToLoad of filesToLoad.files) {
+		const reader = new FileReader()
+		reader.onload = event => loadData(event.target.result) // desired file content
+		reader.onerror = error => {alert("Problem while reading the file."); console.log(error)}
 
-	const reader = new FileReader()
-	reader.onload = event => loadData(event.target.result) // desired file content
-	reader.onerror = error => alert("Problem while reading the file.")
-	
-	reader.readAsText(fileToLoad, "UTF-8");
+		reader.readAsText(fileToLoad, "UTF-8")
+		break
+	}
 }
 function exportFile() {
 	const strData = lzwEncodeJson(toSavable(allData));
@@ -149,11 +152,11 @@ function exportFile() {
 	link.click();
 }
 function loadData(rawdata) {
-	try { 
-		data = lzwDecodeJson(rawdata); 
-	} catch(e) { 
+	try {
+		data = lzwDecodeJson(rawdata);
+	} catch(e) {
 		console.error(e);
-		alert("Error: Cannot read or decode file."); 
+		alert("Error: Cannot read or decode file.");
 		return;
 	}
 	if(data && data.l===1) {
@@ -192,14 +195,13 @@ function loadData(rawdata) {
 		}
 	}
 
-	refreshList();
-	alert("Loaded !");
+	refreshTheQ();
 }
 
 function resetData() {
-	if(confirm("Confirm reset data ?")) {
+	if(allData.hist.length <= 0 || confirm("Confirm reset data ?")) {
 		allData.votes = {};
 		allData.hist = [];
 	}
-	refreshList();
+	refreshTheQ();
 }

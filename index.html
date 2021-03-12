@@ -3,23 +3,26 @@
 <head>
 	<title>Nanking</title>
 	<meta charset="UTF-8"/>
+	<!--link rel="stylesheet" href="resources/jquery-ui.css"-->
 	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 	<link rel="stylesheet" href="styles/main.css">
 
+	<!--script src="resources/jquery.min.js"></script-->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+	<!--script src="resources/jquery-ui.min.js"></script-->
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
 	<script src="scripts/lzw.js"></script>
 	<script src="scripts/save.js"></script>
 	<script src="scripts/main.js"></script>
 </head>
 <body style="position: relative; width: 99vw; height: 99vh; margin: .5vh .5vw;" onload="init()">
-	<div id="list">
-		<div id="listItems"></div>
-		<div id="listTags"></div>
-	</div>
 	<div id="screen">
-		<input type="file" id="fileToImport"><button onclick="importFile()">Load</button> | 
-		<button onclick="exportFile()">Save</button> <a hidden="hidden" id="fileToExport" download="save.lzw"></a> | <button onclick="resetData()">Reset</button>
+		<input id="fileToImport" type="file" accept=".lzw,.txt,.json" onchange="importFile()" hidden="hidden"><button onclick="$('#fileToImport').click()">Load...</button>
+		| <button onclick="exportFile()">Save</button> <a hidden="hidden" id="fileToExport" download="save.lzw"></a>
+		| <button onclick="resetData()">Reset</button>
+		| <button onclick="showItemList()">Entries</button>
+		<button onclick="showTagList()">Tags</button>
+		| <button onclick="sortLists(-1)">-</button><button onclick="sortLists(0)">~</button><button onclick="sortLists(1)">+</button>
 		<hr/>
 		Add new entry: <input type="text" id="newEntry"/><button onclick="addNewEntry()">Add</button>
 		<hr/>
@@ -40,13 +43,10 @@
 				<td id="a0" colspan="2">
 					<button id="bSame">No Best</button><br/>
 					<button id="bSkip" onclick="refreshTheQ()">- Skip -</button><br/>
-					<button id="bCant">Unset</button>
 				</td>
 			</tr>
 		</table>
-		<div id="theQErr">
-			Not enouth entries. <button onclick="refreshTheQ()">Refresh</button>
-		</div>
+		<div id="theQErr">Not enouth entries.</div>
 	</div>
 
 
@@ -67,5 +67,16 @@
 
 		<div class="ui-widget"></div>
 	</div>
+	<div id="listItemsPopup" hidden="hidden">
+		<div id="listItemsFilter"><div id="sliderShowSvgItems" style="position: absolute; top: 0; bottom: 0; left:0; right:0;"></div></div>
+		<div id="listItems"></div>
+	</div>
+	<div id="listTagsPopup" hidden="hidden">
+		<div id="listTagsFilter"><div id="sliderShowSvgTags" style="position: absolute; top: 0; bottom: 0; left:0; right:0;"></div></div>
+		<div id="listTags"></div>
+	</div>
+
+	<!-- Hidden -->
+	<div id="pictPreload"></div>
 </body>
 </html>

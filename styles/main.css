@@ -3,30 +3,7 @@
 	left: 0;
 	top: 0;
 	bottom: 0;
-	width: 75%;
-}
-#list {
-	position: absolute;
-	left: 75%;
-	top: 0;
-	bottom: 0;
-	width: 25%;
-}
-#listItems {
-	position: absolute;
-	left: 0;
-	width: 100%;
-	top: 0;
-	bottom: 50%;
-	overflow-y: auto;
-}
-#listTags {
-	position: absolute;
-	left: 0;
-	width: 100%;
-	top: 51%;
-	bottom: 0;
-	overflow-y: auto;
+	right: 0;
 }
 .listE {
 	border: 1px solid black;
@@ -37,7 +14,7 @@
 	white-space: nowrap;
 	overflow: hidden;
 	font-size: .6em;
-	flex: 2;
+	flex: 1;
 }
 .listE .sc {
 	display: flex;
@@ -149,4 +126,28 @@ body .ui-widget {
 }
 .title {
 	font-size: 2em;
+}
+
+#pictPreload {
+	left: -2px;
+	top: -2px;
+	width: 1px;
+	height: 1px;
+}
+#pictPreload > img {
+	width: 1px;
+	height: 1px;
+	position: absolute;
+}
+
+.ui-dialog {
+	display: flex;
+	flex-direction: column;
+	max-width: 90vw !important;
+	max-height: 90vh !important;
+	min-width: 5vw;
+	min-height: 5vh;
+}
+.ui-slider-handle {
+	opacity: 66%;
 }

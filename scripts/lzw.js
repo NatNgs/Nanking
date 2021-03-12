@@ -1,4 +1,4 @@
-const ACTIVATE_COMPRESSION = true;
+var ACTIVATE_COMPRESSION = true;
 
 // LZW-compress
 function lzwEncodeJson(json) {
