@@ -13,6 +13,7 @@
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
 	<script src="scripts/lzw.js"></script>
 	<script src="scripts/save.js"></script>
+	<script src="scripts/voteSystem.js"></script>
 	<script src="scripts/main.js"></script>
 </head>
 <body style="position: relative; width: 99vw; height: 99vh; margin: .5vh .5vw;" onload="init()">
@@ -21,7 +22,6 @@
 		| <button onclick="exportFile()">Save</button> <a hidden="hidden" id="fileToExport" download="save.lzw"></a>
 		| <button onclick="resetData()">Reset</button>
 		| <button onclick="showItemList()">Entries</button>
-		<button onclick="showTagList()">Tags</button>
 		| <button onclick="sortLists(-1)">-</button><button onclick="sortLists(0)">~</button><button onclick="sortLists(1)">+</button>
 		<hr/>
 		Add new entry: <input type="text" id="newEntry"/><button onclick="addNewEntry()">Add</button>
@@ -56,11 +56,6 @@
 			<div style="white-space: nowrap;"><input id="updateEntry-name"/></div>
 		<hr/>
 
-		<b>Tags</b>
-			<ul id="updateEntry-tags"></ul>
-			<div style="white-space: nowrap;"><input id="updateEntry-newTagInpt"/><button id="updateEntry-newTag">Add</button></div>
-		<hr/>
-
 		<b>Images</b>
 			<ul id="updateEntry-imgs"></ul>
 			<div style="white-space: nowrap;"><input id="updateEntry-newImgInpt"/><button id="updateEntry-newImg">Add</button></div>
@@ -70,10 +65,6 @@
 	<div id="listItemsPopup" hidden="hidden">
 		<div id="listItemsFilter"><div id="sliderShowSvgItems" style="position: absolute; top: 0; bottom: 0; left:0; right:0;"></div></div>
 		<div id="listItems"></div>
-	</div>
-	<div id="listTagsPopup" hidden="hidden">
-		<div id="listTagsFilter"><div id="sliderShowSvgTags" style="position: absolute; top: 0; bottom: 0; left:0; right:0;"></div></div>
-		<div id="listTags"></div>
 	</div>
 
 	<!-- Hidden -->
