@@ -3,26 +3,29 @@
 <head>
 	<title>Nanking</title>
 	<meta charset="UTF-8"/>
-	<!--link rel="stylesheet" href="resources/jquery-ui.css"-->
 	<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
 	<link rel="stylesheet" href="styles/main.css">
 
-	<!--script src="resources/jquery.min.js"></script-->
+	<!-- External -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-	<!--script src="resources/jquery-ui.min.js"></script-->
 	<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
-	<script src="scripts/lzw.js"></script>
+	<script src="https://natngs.github.io/lib/lzw.js"></script>
+
+	<!-- Internal -->
 	<script src="scripts/save.js"></script>
 	<script src="scripts/voteSystem.js"></script>
 	<script src="scripts/main.js"></script>
 </head>
 <body style="position: relative; width: 99vw; height: 99vh; margin: .5vh .5vw;" onload="init()">
 	<div id="screen">
-		<input id="fileToImport" type="file" accept=".lzw,.txt,.json" onchange="importFile()" hidden="hidden"><button onclick="$('#fileToImport').click()">Load...</button>
-		| <button onclick="exportFile()">Save</button> <a hidden="hidden" id="fileToExport" download="save.lzw"></a>
-		| <button onclick="resetData()">Reset</button>
+		<button onclick="$('#fileToImport').click()">Load progress</button>
+		<button onclick="exportFile()">Save progress</button>
+		<button onclick="resetData()">Reset</button>
 		| <button onclick="showItemList()">Entries</button>
 		| <button onclick="sortLists(-1)">-</button><button onclick="sortLists(0)">~</button><button onclick="sortLists(1)">+</button>
+		| <button onclick="exportVotes()">Export Votes</button>
+		<button onclick="exportEntryList()">Export Entries</button>
+		<input id="importEntryList" type="file" accept=".json" onchange="importEntryList()" hidden="hidden"><button onclick="$('#importEntryList').click()">Import Entries</button>
 		<hr/>
 		Add new entry: <input type="text" id="newEntry"/><button onclick="addNewEntry()">Add</button>
 		<hr/>
@@ -69,5 +72,7 @@
 
 	<!-- Hidden -->
 	<div id="pictPreload"></div>
+	<a hidden="hidden" id="fileToExport" download="save.lzw"></a>
+	<input id="fileToImport" type="file" accept=".lzw,.txt,.json" onchange="importFile()" hidden="hidden">
 </body>
 </html>

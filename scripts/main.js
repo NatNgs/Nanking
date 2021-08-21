@@ -33,15 +33,17 @@ function addNewEntry() {
 		return
 	}
 
-	VOTE_SYSTEM.entries.add(new Entry(nEntr))
-	updateEntry(nEntr)
+	const e = new Entry(nEntr)
+	VOTE_SYSTEM.entries.add(e)
+	updateEntry(e.code)
+	document.getElementById('newEntry').value = ''
 }
 function updateEntry(entryCode) {
 	const dial = $('#dialog-updateEntry')
 
 	// Get data
 	const entry = VOTE_SYSTEM.entries.getEntryByCode(entryCode)
-	const newImgs = {}; // {<imgUrl>: true/false}
+	const newImgs = {} // {<imgUrl>: true/false}
 
 	function showImg(divImgs, imgUrl) {
 		const newDiv = $('<li name="'+ imgUrl +'"><img src="'+ imgUrl +'"/><button class="cross"/></li>')
@@ -391,7 +393,6 @@ function genRepartitionSvg(list) {
 
 	return svg
 }
-
 
 function genChartSVG() {
 	const list = scores.filter(a=>a) // copy list to prevent editing it

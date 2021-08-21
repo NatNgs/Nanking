@@ -134,7 +134,9 @@ function EntryList() {
 		for(const entryData of jsonData.e) {
 			// Decode tags
 			entryData.t = entryData.t.map(nbset_fromPrintableASCII).map(fc_idListToList)
-			this.entries.push(new Entry().import(entryData))
+
+			const entry = (merge && this.getEntryByName(entryData.n)) || new Entry()
+			this.entries.push(entry.import(entryData, merge))
 		}
 	}
 	/**
@@ -245,10 +247,10 @@ function Entry(entryName) {
 			this.images = []
 			this.tags = {}
 		}
-		for(const i of jsonData.i) this.images.push(i)
+		for(const i of jsonData.i) if(this.images.indexOf(i) < 0) this.images.push(i)
 		for(const l in jsonData.l) {
 			this.tags[l] = this.tags[l]||[]
-			for(const t of jsonData.l[l]) this.tags[l].push(t)
+			for(const t of jsonData.l[l]) if(this.tags[l].indexOf(t) < 0) this.tags[l].push(t)
 		}
 		return this
 	}

@@ -91,7 +91,7 @@ function importFile() {
 	}
 }
 function exportFile() {
-	const strData = lzwEncodeJson({v:2, d:VOTE_SYSTEM.export()})
+	const strData = LZW.encodeJson({v:2, d:VOTE_SYSTEM.export()})
 	const blob = new Blob([strData], {type: 'text/plain'})
 	const link = document.getElementById('fileToExport')
 	link.href = window.URL.createObjectURL(blob)
@@ -99,7 +99,7 @@ function exportFile() {
 }
 function loadData(rawdata) {
 	try {
-		data = lzwDecodeJson(rawdata)
+		data = LZW.decodeJson(rawdata)
 	} catch(e) {
 		console.error(e)
 		alert("Error: Cannot read or decode file.")
@@ -143,4 +143,38 @@ function resetData() {
 		$('#fileToExport').attr('download', 'save.lzw')
 	}
 	refreshTheQ()
+}
+
+function exportVotes() {
+	const tsv = scores.map(e=>[e.c.name, e.d, e.s, e.u, e.x, e.p, e.e, e.m].join('\t')).join('\n')
+
+	const blob = new Blob([tsv], {type: 'text/tsv'})
+	const link = document.getElementById('fileToExport')
+	const oldFileName = link.download
+	link.download = 'votes.tsv'
+	link.href = window.URL.createObjectURL(blob)
+	link.click()
+	setTimeout(()=>link.download = oldFileName, 100)
+}
+function exportEntryList() {
+	const data = VOTE_SYSTEM.entries.export()
+	const blob = new Blob([LZW.encodeJSON(data)], {type: 'text/tsv'})
+	const link = document.getElementById('fileToExport')
+	const oldFileName = link.download
+	link.download = link.download.replace(/\.[^.]+$/, '-list.json')
+	link.href = window.URL.createObjectURL(blob)
+	link.click()
+	setTimeout(()=>link.download = oldFileName, 100)
+}
+function importEntryList() {
+	const filesToLoad = document.getElementById("importEntryList")
+	resetData()
+	for(const fileToLoad of filesToLoad.files) {
+		const reader = new FileReader()
+		reader.onload = event => VOTE_SYSTEM.entries.import(LZW.decodeJSON(event.target.result), true)
+		reader.onerror = error => {alert("Problem while reading the file."); console.log(error)}
+
+		reader.readAsText(fileToLoad, "UTF-8")
+		break
+	}
 }
