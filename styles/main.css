@@ -26,7 +26,7 @@
 }
 .listE .rep {
 	background-color: #FFF;
-	flex: unset;
+	flex: 1;
 }
 .listE .name {
 	flex: auto;
@@ -44,10 +44,14 @@
 
 .imgBtn {
 	background: url("pen.svg");
+	background-repeat: no-repeat;
+	background-size: cover;
 	width: 1.2em;
 	height: 1.2em;
+	min-width: 1.2em;
+	min-height: 1.2em;
 	border: 0;
-	cursor: hand;
+	cursor: pointer;
 }
 .coll {
 	width: 100%;

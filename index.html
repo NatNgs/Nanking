@@ -25,7 +25,7 @@
 		| <button onclick="sortLists(-1)">-</button><button onclick="sortLists(0)">~</button><button onclick="sortLists(1)">+</button>
 		| <button onclick="exportVotes()">Export Votes</button>
 		<button onclick="exportEntryList()">Export Entries</button>
-		<input id="importEntryList" type="file" accept=".json" onchange="importEntryList()" hidden="hidden"><button onclick="$('#importEntryList').click()">Import Entries</button>
+		<button onclick="$('#importEntryList').click()">Import Entries</button>
 		<hr/>
 		Add new entry: <input type="text" id="newEntry"/><button onclick="addNewEntry()">Add</button>
 		<hr/>
@@ -74,5 +74,6 @@
 	<div id="pictPreload"></div>
 	<a hidden="hidden" id="fileToExport" download="save.lzw"></a>
 	<input id="fileToImport" type="file" accept=".lzw,.txt,.json" onchange="importFile()" hidden="hidden">
+	<input id="importEntryList" type="file" accept=".json" onchange="importEntryList()" multiple="true" hidden="hidden">
 </body>
 </html>

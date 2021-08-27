@@ -157,8 +157,8 @@ function exportVotes() {
 	setTimeout(()=>link.download = oldFileName, 100)
 }
 function exportEntryList() {
-	const data = VOTE_SYSTEM.entries.export()
-	const blob = new Blob([LZW.encodeJSON(data)], {type: 'text/tsv'})
+	const data = {e: VOTE_SYSTEM.entries.exportSimple()}
+	const blob = new Blob([JSON.stringify(data)], {type: 'text/tsv'})
 	const link = document.getElementById('fileToExport')
 	const oldFileName = link.download
 	link.download = link.download.replace(/\.[^.]+$/, '-list.json')
@@ -168,13 +168,24 @@ function exportEntryList() {
 }
 function importEntryList() {
 	const filesToLoad = document.getElementById("importEntryList")
-	resetData()
+	let nbTodo = filesToLoad.files.length
+	const doneOne = () => {
+		if(--nbTodo <= 0) {
+			refreshTheQ()
+		}
+	}
 	for(const fileToLoad of filesToLoad.files) {
 		const reader = new FileReader()
-		reader.onload = event => VOTE_SYSTEM.entries.import(LZW.decodeJSON(event.target.result), true)
-		reader.onerror = error => {alert("Problem while reading the file."); console.log(error)}
+		reader.onload = (event) => {
+			VOTE_SYSTEM.entries.importSimple(JSON.parse(event.target.result).e, true)
+			doneOne()
+		}
+		reader.onerror = (error) => {
+			alert("Problem while reading the file.");
+			console.log(error)
+			doneOne()
+		}
 
 		reader.readAsText(fileToLoad, "UTF-8")
-		break
 	}
 }

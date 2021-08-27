@@ -178,21 +178,21 @@ function pemSort(a,b) {
 			:(a.d>b.d?-1
 			:(a.u<b.u?1 // 2: max possible score
 			:(a.u>b.u?-1
-			:(a.c.name<b.c.name?1 // 3: alphabetically
+			:(a.c.name>b.c.name?1 // 3: alphabetically
 			:-1)))))
 	case 1:
 		return (a.u<b.u?1 // sort by 1: max possible score
 			:(a.u>b.u?-1
 			:(a.d<b.d?1 // 2: min possible score
 			:(a.d>b.d?-1
-			:(a.c.name<b.c.name?1 // 3: alphabetically
+			:(a.c.name>b.c.name?1 // 3: alphabetically
 			:-1)))))
 	default:
 		return (a.s<b.s?1 // sort by 1:score
 			:(a.s>b.s?-1
 			:(a.u<b.u?1 // 2: max possible score
 			:(a.u>b.u?-1
-			:(a.c.name<b.c.name?1 // 3: alphabetically
+			:(a.c.name>b.c.name?1 // 3: alphabetically
 			:-1)))))
 	}
 }
@@ -218,7 +218,7 @@ function refreshList() {
 		let pts = 101, arnk = 0
 
 		// filter the list
-		const filteredList = theList.filter(a=>a.x >= minShow)
+		const filteredList = theList.filter((a)=>a.x >= minShow)
 
 		for(const rnk in filteredList) {
 			const a = filteredList[rnk]

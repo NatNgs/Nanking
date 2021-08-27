@@ -101,14 +101,14 @@ function VoteSystem() {
 	this.getFullVotesList = function() {
 		// Aggregate data
 		const tmpScores = {}
+
+		for(const e of this.entries.entries) {
+			tmpScores[e.code] = {c: e, p:[], e:[], m:[], t:1} // init score
+		}
 		for(const c1 in voteData) {
-			const c1Score = (tmpScores[c1] || {c: this.entries.getEntryByCode(c1), p:[], e:[], m:[], t:1}) // init score
-			tmpScores[c1] = c1Score
 			for(const c2 in voteData[c1]) {
-				const c2Score = (tmpScores[c2] || {c: this.entries.getEntryByCode(c2), p:[], e:[], m:[], t:1}) // init score
-				tmpScores[c2] = c2Score
-				c1Score[voteData[c1][c2]].push(c2)
-				c2Score[voteData[c1][c2] === 'p' ? 'm' : (voteData[c1][c2] === 'm' ? 'p' : 'e')].push(c1)
+				tmpScores[c1][voteData[c1][c2]].push(c2)
+				tmpScores[c2][voteData[c1][c2] === 'p' ? 'm' : (voteData[c1][c2] === 'm' ? 'p' : 'e')].push(c1)
 			}
 		}
 
@@ -126,40 +126,64 @@ function VoteSystem() {
 function EntryList() {
 	this.entries = []
 
-	this.import = function(jsonData, merge=false) {
+	this.importSimple = function(jsonArray, merge=false) {
 		if(!merge) while(this.entries.length) this.entries.pop()
 
-		const fc_idListToList = (tagIdList,categoryId)=>tagIdList.map((id)=>jsonData.t[categoryId][id])
-
-		for(const entryData of jsonData.e) {
-			// Decode tags
-			entryData.t = entryData.t.map(nbset_fromPrintableASCII).map(fc_idListToList)
-
-			const entry = (merge && this.getEntryByName(entryData.n)) || new Entry()
+		for(const entryData of jsonArray) {
+			const entry = (merge && this.getEntryByName(entryData.n)) || new Entry(entryData.n)
 			this.entries.push(entry.import(entryData, merge))
 		}
 	}
+	this.import = function(jsonData, merge=false) {
+		if(!merge) while(this.entries.length) this.entries.pop()
+
+		const fc_idListToList = (tagIdList,categoryId)=>tagIdList.map((id)=>jsonData.l[categoryId].t[id])
+
+		for(const entryData of jsonData.e) {
+			// Decode tags
+			const entryDataList = entryData.l.map(nbset_fromPrintableASCII).map(fc_idListToList)
+
+			if(!merge || !entryData.l) entryData.l = {}
+
+			for(const categoryId in jsonData.l) {
+				const category = jsonData.l[categoryId].n
+				entryData.l[category] = entryDataList[categoryId]
+			}
+
+			const entry = (merge && this.getEntryByName(entryData.n)) || new Entry(entryData.n)
+			this.entries.push(entry.import(entryData, merge))
+		}
+	}
+
+	/**
+	 * exported Data: [
+	 *	{n: name, i: [image1, image2, ...], l:{category1:[tag1, tag2, ...], category2:[tag1, ...], ...}}
+	 * ]
+	 */
+	this.exportSimple = function() {
+		return JSON.parse(JSON.stringify(this.entries.map(e=>e.export())))
+	}
 	/**
 	 * exported Data: {
-	 * 	t: [{               >> ORDER IS IMPORTANT
+	 * 	l: [{               >> ORDER IS IMPORTANT
 	 * 		n: category1,
 	 * 		t: [tag1, ...]  >> ORDER IS IMPORTANT
 	 * 	}, ...],
 	 * 	e: [{
 	 * 		n: entryName,
 	 * 		i: [entryImage1, ...],
-	 * 		t: [<nbset:tagsOfCategory1>, <nbset:tagsOfCategory2>, ...]  >> ORDER IS IMPORTANT
+	 * 		l: [<nbset:tagsOfCategory1>, <nbset:tagsOfCategory2>, ...]  >> ORDER IS IMPORTANT
 	 * 	}, ...]
 	 * }
 	 */
 	this.export = function() {
-		const entriesList = this.entries.map(e=>e.export())
+		const entriesList = this.exportSimple()
 
 		// Build tags list
 		const categoryList = []
 		const tagsList = []
 		for(const e of entriesList) {
-			const entryTags = e.t // {category1: [tag1, tag2, ...], ...}
+			const entryTags = e.l // {category1: [tag1, tag2, ...], ...}
 			for(const categoryName in entryTags) {
 				let catIndex = categoryList.indexOf(categoryName)
 				if(catIndex < 0) {
@@ -181,17 +205,17 @@ function EntryList() {
 				entryTags[categoryName] = nbset_toPrintableASCII(tagsSet)
 			}
 
-			e.t = []
+			e.l = []
 			for(const catIndex in categoryList) {
-				if(entryTags[categoryList[catIndex]]) e.t.push(entryTags[categoryList[catIndex]])
-				else e.t.push([])
+				if(entryTags[categoryList[catIndex]]) e.l.push(entryTags[categoryList[catIndex]])
+				else e.l.push("")
 			}
 
-			while(e.t.length && e.t[e.t.length-1].length <= 0) e.t.pop()
+			while(e.l.length && e.l[e.l.length-1].length <= 0) e.l.pop()
 		}
 
 		return {
-			t: tagsList,
+			l: tagsList,
 			e: entriesList,
 		}
 	}
@@ -255,6 +279,6 @@ function Entry(entryName) {
 		return this
 	}
 	this.export = function() {
-		return {n: this.name, i: this.images, t:this.tags}
+		return {n: this.name, i: this.images, l:this.tags}
 	}
 }
