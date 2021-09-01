@@ -234,20 +234,22 @@ function EntryList() {
 	 */
 	this.getTagsList = function() {
 		const tagsMap = {}
-		
+
 		for(const entry of this.entries) {
 			for(const cat in entry.tags) {
-				if(entry.tags[cat].length && !(cat in tagsMap)) {
-					tagsMap[cat] = []
-				}
-				for(const tag of entry.tags[cat]) {
-					tagsMap[cat].push(tag)
+				if(entry.tags[cat].length) {
+					if(!(cat in tagsMap)) {
+						tagsMap[cat] = []
+					}
+					for(const tag of entry.tags[cat]) {
+						if(tag && tagsMap[cat].indexOf(tag) < 0) tagsMap[cat].push(tag)
+					}
 				}
 			}
 		}
 		return tagsMap
 	}
-	
+
 	/**
 	 * [nameOfItem1, nameOfItem2, ...]
 	 */

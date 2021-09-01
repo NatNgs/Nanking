@@ -135,19 +135,26 @@ function loadData(rawdata) {
 	}
 
 	refreshTheQ()
+	setTimeout(updateCategoriesSelector())
 }
 
 function resetData() {
 	if(!VOTE_SYSTEM.hasData() || confirm("Confirm reset data ?")) {
 		VOTE_SYSTEM.reset()
-		$('#fileToExport').attr('download', 'save.lzw')
+		$('#fileToExport').attr('download', 'save.' + (LZW.enable ? 'lzw' : 'json'))
 	}
 	refreshTheQ()
+	setTimeout(updateCategoriesSelector())
 }
 
+function limF(a, prec) {
+	return (''+(Math.round(a*(10**prec))/(10**prec))).replace(/^0\./, '.').replace(new RegExp('^(\.[0-9]{'+ prec + '})[0-9]+$'), '$1')
+}
 function exportVotes() {
-	const tsv = scores.map(e=>[e.c.name, e.d, e.s, e.u, e.x, e.p, e.e, e.m].join('\t')).join('\n')
-
+	const prec = 5
+	const tsv = scores.map(e=>
+		[e.c.name.replace(/\s+/g, ' '), limF(e.d, prec), limF(e.s, prec), limF(e.u, prec), limF(e.x, prec), e.p, e.e, e.m].join('\t')
+	).join('\n')
 	const blob = new Blob([tsv], {type: 'text/tsv'})
 	const link = document.getElementById('fileToExport')
 	const oldFileName = link.download
@@ -172,6 +179,7 @@ function importEntryList() {
 	const doneOne = () => {
 		if(--nbTodo <= 0) {
 			refreshTheQ()
+			setTimeout(updateCategoriesSelector())
 		}
 	}
 	for(const fileToLoad of filesToLoad.files) {

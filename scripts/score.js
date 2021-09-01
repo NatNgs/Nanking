@@ -62,9 +62,13 @@ function ScoreSystem(VOTE_SYSTEM) {
 
 	/** returns {category: {tag: {entries:[eId1, eId2,...], p, e, m, k, x, u, d, s}, ..}, ..} */
 	const calcDirectTagScores = function() {
+		let a = new Date()
 		const voteList = VOTE_SYSTEM.getFullVotesList() // [{c: <Entry object>, p:[], e:[], m:[]}, ...]
 		const tagsMap = VOTE_SYSTEM.entries.getTagsList() // {categoryName: [tag1, tag2, ...], ...}
 		const tagsScores = {} // {category: {tag: {p,e,m,k,x,u,d,s}, ..}, ..}
+
+		const voteMap = {}
+		for(const data of voteList) voteMap[data.c.code] = data
 
 		for(const category in tagsMap) {
 			const tagsGroupsIn = {}
@@ -82,21 +86,21 @@ function ScoreSystem(VOTE_SYSTEM) {
 			for(const tag of tagsMap[category]) {
 				const groupIn = tagsGroupsIn[tag]
 
-				// Build tagsGroups out
-				const out = allInCategory.filter((cIn)=>groupIn.indexOf(cIn) < 0)
-
 				// group votes
 				let p = 0
 				let e = 0
 				let m = 0
-				for(const item of voteList) {
-					if(groupIn.indexOf(item.c.code) >= 0) {
-						p += item.p.filter(c=>out.indexOf(c) >= 0).length
-						e += item.e.filter(c=>out.indexOf(c) >= 0).length
-						m += item.m.filter(c=>out.indexOf(c) >= 0).length
+				for(const cOut of allInCategory) {
+					if(groupIn.indexOf(cOut) < 0) {
+						for(const cIn of groupIn) {
+							const item = voteMap[cIn]
+							if(item.p.indexOf(cOut) >= 0) p++
+							else if(item.e.indexOf(cOut) >= 0) e++
+							else if(item.m.indexOf(cOut) >= 0) m++
+						}
 					}
 				}
-				tagsScores[category][tag] = calcS({p, e, m, k: groupIn.length * out.length, entries: groupIn})
+				tagsScores[category][tag] = calcS({p, e, m, k: groupIn.length * (allInCategory.length - groupIn.length), entries: groupIn})
 			}
 		}
 
