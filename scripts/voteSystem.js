@@ -3,7 +3,6 @@ function VoteSystem() {
 	this.entries = new EntryList()
 	const voteData = {} // {entryCode1: {entryCode2:'p', entryCode3:'e', entryCode4:'m', ...}, ...}
 
-
 	const import_registerVotes = (nbsetASCII, type, e1Code) => {
 		for(const entryId2 of nbset_toList(nbset_fromPrintableASCII(nbsetASCII))) {
 			const e2Code = this.entries.entries[entryId2].code
@@ -32,7 +31,6 @@ function VoteSystem() {
 			import_registerVotes(votes.m, 'm', e1Code)
 		}
 	}
-
 
 	this.export = function() {
 		const out = {l: this.entries.export(), v:[]}
@@ -235,12 +233,26 @@ function EntryList() {
 	 * {categoryName: [tag1, tag2, ...], ...}
 	 */
 	this.getTagsList = function() {
-		const list = this.export().t
 		const tagsMap = {}
-		for(const m of list) {
-			tagsMap[m.n] = m.t
+		
+		for(const entry of this.entries) {
+			for(const cat in entry.tags) {
+				if(entry.tags[cat].length && !(cat in tagsMap)) {
+					tagsMap[cat] = []
+				}
+				for(const tag of entry.tags[cat]) {
+					tagsMap[cat].push(tag)
+				}
+			}
 		}
 		return tagsMap
+	}
+	
+	/**
+	 * [nameOfItem1, nameOfItem2, ...]
+	 */
+	this.getItemsByTag = function(category, tag) {
+		return this.entries.filter((entry)=>entry.tags[category] && entry.tags[category].indexOf(tag) >= 0).map((e)=>e.code)
 	}
 
 	this.getOrCreateByName = function(entryName) {

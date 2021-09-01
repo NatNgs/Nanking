@@ -1,20 +1,18 @@
 const hist = [
 	/*	'name of a1', 'name of a2', ... 	// (First is oldest, Last is most recent) */
 ]
-let scores = [
-	// {n: 'name of a', p: 42, e: 53, m: 28} 	// p:plus, e:equal, m:minus
-]
 
 const PRELOADED_PICTS = []
 
 const VOTE_SYSTEM = new VoteSystem()
+const SCORE_SYSTEM = new ScoreSystem(VOTE_SYSTEM)
 function init() {
 	// Init images
 	const img1 = $('#a1 img'); img1.on('error', ()=>img1.attr('src', 'pict/unknown.svg'))
 	const img2 = $('#a2 img'); img2.on('error', ()=>img2.attr('src', 'pict/unknown.svg'))
 
 	// Init popups
-	$( '#listItemsFilter' ).slider({
+	$('#listItemsFilter').slider({
 		//range: 'max',
 		min: 0,
 		max: 1,
@@ -22,6 +20,7 @@ function init() {
 		step: .05,
 		slide: refreshList,
 	})
+	$('#listItemsCategory').on('change', refreshList)
 
 	refreshTheQ()
 }
@@ -143,77 +142,45 @@ function testImage(url, onSuccess, onError, timeout = 1000) {
 	}, timeout)
 }
 
-function calcS(a) {
-	a.p = a.p.length // p: <nb of + votes>
-	a.e = a.e.length // e: <nb of = votes>
-	a.m = a.m.length // m: <nb of - votes>
-
-	a.r = a.p + a.e + a.m // number of casted votes
-
-	if(!a.r || !a.k) {
-		a.x = 0
-		a.u = 1
-		a.d = 0
-		a.s = .5
-	} else {
-		a.x = a.r/a.k; // % casted votes over max possible
-		a.u = (1+(a.p+a.k-a.r)/a.k-a.m/a.k)/2 // score such as all uncasted votes are in favor
-		a.d = (1+a.p/a.k-(a.m+a.k-a.r)/a.k)/2 // score such as all uncasted votes are against
-		a.s = (a.u+a.d)/2 // average score
-	}
-
-	return a
-}
-
 let sortOrder = 0
 function sortLists(orderCode) {
 	sortOrder = orderCode
-	refreshScores()
-	refreshList()
+	showItemList()
 }
 function pemSort(a,b) {
 	switch(sortOrder) {
 	case -1:
-		return (a.d<b.d?1 // sort by 1: minScore
+		return a.d<b.d?1 // sort by 1: minScore
 			:(a.d>b.d?-1
 			:(a.u<b.u?1 // 2: max possible score
 			:(a.u>b.u?-1
-			:(a.c.name>b.c.name?1 // 3: alphabetically
-			:-1)))))
+			:(a.s<b.s?1 // 3: estimated score
+			:(a.s>b.s?-1
+			:(a.name>b.name?1 // 4: alphanumerical
+			:-1))))))
 	case 1:
-		return (a.u<b.u?1 // sort by 1: max possible score
+		return a.u<b.u?1 // sort by 1: max possible score
 			:(a.u>b.u?-1
 			:(a.d<b.d?1 // 2: min possible score
 			:(a.d>b.d?-1
-			:(a.c.name>b.c.name?1 // 3: alphabetically
-			:-1)))))
-	default:
-		return (a.s<b.s?1 // sort by 1:score
+			:(a.s<b.s?1 // 3: estimated score
 			:(a.s>b.s?-1
-			:(a.u<b.u?1 // 2: max possible score
+			:(a.name>b.name?1 // 4: alphanumerical
+			:-1))))))
+	default:
+		return a.s<b.s?1 // sort by 1:score
+			:(a.s>b.s?-1
+			:(a.z<b.z?1 // 2: average score
+			:(a.z>b.z?-1
+			:(a.u<b.u?1 // 3: max possible score
 			:(a.u>b.u?-1
-			:(a.c.name>b.c.name?1 // 3: alphabetically
-			:-1)))))
+			:(a.name>b.name?1 // 4: alphanumerical
+			:-1))))))
 	}
 }
-function refreshScores() {
-	// Get votes data
-	const scoresList = VOTE_SYSTEM.getFullVotesList()
 
-	// Calc K: max votes possible to cast on a specific entry
-	const calcK = (a)=>{
-		a.k = a.t*(scoresList.length-a.t)
-		return a
-	}
-
-	// Remove current scores
-	while(scores.length) scores.pop()
-
-	// Recompute scores
-	scores = scoresList.map(calcK).map(calcS).sort(pemSort)
-}
 function refreshList() {
-	function build(theList, minShow=0) {
+	function build(theList, minShow=0, isEntryMode) {
 		let htmlContent = ''
 		let pts = 101, arnk = 0
 
@@ -233,32 +200,66 @@ function refreshList() {
 				arnk = (rnk|0)+1
 			}
 
+			htmlContent += `<div class="listE"><div class="coll"><div class="rnk">${arnk}.&nbsp;</div><div class="name">${a.name}</div>`
 
-			htmlContent += `<div class="listE">
-	<div class="coll">
-		<div class="rnk">${arnk}.&nbsp;</div>
-		<div class="name">${a.c.name}</div>
-		<button class="imgBtn" onclick="updateEntry(\'${a.c.code}\')"></button>
-	</div>
-	<div class="coll">
-		<span class="sc" style="background-color: rgba(255,255,63,${pts*a.x});">`
+			if(a.eId) {
+				htmlContent += `<button class="imgBtn" onclick="updateEntry(\'${a.eId}\')"></button>`
+			}
+
+			htmlContent += `</div><div class="coll"><span class="sc" style="background-color: rgba(255,255,63,${pts*a.x});">`
+
 			if(pts==='-') {
 				htmlContent+='-'
 			} else {
 				htmlContent += `<span>${(100*a.d)|0}&nbsp;-&nbsp;</span><span class="ctr">${(100*a.s).toFixed(1)}</span><span>&nbsp;-&nbsp;${(100*a.u)|0}</span>`
 			}
+
 			htmlContent += `</span>
 		<span class="rep" style="background-color: rgba(63,255,255,${a.x});">/${(100*a.x)|0}% (${a.r}/${a.k})</span>
-	</div>
-</div>`
+	</div></div>`
 		}
 		return htmlContent
 	}
 
 	setTimeout(()=>{
+		const category = $('#listItemsCategory').val()
 		const fItems = $('#listItemsFilter').slider('value')
-		document.getElementById('listItems').innerHTML = build(scores, fItems)
-		$('#sliderShowSvgItems').empty().append(genRepartitionSvg(scores.map(a=>a.x))[0].outerHTML)
+
+		const scoreList = []
+		if(!category || !SCORE_SYSTEM.scores.tags[category]) {
+			for(const eId in SCORE_SYSTEM.scores.entries) {
+				const data = SCORE_SYSTEM.scores.entries[eId] // {c: <Entry object>, p, e, m, k, r, x, u, d, s, z}
+				scoreList.push({
+					name: data.c.name,
+					s: data.s,
+					z: data.z,
+					x: data.x,
+					r: data.r,
+					d: data.d,
+					u: data.u,
+					k: data.k,
+					eId: data.c.code,
+				})
+			}
+		} else {
+			for(const tag in SCORE_SYSTEM.scores.tags[category]) {
+				const data = SCORE_SYSTEM.scores.tags[category][tag] // {entries:[eId1, eId2,...], p, e, m, k, x, u, d, s, z}
+				scoreList.push({
+					name: tag,
+					s: data.s,
+					z: data.z,
+					x: data.x,
+					r: data.r,
+					d: data.d,
+					u: data.u,
+					k: data.k,
+				})
+			}
+		}
+		scoreList.sort(pemSort)
+
+		document.getElementById('listItems').innerHTML = build(scoreList, fItems, !category)
+		$('#sliderShowSvgItems').empty().append(genRepartitionSvg(scoreList.map(a=>a.x))[0].outerHTML)
 	}, 10)
 }
 
@@ -290,16 +291,20 @@ function pick2() {
 	return [VOTE_SYSTEM.entries.getEntryByCode(an), VOTE_SYSTEM.entries.getEntryByCode(bn)]
 }
 function refreshTheQ() {
-	refreshScores()
+	SCORE_SYSTEM.refreshScores()
 	refreshList()
 
 	if(VOTE_SYSTEM.entries.entries.length < 2) {
 		document.getElementById('theQ').classList.add('toHide')
 		document.getElementById('theQErr').classList.remove('toHide')
-	} else {
-		document.getElementById('theQErr').classList.add('toHide')
-		document.getElementById('theQ').classList.remove('toHide')
+		return
+	}
 
+	document.getElementById('theQErr').classList.add('toHide')
+	document.getElementById('theQ').classList.remove('toHide')
+
+	// Prepare next vote
+	{
 		const [a, b] = pick2()
 
 		// Fill voting panel
@@ -334,6 +339,32 @@ function refreshTheQ() {
 		$('#a1 button').attr('onclick', '').unbind('click').click(()=>theQ(a.code, b.code, 'p'))
 		$('#a2 button').attr('onclick', '').unbind('click').click(()=>theQ(a.code, b.code, 'm'))
 	}
+
+	// Update categories list
+	{
+		const lic = $('#listItemsCategory')
+		const catList = Object.keys(VOTE_SYSTEM.entries.getTagsList())
+		
+		const alreadyIn = []
+		// Remove deleted categories
+		for(const opt of lic.children('option')) {
+			if(!opt.value) continue
+			if(catList.indexOf(opt.value) < 0) {
+				opt.value=null
+			} else {
+				alreadyIn.push(opt.value)
+			}
+		}
+		lic.children('option[value=null]').remove()
+		// Add missing categories
+		for(const opt of catList) {
+			if(alreadyIn.indexOf(opt) >= 0) continue
+			alreadyIn.push(opt)
+			alreadyIn.sort()
+			const index = alreadyIn.indexOf(opt)
+			$(lic.children('option').get(index-1)).after(`<option value="${opt}">${opt}</option>`)
+		}
+	}
 }
 
 function theQ(c1, c2, vote) {
@@ -351,7 +382,7 @@ function theQ(c1, c2, vote) {
 function showItemList() {
 	const dial = $('#listItemsPopup')
 	dial.dialog({
-		title: 'Entries',
+		title: 'Ranking',
 		width: 'auto',
 		height: 'auto',
 	})
@@ -381,6 +412,9 @@ function genRepartitionSvg(list) {
 		const bloc = $('<rect fill="#222"></rect>')
 		const h = list.length
 		const w2 = list.shift()
+		
+		if(!w2) break
+
 		while(list[0]===w2) list.shift()
 
 		bloc.attr('x', 0)
