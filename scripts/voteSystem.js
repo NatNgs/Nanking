@@ -4,7 +4,7 @@ function VoteSystem() {
 	const voteData = {} // {entryCode1: {entryCode2:'p', entryCode3:'e', entryCode4:'m', ...}, ...}
 
 	const import_registerVotes = (nbsetASCII, type, e1Code) => {
-		for(const entryId2 of nbset_toList(nbset_fromPrintableASCII(nbsetASCII))) {
+		for(const entryId2 of NB_SET.toList(NB_SET.fromPrintableASCII(nbsetASCII))) {
 			const e2Code = this.entries.entries[entryId2].code
 			this.castVote(e1Code, e2Code, type)
 		}
@@ -41,14 +41,14 @@ function VoteSystem() {
 			// Gather votes to nbSets
 			const votesSet = {p:[], e:[], m:[]}
 			for(const entry2Code in voteData[entry1Code]) {
-				nbset_add(votesSet[voteData[entry1Code][entry2Code]], this.entries.getIndexOfEntryByCode(entry2Code))
+				NB_SET.add(votesSet[voteData[entry1Code][entry2Code]], this.entries.getIndexOfEntryByCode(entry2Code))
 			}
 
 			// Compile votes nbSets and add to output
 			out.v[entry1Index] = {}
-			if(votesSet.p.length) out.v[entry1Index].p = nbset_toPrintableASCII(votesSet.p)
-			if(votesSet.e.length) out.v[entry1Index].e = nbset_toPrintableASCII(votesSet.e)
-			if(votesSet.m.length) out.v[entry1Index].m = nbset_toPrintableASCII(votesSet.m)
+			if(votesSet.p.length) out.v[entry1Index].p = NB_SET.toPrintableASCII(votesSet.p)
+			if(votesSet.e.length) out.v[entry1Index].e = NB_SET.toPrintableASCII(votesSet.e)
+			if(votesSet.m.length) out.v[entry1Index].m = NB_SET.toPrintableASCII(votesSet.m)
 		}
 		for(let i=0; i<out.v.length; i++) if(!out.v[i]) out.v[i] = {}
 		return out
@@ -139,7 +139,7 @@ function EntryList() {
 
 		for(const entryData of jsonData.e) {
 			// Decode tags
-			const entryDataList = entryData.l.map(nbset_fromPrintableASCII).map(fc_idListToList)
+			const entryDataList = entryData.l.map(NB_SET.fromPrintableASCII).map(fc_idListToList)
 
 			if(!merge || !entryData.l) entryData.l = {}
 
@@ -178,29 +178,20 @@ function EntryList() {
 		const entriesList = this.exportSimple()
 
 		// Build tags list
-		const categoryList = []
-		const tagsList = []
+		const tagsMap = this.getTagsMap()
+		const categoryList = Object.keys(tagsMap).sort()
+		const tagsList = categoryList.map((cat)=>({n: cat, t:tagsMap[cat].sort()}))
+
 		for(const e of entriesList) {
 			const entryTags = e.l // {category1: [tag1, tag2, ...], ...}
 			for(const categoryName in entryTags) {
-				let catIndex = categoryList.indexOf(categoryName)
-				if(catIndex < 0) {
-					catIndex = categoryList.length
-					categoryList.push(categoryName)
-					tagsList[catIndex] = {n: categoryName, t:[]}
-				}
-				const currCategoryTagList = tagsList[catIndex].t
+				const currCategoryTagList = tagsList[categoryList.indexOf(categoryName)].t
 
 				const tagsSet = []
 				for(const tagName of entryTags[categoryName]) {
-					let tagIndex = currCategoryTagList.indexOf(tagName)
-					if(tagIndex < 0) {
-						tagIndex = currCategoryTagList.length
-						currCategoryTagList.push(tagName)
-					}
-					nbset_add(tagsSet, tagIndex)
+					NB_SET.add(tagsSet, currCategoryTagList.indexOf(tagName))
 				}
-				entryTags[categoryName] = nbset_toPrintableASCII(tagsSet)
+				entryTags[categoryName] = NB_SET.toPrintableASCII(tagsSet)
 			}
 
 			e.l = []
@@ -209,7 +200,7 @@ function EntryList() {
 				else e.l.push("")
 			}
 
-			while(e.l.length && e.l[e.l.length-1].length <= 0) e.l.pop()
+			while(e.l.length && !(e.l[e.l.length-1])) e.l.pop()
 		}
 
 		return {
@@ -232,18 +223,16 @@ function EntryList() {
 	/**
 	 * {categoryName: [tag1, tag2, ...], ...}
 	 */
-	this.getTagsList = function() {
+	this.getTagsMap = function() {
 		const tagsMap = {}
 
 		for(const entry of this.entries) {
 			for(const cat in entry.tags) {
-				if(entry.tags[cat].length) {
-					if(!(cat in tagsMap)) {
-						tagsMap[cat] = []
-					}
-					for(const tag of entry.tags[cat]) {
-						if(tag && tagsMap[cat].indexOf(tag) < 0) tagsMap[cat].push(tag)
-					}
+				if(!(cat in tagsMap)) {
+					tagsMap[cat] = []
+				}
+				for(const tag of entry.tags[cat]) {
+					if(tag && tagsMap[cat].indexOf(tag) < 0) tagsMap[cat].push(tag)
 				}
 			}
 		}

@@ -1,5 +1,7 @@
 
 function ScoreSystem(VOTE_SYSTEM) {
+	const THIS = this
+
 	/**
 	 * {
 	 *	"entries": {eId: {c: <Entry object>, p, e, m, k, r, x, u, d, s, z}, ...},
@@ -25,18 +27,16 @@ function ScoreSystem(VOTE_SYSTEM) {
 	const calcS = function(a) {
 		a.r = a.p + a.e + a.m
 
-		if(!a.r || !a.k) {
+		if(!a.k) {
 			a.x = 0
 			a.u = 1
 			a.d = 0
-			a.s = .5
 		} else {
 			a.x = a.r/a.k
 			a.u = (1+(a.p+a.k-a.r)/a.k-a.m/a.k)/2
 			a.d = (1+a.p/a.k-(a.m+a.k-a.r)/a.k)/2
-			a.s = (a.u+a.d)/2
 		}
-		a.z = a.s
+		a.z = a.s = (a.u+a.d)/2
 
 		return a
 	}
@@ -64,7 +64,7 @@ function ScoreSystem(VOTE_SYSTEM) {
 	const calcDirectTagScores = function() {
 		let a = new Date()
 		const voteList = VOTE_SYSTEM.getFullVotesList() // [{c: <Entry object>, p:[], e:[], m:[]}, ...]
-		const tagsMap = VOTE_SYSTEM.entries.getTagsList() // {categoryName: [tag1, tag2, ...], ...}
+		const tagsMap = VOTE_SYSTEM.entries.getTagsMap() // {categoryName: [tag1, tag2, ...], ...}
 		const tagsScores = {} // {category: {tag: {p,e,m,k,x,u,d,s}, ..}, ..}
 
 		const voteMap = {}
@@ -112,14 +112,14 @@ function ScoreSystem(VOTE_SYSTEM) {
 		const entryScores = calcDirectEntryScores()
 		const tagsScores = calcDirectTagScores()
 
-		for(let loop = this.zLoops; loop > 0; loop--) {
+		for(let loop = THIS.zLoops; loop > 0; loop--) {
 			// Modulate entry scores using tags scores
 			for(const eId in entryScores) {
 				const entryData = entryScores[eId]
 				const entry = entryData.c
 
-				let sum = (entryData.s * entryData.x)
-				let weight = entryData.x
+				let sum = 0
+				let weight = 0
 				for(const category in entry.tags) {
 					for(const tag of entry.tags[category]) {
 						const s = tagsScores[category][tag].s
@@ -128,7 +128,7 @@ function ScoreSystem(VOTE_SYSTEM) {
 						weight += x
 					}
 				}
-				entryData.s = (weight>0)?(sum/weight):entryData.s
+				entryData.s = ((weight>0)?(sum/weight):.5)*(entryData.u-entryData.d) + entryData.d
 			}
 
 			// Modulate tags scores using entryScores
@@ -136,15 +136,15 @@ function ScoreSystem(VOTE_SYSTEM) {
 				for(const tag in tagsScores[category]) {
 					const tagData = tagsScores[category][tag]
 
-					let sum = (entryData.s * entryData.x)
-					let weight = entryData.x
+					let sum = 0
+					let weight = 0
 					for(const eId of tagData.entries) {
 						const s = entryScores[eId].s
 						const x = entryScores[eId].x
 						sum += s*x
 						weight += x
 					}
-					tagData.s = (weight>0)?(sum/weight):entryData.s
+					tagData.s = ((weight>0)?(sum/weight):.5)*(tagData.u-tagData.d) + tagData.d
 				}
 			}
 		}
@@ -153,6 +153,6 @@ function ScoreSystem(VOTE_SYSTEM) {
 	}
 
 	this.refreshScores = function() {
-		this.scores = calcFullScoring()
+		THIS.scores = calcFullScoring()
 	}
 }

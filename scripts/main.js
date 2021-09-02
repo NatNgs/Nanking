@@ -317,7 +317,7 @@ function prepareNextVote() {
 }
 function updateCategoriesSelector() {
 	const lic = $('#listItemsCategory')
-	const catList = Object.keys(VOTE_SYSTEM.entries.getTagsList())
+	const catList = Object.keys(VOTE_SYSTEM.entries.getTagsMap())
 
 	const alreadyIn = []
 	// Remove deleted categories
