@@ -37,7 +37,7 @@ function loadData(rawdata) {
 	}
 
 	refreshTheQ()
-	updateCategoriesSelector()
+	setTimeout(updateCategoriesSelector)
 }
 
 function resetData() {

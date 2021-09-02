@@ -135,21 +135,24 @@ function EntryList() {
 	this.import = function(jsonData, merge=false) {
 		if(!merge) while(this.entries.length) this.entries.pop()
 
-		const fc_idListToList = (tagIdList,categoryId)=>tagIdList.map((id)=>jsonData.l[categoryId].t[id])
+		const fc_idListToList = (tagIdList,categoryId)=>NB_SET.toList(NB_SET.fromPrintableASCII(tagIdList)).map((id)=>jsonData.l[categoryId].t[id])
 
 		for(const entryData of jsonData.e) {
 			// Decode tags
-			const entryDataList = entryData.l.map(NB_SET.fromPrintableASCII).map(fc_idListToList)
+			const entryDataList = entryData.l.map(fc_idListToList)
 
-			if(!merge || !entryData.l) entryData.l = {}
-
-			for(const categoryId in jsonData.l) {
+			entryData.l = {}
+			for(const categoryId in entryDataList) {
 				const category = jsonData.l[categoryId].n
 				entryData.l[category] = entryDataList[categoryId]
 			}
 
-			const entry = (merge && this.getEntryByName(entryData.n)) || new Entry(entryData.n)
-			this.entries.push(entry.import(entryData, merge))
+			entry = (merge && this.getEntryByName(entryData.n))
+			if(!entry) {
+				entry = new Entry(entryData.n)
+				this.entries.push(entry)
+			}
+			entry.import(entryData, merge)
 		}
 	}
 
