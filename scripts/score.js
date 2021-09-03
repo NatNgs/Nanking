@@ -9,6 +9,7 @@ function ScoreSystem(VOTE_SYSTEM) {
 	 * }
 	 */
 	this.scores = null
+	this.lastScores = null;
 
 	/**
 	 * Parameters:
@@ -107,7 +108,7 @@ function ScoreSystem(VOTE_SYSTEM) {
 		return tagsScores
 	}
 
-	this.zLoops = 64
+	this.zLoops = 8
 	const calcFullScoring = function() {
 		const entryScores = calcDirectEntryScores()
 		const tagsScores = calcDirectTagScores()
@@ -153,6 +154,7 @@ function ScoreSystem(VOTE_SYSTEM) {
 	}
 
 	this.refreshScores = function() {
+		THIS.lastScores = THIS.scores
 		THIS.scores = calcFullScoring()
 	}
 }

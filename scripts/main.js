@@ -143,43 +143,30 @@ function testImage(url, onSuccess, onError, timeout = 1000) {
 	}, timeout)
 }
 
-let sortOrder = 0
-function sortLists(orderCode) {
-	sortOrder = orderCode
-	showItemList()
-}
 function pemSort(a,b) {
-	switch(sortOrder) {
-	case -1:
-		return a.d<b.d?1 // sort by 1: minScore
-			:(a.d>b.d?-1
-			:(a.u<b.u?1 // 2: max possible score
-			:(a.u>b.u?-1
-			:(a.s<b.s?1 // 3: estimated score
-			:(a.s>b.s?-1
-			:(a.name>b.name?1 // 4: alphanumerical
-			:-1))))))
-	case 1:
-		return a.u<b.u?1 // sort by 1: max possible score
-			:(a.u>b.u?-1
-			:(a.d<b.d?1 // 2: min possible score
-			:(a.d>b.d?-1
-			:(a.s<b.s?1 // 3: estimated score
-			:(a.s>b.s?-1
-			:(a.name>b.name?1 // 4: alphanumerical
-			:-1))))))
-	default:
-		return a.s<b.s?1 // sort by 1:score
-			:(a.s>b.s?-1
-			:(a.z<b.z?1 // 2: average score
-			:(a.z>b.z?-1
-			:(a.u<b.u?1 // 3: max possible score
-			:(a.u>b.u?-1
-			:(a.name>b.name?1 // 4: alphanumerical
-			:-1))))))
-	}
+	return a.s<b.s?1 // sort by 1: score
+		:(a.s>b.s?-1
+		:(a.z<b.z?1 // 2: average score
+		:(a.z>b.z?-1
+		:(a.u<b.u?1 // 3: max possible score
+		:(a.u>b.u?-1
+		:(a.name>b.name?1 // 4: alphanumerical
+		:-1))))))
 }
 
+function floatToRGBA(redGreen, alpha) {
+	let r, g, b=63;
+	if(redGreen > .5) {
+		const x = (redGreen-0.5)*2
+		r = 63+((1-x)*160)
+		g = 223
+	} else {
+		const x = redGreen*2
+		r = 223
+		g = 63+(x*160)
+	}
+	return `rgba(${r|0},${g|0},${b|0},${alpha})`
+}
 function buildHTMLRankingList(theList, minShow=0) {
 	let htmlContent = ''
 	let pts = 101, arnk = 0
@@ -191,32 +178,42 @@ function buildHTMLRankingList(theList, minShow=0) {
 		const a = filteredList[rnk]
 
 		const t = a.r <= 0 ? 0 : 1/a.r
-		const us = (sortOrder===-1?a.d:sortOrder===1?a.u:a.s)
 		if(a.s < 0) {
 			arnk = '-'
 			pts = 0
-		} else if(pts > us) {
-			pts = us
+		} else if(pts > a.s) {
+			pts = a.s
 			arnk = (rnk|0)+1
 		}
 
-		htmlContent += `<div class="listE"><div class="coll"><div class="rnk">${arnk}.&nbsp;</div><div class="name">${a.name}</div>`
+		htmlContent += `<div class="listE"><div class="coll"><div class="rnk">${arnk}.&nbsp;`
+		if(a.rnk > 0) {
+			htmlContent += `<div class="up">▲<br/>+${a.rnk}</div>`
+		} else if(a.rnk < 0) {
+			htmlContent += `<div class="down">${a.rnk}<br/>▼</div>`
+		}
+		htmlContent += `</div><div class="name">${a.name}</div>`
 
 		if(a.eId) {
 			htmlContent += `<button class="imgBtn" onclick="updateEntry(\'${a.eId}\')"></button>`
 		}
 
-		htmlContent += `</div><div class="coll"><span class="sc" style="background-color: rgba(255,255,63,${pts*a.x});">`
+		htmlContent += `</div><div class="coll"><span class="sc" style="background: linear-gradient(90deg,
+			${floatToRGBA(a.u, 1)} ${100*a.d}%,
+			${floatToRGBA(a.s, a.x)} ${100*a.d}%,
+			${floatToRGBA(a.s, a.x)} ${100*a.s}%,
+			${floatToRGBA(a.s, a.x)} ${100*a.u}%,
+			${floatToRGBA(a.d, 1)} ${100*a.u}%);">`
 
 		if(pts==='-') {
-			htmlContent+='-'
+			htmlContent += '-'
 		} else {
-			htmlContent += `<span>${(100*a.d)|0}&nbsp;-&nbsp;</span><span class="ctr">${(100*a.s).toFixed(1)}</span><span>&nbsp;-&nbsp;${(100*a.u)|0}</span>`
+			htmlContent += `<span class="left" style="width:${100*a.d}%; background-color: ${floatToRGBA(a.u, 1)}">&nbsp;</span>`
+			htmlContent += `<span class="ctr" style="left:${100*a.s}%; transform: translateX(-${100*a.s}%);">${(100*a.s).toFixed(1)}<span class="rep">&nbsp;(${a.r}/${a.k})</span></span>`
+			htmlContent += `<span class="right" style="width:${100*(1-a.u)}%; background-color: ${floatToRGBA(a.d, 1)}">&nbsp;</span>`
 		}
 
-		htmlContent += `</span>
-	<span class="rep" style="background-color: rgba(63,255,255,${a.x});">/${(100*a.x)|0}% (${a.r}/${a.k})</span>
-</div></div>`
+		htmlContent += '</span></div></div>'
 	}
 	return htmlContent
 }
@@ -225,26 +222,40 @@ function refreshListSync() {
 	const fItems = $('#listItemsFilter').slider('value')
 
 	const scoreList = []
+	const oldList = []
 	if(!category || !SCORE_SYSTEM.scores.tags[category]) {
 		for(const eId in SCORE_SYSTEM.scores.entries) {
 			const data = SCORE_SYSTEM.scores.entries[eId] // {c: <Entry object>, p, e, m, k, r, x, u, d, s, z}
+			const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.entries[eId] || {}
 			scoreList.push({
+				eId: eId,
 				name: data.c.name,
-				eId: data.c.code,
 				s: data.s, z: data.z, x: data.x, r: data.r, d: data.d, u: data.u, k: data.k,
 			})
+			oldList.push({name: data.c.name, s: old.s, z: old.z, d: old.d, u: old.u})
 		}
 	} else {
 		for(const tag in SCORE_SYSTEM.scores.tags[category]) {
 			const data = SCORE_SYSTEM.scores.tags[category][tag] // {entries:[eId1, eId2,...], p, e, m, k, x, u, d, s, z}
+			const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.tags[category][tag] || {}
 			scoreList.push({
 				name: tag,
 				// eId: null
 				s: data.s, z: data.z, x: data.x, r: data.r, d: data.d, u: data.u, k: data.k,
 			})
+			oldList.push({name: tag, s: old.s, z: old.z, d: old.d, u: old.u})
 		}
 	}
 	scoreList.sort(pemSort)
+	const sortedOldList = oldList.sort(pemSort).map(e=>e.name)
+
+	// Compute ranking
+	for(let i=0; i<scoreList.length; i++) {
+		const oldIndex = sortedOldList.indexOf(scoreList[i].name)
+		if(oldList[oldIndex].s || oldList[oldIndex].s===0) {
+			scoreList[i].rnk = oldIndex - i
+		}
+	}
 
 	document.getElementById('listItems').innerHTML = buildHTMLRankingList(scoreList, fItems)
 	$('#sliderShowSvgItems').empty().append(genRepartitionSvg(scoreList.map(a=>a.x))[0].outerHTML)

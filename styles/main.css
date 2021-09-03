@@ -7,8 +7,12 @@
 }
 .listE {
 	border: 1px solid black;
+	margin-bottom: 1px;
 }
-.listE .sc, .listE  .rep, .listE .p, .listE .e, .listE .m {
+.listE:hover {
+	box-shadow: 0 0 2em black;
+}
+.listE .sc, .listE .rep, .listE .p, .listE .e, .listE .m {
 	display: inline-block;
 	text-align: center;
 	white-space: nowrap;
@@ -17,16 +21,35 @@
 	flex: 1;
 }
 .listE .sc {
-	display: flex;
+	position: relative;
 	flex: 3;
+	width: 100%;
+	height: 1.2em;
 }
-.listE .ctr {
+.listE .sc span {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+}
+.listE .sc .left {
+	left: 0;
+	/* width: xx% defined in JS */
+	border-right: 1px solid white;
+}
+.listE .sc .ctr {
 	flex: auto;
 	font-weight: bold;
+	/* left: xx% defined in JS */
 }
-.listE .rep {
-	background-color: #FFF;
-	flex: 1;
+.listE .sc .ctr .rep {
+	position: initial;
+	font-size: 80%;
+	font-weight: normal;
+}
+.listE .sc .right {
+	right: 0;
+	/* width: xx% defined in JS */
+	border-left: 1px solid white;
 }
 .listE .name {
 	flex: auto;
@@ -56,6 +79,23 @@
 .coll {
 	width: 100%;
 	display: flex;
+}
+.rnk {
+	position: relative;
+}
+.rnk .up, .rnk .down {
+	position: absolute;
+	top: .2em;
+	left: -.2em;
+	font-size: .6em;
+	text-align: right;
+	transform: translateX(-100%);
+}
+.rnk .up {
+	color: #4c4;
+}
+.rnk .down {
+	color: #c44;
 }
 #listTags .listE .imgBtn {
 	display: none;
