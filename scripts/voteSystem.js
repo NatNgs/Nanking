@@ -1,12 +1,12 @@
 
 function VoteSystem() {
 	this.entries = new EntryList()
-	const voteData = {} // {entryCode1: {entryCode2:'p', entryCode3:'e', entryCode4:'m', ...}, ...}
+	const _voteData = {} // {eId1: {eId2:'p', eId3:'e', eId4:'m', ...}, ...}
 
-	const import_registerVotes = (nbsetASCII, type, e1Code) => {
+	const import_registerVotes = (nbsetASCII, type, eId) => {
 		for(const entryId2 of NB_SET.toList(NB_SET.fromPrintableASCII(nbsetASCII))) {
 			const e2Code = this.entries.entries[entryId2].code
-			this.castVote(e1Code, e2Code, type)
+			this.castVote(eId, e2Code, type)
 		}
 	}
 
@@ -23,25 +23,25 @@ function VoteSystem() {
 	this.import = function(jsonData) {
 		this.entries.import(jsonData.l, false)
 
-		for(const entryId in jsonData.v) {
-			const e1Code = this.entries.entries[entryId].code
-			const votes = jsonData.v[entryId]
-			import_registerVotes(votes.p, 'p', e1Code)
-			import_registerVotes(votes.e, 'e', e1Code)
-			import_registerVotes(votes.m, 'm', e1Code)
+		for(const i in jsonData.v) {
+			const eId = this.entries.entries[i].code
+			const votes = jsonData.v[i]
+			import_registerVotes(votes.p, 'p', eId)
+			import_registerVotes(votes.e, 'e', eId)
+			import_registerVotes(votes.m, 'm', eId)
 		}
 	}
 
 	this.export = function() {
 		const out = {l: this.entries.export(), v:[]}
 
-		for(const entry1Code in voteData) {
-			const entry1Index = this.entries.getIndexOfEntryByCode(entry1Code)
+		for(const eId1 in _voteData) {
+			const entry1Index = this.entries.getIndexOfEntryByCode(eId1)
 
 			// Gather votes to nbSets
 			const votesSet = {p:[], e:[], m:[]}
-			for(const entry2Code in voteData[entry1Code]) {
-				NB_SET.add(votesSet[voteData[entry1Code][entry2Code]], this.entries.getIndexOfEntryByCode(entry2Code))
+			for(const eId2 in _voteData[eId1]) {
+				NB_SET.add(votesSet[_voteData[eId1][eId2]], this.entries.getIndexOfEntryByCode(eId2))
 			}
 
 			// Compile votes nbSets and add to output
@@ -55,18 +55,21 @@ function VoteSystem() {
 	}
 
 	/**
-	 * vote type: 'p' = entry1Name:p, entry2Name:m
-	 * vote type: 'e' = entry1Name:e, entry2Name:e
-	 * vote type: 'm' = entry1Name:m, entry2Name:p
+	 * vote type: 'p' = entryName1:p, entryName2:m
+	 * vote type: 'e' = entryName1:e, entryName2:e
+	 * vote type: 'm' = entryName1:m, entryName2:p
 	 */
-	this.castVote = function(entry1Code, entry2Code, voteType) {
-		if(entry1Code < entry2Code) {
-			voteData[entry1Code] = voteData[entry1Code]||{}
-			voteData[entry1Code][entry2Code] = voteType
-		} else {
-			voteData[entry2Code] = voteData[entry2Code]||{}
-			voteData[entry2Code][entry1Code] = (voteType==='m'?'p':(voteType==='p'?'m':'e'))
+	this.castVote = function(eId1, eId2, voteType) {
+		if(voteType === 'p' || voteType === 'e' || voteType === 'm') {
+			if(eId1 < eId2) {
+				if(!(eId1 in _voteData)) _voteData[eId1] = {}
+				_voteData[eId1][eId2] = voteType
+			} else {
+				if(!(eId2 in _voteData)) _voteData[eId2] = {}
+				_voteData[eId2][eId1] = (voteType==='m'?'p':(voteType==='p'?'m':'e'))
+			}
 		}
+		this.entries.getEntryByCode(eId1).lastVote = this.entries.getEntryByCode(eId2).lastVote = new Date()
 	}
 
 	this.hasData = function() {
@@ -75,13 +78,13 @@ function VoteSystem() {
 
 	this.reset = function() {
 		this.entries = new EntryList()
-		for(const key in voteData) {
-			delete voteData[key]
+		for(const key in _voteData) {
+			delete _voteData[key]
 		}
 	}
 
-	this.removeEntry = function(entryCode) {
-		const index = this.entries.getIndexOfEntryByCode(entryCode)
+	this.removeEntry = function(eId) {
+		const index = this.entries.getIndexOfEntryByCode(eId)
 		if(index < 0) return
 
 		// remove from entryList
@@ -90,34 +93,104 @@ function VoteSystem() {
 		this.entries.entries.length--
 
 		// remove vote data
-		delete voteData[entry.code]
-		for(const v in voteData) if(voteData[v][entry.code]) delete voteData[v][entry.code]
+		delete _voteData[entry.code]
+		for(const v in _voteData) if(_voteData[v][entry.code]) delete _voteData[v][entry.code]
 
 		return entry
 	}
 
-	this.getFullVotesList = function() {
+	/** returns {eId: {c: <Entry object>, p:[], e:[], m:[]}, ...} */
+	this.getFullDirectVotesMap = function() {
 		// Aggregate data
-		const tmpScores = {}
+		const scoreMap = {}
 
+		// Compute direct votes into p/e/m
 		for(const e of this.entries.entries) {
-			tmpScores[e.code] = {c: e, p:[], e:[], m:[], t:1} // init score
+			scoreMap[e.code] = {c: e, p:[], e:[], m:[]} // init score
 		}
-		for(const c1 in voteData) {
-			for(const c2 in voteData[c1]) {
-				tmpScores[c1][voteData[c1][c2]].push(c2)
-				tmpScores[c2][voteData[c1][c2] === 'p' ? 'm' : (voteData[c1][c2] === 'm' ? 'p' : 'e')].push(c1)
+		for(const c1 in _voteData) {
+			for(const c2 in _voteData[c1]) {
+				scoreMap[c1][_voteData[c1][c2]].push(c2)
+				scoreMap[c2][_voteData[c1][c2] === 'p' ? 'm' : (_voteData[c1][c2] === 'm' ? 'p' : 'e')].push(c1)
 			}
 		}
 
-		/* [{c: <Entry object>, p:[], e:[], m:[], t:1}, ...] */
-		return Object.values(tmpScores)
+		return scoreMap
+	}
+	/** returns {eId: {c: <Entry object>, p:[], e:[], m:[]}, ...} */
+	this.getFullIndirectVotesMap = function(directVotesMap) {
+		const scoreMap = JSON.parse(JSON.stringify(directVotesMap))
+
+		// Compute indirect votes into p2/e2/m2
+		let again = true
+		while(again) {
+			again = false
+
+			for(const c1 in scoreMap) {
+				scoreMap[c1].ptmp = []
+				scoreMap[c1].etmp = []
+				scoreMap[c1].mtmp = []
+			}
+
+			// Fill ptmp/etmp/mtmp
+			for(const c1 in scoreMap) {
+				const sc1 = scoreMap[c1]
+				for(const c2 of sc1.p) {
+					const sc2 = scoreMap[c2]
+					for(const c3 of sc1.m) {
+						const sc3 = scoreMap[c3]
+						if(sc2.mtmp.indexOf(c3) < 0) sc2.mtmp.push(c3)
+						if(sc3.ptmp.indexOf(c2) < 0) sc3.ptmp.push(c2)
+					}
+				}
+				for(const c2 of sc1.e) {
+					const sc2 = scoreMap[c2]
+					for(const c3 of sc1.e) if(sc2.etmp.indexOf(c3) < 0) sc2.etmp.push(c3)
+				}
+			}
+			// Add to p2/e2/m2 if no conflict
+			for(const c1 in scoreMap) {
+				const sc1 = scoreMap[c1]
+				for(const p of sc1.ptmp) {
+					if(p !== c1
+					&& sc1.p.indexOf(p) < 0 && sc1.e.indexOf(p) < 0 && sc1.m.indexOf(p) < 0
+					&& sc1.etmp.indexOf(p) < 0 && sc1.mtmp.indexOf(p) < 0) {
+						sc1.p.push(p)
+						again = true
+					}
+				}
+				for(const e of sc1.etmp) {
+					if(e !== c1
+					&& sc1.p.indexOf(e) < 0 && sc1.e.indexOf(e) < 0 && sc1.m.indexOf(e) < 0
+					&& sc1.ptmp.indexOf(e) < 0 && sc1.mtmp.indexOf(e) < 0) {
+						sc1.e.push(e)
+						again = true
+					}
+				}
+				for(const m of sc1.mtmp) {
+					if(m !== c1
+					&& sc1.p.indexOf(m) < 0 && sc1.e.indexOf(m) < 0 && sc1.m.indexOf(m) < 0
+					&& sc1.etmp.indexOf(m) < 0 && sc1.etmp.indexOf(m) < 0) {
+						sc1.m.push(m)
+						again = true
+					}
+				}
+			}
+		}
+
+		for(const c1 in scoreMap) {
+			delete scoreMap[c1].ptmp
+			delete scoreMap[c1].etmp
+			delete scoreMap[c1].mtmp
+		}
+
+		return scoreMap
 	}
 
 	this.getVote = function(c1, c2) {
 		const a1 = (c1<c2?c1:c2)
 		const a2 = (c1<c2?c2:c1)
-		return voteData[a1] && voteData[a2]
+		return _voteData[a1] && _voteData[a2]
 	}
 }
 
@@ -178,23 +251,23 @@ function EntryList() {
 	 * }
 	 */
 	this.export = function() {
-		const entriesList = this.exportSimple()
+		const entryList = this.exportSimple()
 
 		// Build tags list
 		const tagsMap = this.getTagsMap()
 		const categoryList = Object.keys(tagsMap).sort()
-		const tagsList = categoryList.map((cat)=>({n: cat, t:tagsMap[cat].sort()}))
+		const tagList = categoryList.map((category)=>({n: category, t:tagsMap[category].sort()}))
 
-		for(const e of entriesList) {
+		for(const e of entryList) {
 			const entryTags = e.l // {category1: [tag1, tag2, ...], ...}
-			for(const categoryName in entryTags) {
-				const currCategoryTagList = tagsList[categoryList.indexOf(categoryName)].t
+			for(const category in entryTags) {
+				const currCategoryTagList = tagList[categoryList.indexOf(category)].t
 
 				const tagsSet = []
-				for(const tagName of entryTags[categoryName]) {
-					NB_SET.add(tagsSet, currCategoryTagList.indexOf(tagName))
+				for(const tag of entryTags[category]) {
+					NB_SET.add(tagsSet, currCategoryTagList.indexOf(tag))
 				}
-				entryTags[categoryName] = NB_SET.toPrintableASCII(tagsSet)
+				entryTags[category] = NB_SET.toPrintableASCII(tagsSet)
 			}
 
 			e.l = []
@@ -207,46 +280,59 @@ function EntryList() {
 		}
 
 		return {
-			l: tagsList,
-			e: entriesList,
+			l: tagList,
+			e: entryList,
 		}
 	}
 
 	this.getEntryByName = function(entryName) {
 		return this.entries.find(e=>e.name === entryName)
 	}
-	this.getEntryByCode = function(entryCode) {
-		return this.entries.find(e=>e.code === entryCode)
+	this.getEntryByCode = function(eId) {
+		return this.entries.find(e=>e.code === eId)
 	}
-	this.getIndexOfEntryByCode = function(entryCode) {
-		for(const id in this.entries) if(this.entries[id].code === entryCode) return id
+	this.getIndexOfEntryByCode = function(eId) {
+		for(const id in this.entries) if(this.entries[id].code === eId) return id
 		return -1
 	}
 
 	/**
-	 * {categoryName: [tag1, tag2, ...], ...}
+	 * {category: [tag1, tag2, ...], ...}
 	 */
 	this.getTagsMap = function() {
 		const tagsMap = {}
 
 		for(const entry of this.entries) {
-			for(const cat in entry.tags) {
-				if(!(cat in tagsMap)) {
-					tagsMap[cat] = []
-				}
-				for(const tag of entry.tags[cat]) {
-					if(tag && tagsMap[cat].indexOf(tag) < 0) tagsMap[cat].push(tag)
-				}
+			for(const category in entry.tags) {
+				if(!(category in tagsMap)) tagsMap[category] = []
+				for(const tag of entry.tags[category]) if(tag && tagsMap[category].indexOf(tag) < 0) tagsMap[category].push(tag)
 			}
 		}
 		return tagsMap
 	}
 
 	/**
-	 * [nameOfItem1, nameOfItem2, ...]
+	 * {
+	 * 	byTag: {category: {tag: [eId1, eId2, ...], ...}, ...},
+	 * 	byCategory: {category: [eId1, eId2, ...], ...}
+	 * }
 	 */
-	this.getItemsByTag = function(category, tag) {
-		return this.entries.filter((entry)=>entry.tags[category] && entry.tags[category].indexOf(tag) >= 0).map((e)=>e.code)
+	this.getItemsByTag = function() {
+		const out = {byTag: {}, byCategory:{}}
+		for(const e of this.entries) {
+			for(const category in e.tags) {
+				if(!(category in out.byCategory)) {
+					out.byTag[category] = {}
+					out.byCategory[category] = []
+				}
+				for(const tag of e.tags[category]) {
+					if(!(tag in out.byTag[category])) out.byTag[category][tag] = []
+					out.byTag[category][tag].push(e.code)
+					if(out.byCategory[category].indexOf(e.code) < 0) out.byCategory[category].push(e.code)
+				}
+			}
+		}
+		return out
 	}
 
 	this.getOrCreateByName = function(entryName) {
@@ -270,6 +356,7 @@ function Entry(entryName) {
 	this.name = entryName || ''
 	this.images = []
 	this.tags = {} // {category1: [label1, ...], ...}
+	this.lastVote = 0
 
 	this.import = function(jsonData, merge=false) {
 		if(!merge) {

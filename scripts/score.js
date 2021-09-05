@@ -4,8 +4,8 @@ function ScoreSystem(VOTE_SYSTEM) {
 
 	/**
 	 * {
-	 *	"entries": {eId: {c: <Entry object>, p, e, m, k, r, x, u, d, s, z}, ...},
-	 *	"tags": {category: {tag: {entries:[eId1, eId2,...], p, e, m, k, x, u, d, s, z}, ..}, ..}
+	 *	"entries": {eId: {c: <Entry object>, k, d: {p, e, m, r, x, u, d, s, z}, i: {p, e, m, r, x, u, d, s, z}}, ...},
+	 *	"tags": {category: {tag: {k, d: {p, e, m, r, x, u, d, s, z}, i: {p, e, m, r, x, u, d, s, z}}, ...}, ...}
 	 * }
 	 */
 	this.scores = null
@@ -43,18 +43,18 @@ function ScoreSystem(VOTE_SYSTEM) {
 	}
 
 	/** returns {eId: {c: <Entry object>, p, e, m, k, r, x, u, d, s}, ...} */
-	const calcDirectEntryScores = function() {
-		// itemScores: [{c: <Entry object>, p:[], e:[], m:[]}, ...]
-		const itemScores = VOTE_SYSTEM.getFullVotesList()
+	const calcDirectEntryScores = function(itemScores) {
 		const outMap = {}
+		const k = Object.entries(itemScores).length -1
 
-		for(const item of itemScores) {
-			outMap[item.c.code] = calcS({
+		for(const eId in itemScores) {
+			const item = itemScores[eId]
+			outMap[eId] = calcS({
 				c: item.c,
 				p: item.p.length,
 				e: item.e.length,
 				m: item.m.length,
-				k: itemScores.length-1,
+				k: k,
 			})
 		}
 
@@ -62,30 +62,23 @@ function ScoreSystem(VOTE_SYSTEM) {
 	}
 
 	/** returns {category: {tag: {entries:[eId1, eId2,...], p, e, m, k, x, u, d, s}, ..}, ..} */
-	const calcDirectTagScores = function() {
-		let a = new Date()
-		const voteList = VOTE_SYSTEM.getFullVotesList() // [{c: <Entry object>, p:[], e:[], m:[]}, ...]
-		const tagsMap = VOTE_SYSTEM.entries.getTagsMap() // {categoryName: [tag1, tag2, ...], ...}
+	const calcDirectTagScores = function(voteMap) {
 		const tagsScores = {} // {category: {tag: {p,e,m,k,x,u,d,s}, ..}, ..}
 
-		const voteMap = {}
-		for(const data of voteList) voteMap[data.c.code] = data
+		/* {
+		 * 	byTag: {category: {tag: [eId1, eId2, ...], ...}, ...},
+		 * 	byCategory: {category: [eId1, eId2, ...], ...}
+		 * }
+		 */
+		const categoryItemList = VOTE_SYSTEM.entries.getItemsByTag()
 
-		for(const category in tagsMap) {
-			const tagsGroupsIn = {}
-
+		for(const category in categoryItemList.byTag) {
 			// Build tagsGroups in
-			const allInCategory = []
-			for(const tag of tagsMap[category]) {
-				tagsGroupsIn[tag] = VOTE_SYSTEM.entries.getItemsByTag(category, tag)
-				for(const item of tagsGroupsIn[tag]) {
-					if(allInCategory.indexOf(item) < 0) allInCategory.push(item)
-				}
-			}
+			const allInCategory = categoryItemList.byCategory[category]
 
 			tagsScores[category] = {}
-			for(const tag of tagsMap[category]) {
-				const groupIn = tagsGroupsIn[tag]
+			for(const tag in categoryItemList.byTag[category]) {
+				const groupIn = categoryItemList.byTag[category][tag]
 
 				// group votes
 				let p = 0
@@ -104,57 +97,78 @@ function ScoreSystem(VOTE_SYSTEM) {
 				tagsScores[category][tag] = calcS({p, e, m, k: groupIn.length * (allInCategory.length - groupIn.length), entries: groupIn})
 			}
 		}
-
 		return tagsScores
 	}
 
-	this.zLoops = 8
-	const calcFullScoring = function() {
-		const entryScores = calcDirectEntryScores()
-		const tagsScores = calcDirectTagScores()
+	this.refreshScoresDirect = function(directVotesMap) {
+		THIS.lastScores = THIS.scores
+		THIS.scores = {entries:{}, tags:{}}
 
-		for(let loop = THIS.zLoops; loop > 0; loop--) {
-			// Modulate entry scores using tags scores
-			for(const eId in entryScores) {
-				const entryData = entryScores[eId]
-				const entry = entryData.c
-
-				let sum = 0
-				let weight = 0
-				for(const category in entry.tags) {
-					for(const tag of entry.tags[category]) {
-						const s = tagsScores[category][tag].s
-						const x = tagsScores[category][tag].x
-						sum += s*x
-						weight += x
-					}
-				}
-				entryData.s = ((weight>0)?(sum/weight):.5)*(entryData.u-entryData.d) + entryData.d
+		const directEntryScores = calcDirectEntryScores(directVotesMap)
+		for(const eId in directEntryScores) {
+			const c = directEntryScores[eId].c
+			const k = directEntryScores[eId].k
+			THIS.scores.entries[eId] = {
+				c: c,
+				k: k,
+				d: directEntryScores[eId],
+				i: directEntryScores[eId],
 			}
+		}
 
-			// Modulate tags scores using entryScores
-			for(const category in tagsScores) {
-				for(const tag in tagsScores[category]) {
-					const tagData = tagsScores[category][tag]
-
-					let sum = 0
-					let weight = 0
-					for(const eId of tagData.entries) {
-						const s = entryScores[eId].s
-						const x = entryScores[eId].x
-						sum += s*x
-						weight += x
-					}
-					tagData.s = ((weight>0)?(sum/weight):.5)*(tagData.u-tagData.d) + tagData.d
+		const directTagsScores = calcDirectTagScores(directVotesMap)
+		for(const cat in directTagsScores) {
+			THIS.scores.tags[cat] = {}
+			for(const tag in directTagsScores[cat]) {
+				const k = directTagsScores[cat][tag].k
+				THIS.scores.tags[cat][tag] = {
+					k: k,
+					d: directTagsScores[cat][tag],
+					i: directTagsScores[cat][tag],
 				}
 			}
 		}
 
-		return {entries: entryScores, tags: tagsScores}
+		setTimeout(()=>{
+			for(const eId in directEntryScores) {
+				delete directEntryScores[eId].c
+				delete directEntryScores[eId].k
+			}
+			for(const cat in directTagsScores) {
+				for(const tag in directTagsScores[cat]) {
+					delete directTagsScores[cat][tag].entries
+					delete directTagsScores[cat][tag].k
+				}
+			}
+		}, 100)
 	}
 
-	this.refreshScores = function() {
-		THIS.lastScores = THIS.scores
-		THIS.scores = calcFullScoring()
+	this.refreshScoresIndirect = function(directVotesMap) {
+		const indirectVotesMap = VOTE_SYSTEM.getFullIndirectVotesMap(directVotesMap)
+
+		const indirectEntryScores = calcDirectEntryScores(indirectVotesMap)
+		for(const eId in indirectEntryScores) {
+			THIS.scores.entries[eId].i = indirectEntryScores[eId]
+		}
+
+		const indirectTagsScores = calcDirectTagScores(indirectVotesMap)
+		for(const cat in indirectTagsScores) {
+			for(const tag in indirectTagsScores[cat]) {
+				THIS.scores.tags[cat][tag].i = indirectTagsScores[cat][tag]
+			}
+		}
+
+		setTimeout(()=>{
+			for(const eId in indirectEntryScores) {
+				delete indirectEntryScores[eId].c
+				delete indirectEntryScores[eId].k
+			}
+			for(const cat in indirectTagsScores) {
+				for(const tag in indirectTagsScores[cat]) {
+					delete indirectTagsScores[cat][tag].entries
+					delete indirectTagsScores[cat][tag].k
+				}
+			}
+		})
 	}
 }

@@ -26,23 +26,28 @@
 	width: 100%;
 	height: 1.2em;
 }
-.listE .sc span {
+.listE .sc .bar, .listE .sc .ctr {
 	position: absolute;
 	top: 0;
 	bottom: 0;
 }
-.listE .sc .left {
-	left: 0;
-	/* width: xx% defined in JS */
-	border-right: 1px solid white;
+.listE .sc .bar {
+	font-size: 70%;
+	overflow: hidden;
+}
+.bar.clipR {
+	-webkit-clip-path: polygon(0% 50%, 100% 0%, 100% 100%);
+	clip-path: polygon(0% 100%, 100% 0%, 100% 100%);
+}
+.bar.clipL {
+	-webkit-clip-path: polygon(0% 100%, 0% 0%, 100% 50%);
+	clip-path: polygon(0% 100%, 0% 0%, 100% 100%);
 }
 .listE .sc .ctr {
 	flex: auto;
 	font-weight: bold;
-	/* left: xx% defined in JS */
 }
 .listE .sc .ctr .rep {
-	position: initial;
 	font-size: 80%;
 	font-weight: normal;
 }

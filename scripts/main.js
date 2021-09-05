@@ -144,14 +144,12 @@ function testImage(url, onSuccess, onError, timeout = 1000) {
 }
 
 function pemSort(a,b) {
-	return a.s<b.s?1 // sort by 1: score
+	return a.s<b.s?1 // sort by 1: score (from direct and indirect votes)
 		:(a.s>b.s?-1
-		:(a.z<b.z?1 // 2: average score
+		:(a.z<b.z?1 // 2: average score (from direct votes only)
 		:(a.z>b.z?-1
-		:(a.u<b.u?1 // 3: max possible score
-		:(a.u>b.u?-1
-		:(a.name>b.name?1 // 4: alphanumerical
-		:-1))))))
+		:(a.name>b.name?1 // 3: alphanumerical
+		:-1))))
 }
 
 function floatToRGBA(redGreen, alpha) {
@@ -172,12 +170,12 @@ function buildHTMLRankingList(theList, minShow=0) {
 	let pts = 101, arnk = 0
 
 	// filter the list
-	const filteredList = theList.filter((a)=>a.x >= minShow)
+	const filteredList = theList.filter((a)=>a.ix >= minShow)
 
 	for(const rnk in filteredList) {
 		const a = filteredList[rnk]
+		// a: {eId, name, k, s, z, dx, dr, dd, du, ix, ir, id, iu, rnk}
 
-		const t = a.r <= 0 ? 0 : 1/a.r
 		if(a.s < 0) {
 			arnk = '-'
 			pts = 0
@@ -198,98 +196,116 @@ function buildHTMLRankingList(theList, minShow=0) {
 			htmlContent += `<button class="imgBtn" onclick="updateEntry(\'${a.eId}\')"></button>`
 		}
 
-		htmlContent += `</div><div class="coll"><span class="sc" style="background: linear-gradient(90deg,
-			${floatToRGBA(a.u, 1)} ${100*a.d}%,
-			${floatToRGBA(a.s, a.x)} ${100*a.d}%,
-			${floatToRGBA(a.s, a.x)} ${100*a.s}%,
-			${floatToRGBA(a.s, a.x)} ${100*a.u}%,
-			${floatToRGBA(a.d, 1)} ${100*a.u}%);">`
+		htmlContent += '</div><div class="coll"><span class="sc">'
 
 		if(pts==='-') {
 			htmlContent += '-'
 		} else {
-			htmlContent += `<span class="left" style="width:${100*a.d}%; background-color: ${floatToRGBA(a.u, 1)}">&nbsp;</span>`
-			htmlContent += `<span class="ctr" style="left:${100*a.s}%; transform: translateX(-${100*a.s}%);">${(100*a.s).toFixed(1)}<span class="rep">&nbsp;(${a.r}/${a.k})</span></span>`
-			htmlContent += `<span class="right" style="width:${100*(1-a.u)}%; background-color: ${floatToRGBA(a.d, 1)}">&nbsp;</span>`
+			htmlContent += `
+				<div class="bar" style="left:0; width:${100*a.dd}%; background-color: ${floatToRGBA(a.du, 1)};"></div>
+				<div class="bar clipL" style="left:${100*a.dd}%; width:${100*(a.id-a.dd)}%; background-color: ${floatToRGBA(a.iu, 0.5)};"></div>
+				<div class="bar clipR" style="left:${100*a.iu}%; right:${100*(1-a.du)}%; background-color: ${floatToRGBA(a.id, 0.5)};"></div>
+				<div class="bar" style="left:${100*a.du}%; right:0; background-color: ${floatToRGBA(a.dd, 1)};"></div>`
+
+			htmlContent += `<div class="ctr" style="left:${100*a.s}%; transform: translateX(-${100*a.s}%);">${(100*a.s).toFixed(1)}<span class="rep">&nbsp;(${a.dr}/${a.k})</span></div>`
 		}
 
 		htmlContent += '</span></div></div>'
 	}
 	return htmlContent
 }
-function refreshListSync() {
+function refreshList() {
 	const category = $('#listItemsCategory').val()
 	const fItems = $('#listItemsFilter').slider('value')
 
 	const scoreList = []
-	const oldList = []
-	if(!category || !SCORE_SYSTEM.scores.tags[category]) {
-		for(const eId in SCORE_SYSTEM.scores.entries) {
-			const data = SCORE_SYSTEM.scores.entries[eId] // {c: <Entry object>, p, e, m, k, r, x, u, d, s, z}
-			const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.entries[eId] || {}
-			scoreList.push({
-				eId: eId,
-				name: data.c.name,
-				s: data.s, z: data.z, x: data.x, r: data.r, d: data.d, u: data.u, k: data.k,
-			})
-			oldList.push({name: data.c.name, s: old.s, z: old.z, d: old.d, u: old.u})
+	if(SCORE_SYSTEM.scores) {
+		const oldList = []
+		if(!category || !SCORE_SYSTEM.scores.tags[category]) {
+			for(const eId in SCORE_SYSTEM.scores.entries) {
+				const data = SCORE_SYSTEM.scores.entries[eId] // {c: <Entry object>, k, d: {p, e, m, r, x, u, d, s, z}, i: {p, e, m, r, x, u, d, s, z}}
+				const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.entries[eId]
+				scoreList.push({
+					eId: eId,
+					name: data.c.name, k: data.k, s: data.i.s, z: data.d.z,
+					dx: data.d.x, dr: data.d.r, dd: data.d.d, du: data.d.u,
+					ix: data.i.x, ir: data.i.r, id: data.i.d, iu: data.i.u,
+				})
+				if(old) {
+					oldList.push({name: data.c.name, s: old.i.s, z: old.d.z})
+				} else {
+					oldList.push({name: data.c.name})
+				}
+			}
+		} else {
+			for(const tag in SCORE_SYSTEM.scores.tags[category]) {
+				const data = SCORE_SYSTEM.scores.tags[category][tag] // {k, d: {p, e, m, r, x, u, d, s, z}, i: {p, e, m, r, x, u, d, s, z}}
+				const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.tags[category] && SCORE_SYSTEM.lastScores.tags[category][tag]
+				scoreList.push({
+					name: tag, k: data.k, s: data.i.s, z: data.d.z,
+					dx: data.d.x, dr: data.d.r, dd: data.d.d, du: data.d.u,
+					ix: data.i.x, ir: data.i.r, id: data.i.d, iu: data.i.u,
+				})
+				if(old) {
+					oldList.push({name: tag, s: old.i.s, z: old.d.z})
+				} else {
+					oldList.push({name: tag})
+				}
+			}
 		}
-	} else {
-		for(const tag in SCORE_SYSTEM.scores.tags[category]) {
-			const data = SCORE_SYSTEM.scores.tags[category][tag] // {entries:[eId1, eId2,...], p, e, m, k, x, u, d, s, z}
-			const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.tags[category][tag] || {}
-			scoreList.push({
-				name: tag,
-				// eId: null
-				s: data.s, z: data.z, x: data.x, r: data.r, d: data.d, u: data.u, k: data.k,
-			})
-			oldList.push({name: tag, s: old.s, z: old.z, d: old.d, u: old.u})
-		}
-	}
-	scoreList.sort(pemSort)
-	const sortedOldList = oldList.sort(pemSort).map(e=>e.name)
+		scoreList.sort(pemSort)
+		const sortedOldList = oldList.sort(pemSort).map(e=>e.name)
 
-	// Compute ranking
-	for(let i=0; i<scoreList.length; i++) {
-		const oldIndex = sortedOldList.indexOf(scoreList[i].name)
-		if(oldList[oldIndex].s || oldList[oldIndex].s===0) {
-			scoreList[i].rnk = oldIndex - i
+		// Compute ranking
+		for(let i=0; i<scoreList.length; i++) {
+			const oldIndex = sortedOldList.indexOf(scoreList[i].name)
+			if(oldList[oldIndex].s || oldList[oldIndex].s===0) {
+				scoreList[i].rnk = oldIndex - i
+			}
 		}
 	}
 
 	document.getElementById('listItems').innerHTML = buildHTMLRankingList(scoreList, fItems)
 	$('#sliderShowSvgItems').empty().append(genRepartitionSvg(scoreList.map(a=>a.x))[0].outerHTML)
 }
-function refreshList() {
-	setTimeout(refreshListSync, 10)
-}
 
 function pick2() {
-	let an, bn, minimizer = 1
-	const filteredList = VOTE_SYSTEM.entries.entries.map(e=>e.code).filter(c=>hist.indexOf(c)<0)
-	for(let i=Math.sqrt(filteredList.length); i>0; i--) {
-		// Select random pair
-		const a = (Math.random()*filteredList.length)|0
-		const b = ((a-Math.random()*(filteredList.length-1)+filteredList.length)|0)%filteredList.length
+	// Most recent vote: Last
+	const eIdList = VOTE_SYSTEM.entries.entries.map(e=>e).sort((e1,e2)=>e1.lastVote<e2.lastVote?-1:1).map(e=>e.code)
+	const eId1 = eIdList.shift()
 
-		const newAn = filteredList[a]
-		const newBn = filteredList[b]
+	if(!SCORE_SYSTEM.scores) {
+		return [VOTE_SYSTEM.entries.getEntryByCode(eId1), VOTE_SYSTEM.entries.getEntryByCode(eIdList.shift())]
+	}
 
-		if(!VOTE_SYSTEM.getVote(newAn, newBn)) {
-			an = newAn
-			bn = newBn
-			break
-		}
+	// Ignore the very last vote
+	if(eIdList.length > 2) {
+		eIdList.pop()
+		eIdList.pop()
+	}
 
-		const newMinimizer = SCORE_SYSTEM.scores.entries[newAn].x * SCORE_SYSTEM.scores.entries[newBn].x
-		if(newMinimizer < minimizer) {
-			an = newAn
-			bn = newBn
-			minimizer = newMinimizer
+	let eId2 = null
+	let qualityWithE2 = -1 // 0 if vote between e1 & e2 already casted; otherwise = % of votes not casted for e2
+
+	for(let i=Math.sqrt(eIdList.length); i>0; i--) {
+		// Pick random other entry
+		const e3Index = (Math.random()*eIdList.length)|0
+		const eId3 = eIdList[e3Index]
+
+		// Remove e3 from eIdList
+		eIdList[e3Index] = eIdList[eIdList.length-1]
+		eIdList.length --
+
+		// Compute quality
+		const qualityWithE3 = VOTE_SYSTEM.getVote(eId1, eId3) ? 0 : (1-SCORE_SYSTEM.scores.entries[eId3].x)
+
+		if(qualityWithE3 > qualityWithE2) {
+			eId2 = eId3
+			qualityWithE2 = qualityWithE3
 		}
 	}
 
-	return [VOTE_SYSTEM.entries.getEntryByCode(an), VOTE_SYSTEM.entries.getEntryByCode(bn)]
+	return [VOTE_SYSTEM.entries.getEntryByCode(eId1), VOTE_SYSTEM.entries.getEntryByCode(eId2)]
 }
 function prepareNextVote() {
 	const [a, b] = pick2()
@@ -303,25 +319,26 @@ function prepareNextVote() {
 	const pa1i = pa1.length ? pa1[(Math.random()*pa1.length)|0] : 'pict/unknown.svg'
 	const pa2i = pa2.length ? pa2[(Math.random()*pa2.length)|0] : 'pict/unknown.svg'
 
-	// Put images in preload div (for caching purposes)
-	if(PRELOADED_PICTS.indexOf(pa1i) < 0) {
-		PRELOADED_PICTS.push(pa1i)
-		$('#pictPreload').append('<img src="' + pa1i + '"/>')
-	}
-	if(PRELOADED_PICTS.indexOf(pa2i) < 0) {
-		PRELOADED_PICTS.push(pa2i)
-		$('#pictPreload').append('<img src="' + pa2i + '"/>')
-	}
-
-	const img1 = $('#a1 img')
-	const img2 = $('#a2 img')
-	img1.attr('src', 'pict/loading.svg') // force
-	img2.attr('src', 'pict/loading.svg') // force
+	// Set loading picture
+	const img1 = $('#a1 img').attr('src', 'pict/loading.svg')
+	const img2 = $('#a2 img').attr('src', 'pict/loading.svg')
 	setTimeout(()=>{
+		// Put images in preload div (for caching purposes)
+		if(PRELOADED_PICTS.indexOf(pa1i) < 0) {
+			PRELOADED_PICTS.push(pa1i)
+			$('#pictPreload').append('<img src="' + pa1i + '"/>')
+		}
+		if(PRELOADED_PICTS.indexOf(pa2i) < 0) {
+			PRELOADED_PICTS.push(pa2i)
+			$('#pictPreload').append('<img src="' + pa2i + '"/>')
+		}
+
+		// Set actual picture
 		img1.attr('src', pa1i)
 		img2.attr('src', pa2i)
-	}, 10)
+	})
 
+	$('#a0 #bSkip').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, null))
 	$('#a0 #bSame').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, 'e'))
 	$('#a1 button').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, 'p'))
 	$('#a2 button').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, 'm'))
@@ -351,31 +368,29 @@ function updateCategoriesSelector() {
 	}
 }
 function refreshTheQ() {
-	SCORE_SYSTEM.refreshScores()
-	refreshList()
-
 	if(VOTE_SYSTEM.entries.entries.length < 2) {
 		document.getElementById('theQ').classList.add('toHide')
 		document.getElementById('theQErr').classList.remove('toHide')
+		refreshList()
 		return
 	}
 
 	document.getElementById('theQErr').classList.add('toHide')
 	document.getElementById('theQ').classList.remove('toHide')
 
-	// Prepare next vote
-	prepareNextVote()
+	const directVotesMap = VOTE_SYSTEM.getFullDirectVotesMap()
+	setTimeout(()=>{
+		SCORE_SYSTEM.refreshScoresDirect(directVotesMap)
+		prepareNextVote()
+		setTimeout(()=>{
+			SCORE_SYSTEM.refreshScoresIndirect(directVotesMap);
+			refreshList()
+		}, 100)
+	})
 }
 
 function theQ(c1, c2, vote) {
-	// vote: 0=No pref; 1=Pref 1; 2=Pref 2; other=skip
-	if(vote === 'p' || vote === 'e' || vote === 'm') {
-		VOTE_SYSTEM.castVote(c1, c2, vote)
-
-		hist.push(c1)
-		hist.push(c2)
-		while(hist.length > VOTE_SYSTEM.entries.entries.length/2 -1) hist.shift()
-	}
+	VOTE_SYSTEM.castVote(c1, c2, vote)
 	refreshTheQ()
 }
 
@@ -424,56 +439,6 @@ function genRepartitionSvg(list) {
 		svg.append(bloc)
 		w1 = w2
 	}
-
-	return svg
-}
-
-function genChartSVG() {
-	const list = scores.filter(a=>a) // copy list to prevent editing it
-
-	const svg = $('<svg>')
-	svg.attr('xmlns', 'http://www.w3.org/2000/svg')
-	svg.attr('viewBox', '0 0 1 ' + (list.length || 1))
-	svg.attr('preserveAspectRatio', 'none')
-	svg.css('display', 'block')
-	svg.css('width', '100%')
-	svg.css('height', '750px')
-	svg.css('background-color', '#555')
-
-	for(const i in list) {
-		const item = list[i]
-
-		const r = ((1-item.d)*255)|0
-		const g = (item.u*255)|0
-		const b = ((1-item.x)*255)|0
-
-		const bloc = $('<rect>')
-		bloc.attr('fill', `rgb(${r}, ${g}, ${b})`)
-		bloc.attr('x', (item.d).toFixed(5))
-		bloc.attr('width', (item.u - item.d).toFixed(5))
-		bloc.attr('y', i)
-		bloc.attr('height', 1)
-
-		// TODO: Am�liorer ceci:
-		const txt = $(`<svg viewBox='0 0 20 20' background='#FFF' preserveAspectRatio='none'><text x="50%" y="50%" alignment-baseline="middle" text-anchor="middle">${item.c.name}</text></svg>`)
-		txt.attr('x', (item.d+(item.u - item.d)/2 - (list.length)/2).toFixed(5))
-		txt.attr('y', i)
-		txt.attr('width', list.length)
-		txt.attr('height', 1)
-		/*txt.attr('text-anchor', 'middle')
-		txt.attr('font-size', 1)*/
-
-		svg.append(bloc)
-		svg.append(txt)
-	}
-
-	const zone = $('<rect>')
-	zone.attr('fill', '#FFF8')
-	zone.attr('x', (list[list.length-1].u).toFixed(5))
-	zone.attr('width', (list[0].d - list[list.length-1].u).toFixed(5))
-	zone.attr('y', 0)
-	zone.attr('height', list.length)
-	svg.prepend(zone)
 
 	return svg
 }
