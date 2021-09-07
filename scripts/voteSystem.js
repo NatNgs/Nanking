@@ -99,14 +99,14 @@ function VoteSystem() {
 		return entry
 	}
 
-	/** returns {eId: {c: <Entry object>, p:[], e:[], m:[]}, ...} */
+	/** returns {eId: {entry: <Entry object>, p:[], e:[], m:[]}, ...} */
 	this.getFullDirectVotesMap = function() {
 		// Aggregate data
 		const scoreMap = {}
 
 		// Compute direct votes into p/e/m
 		for(const e of this.entries.entries) {
-			scoreMap[e.code] = {c: e, p:[], e:[], m:[]} // init score
+			scoreMap[e.code] = {entry: e, p:[], e:[], m:[]} // init score
 		}
 		for(const c1 in _voteData) {
 			for(const c2 in _voteData[c1]) {
@@ -117,7 +117,7 @@ function VoteSystem() {
 
 		return scoreMap
 	}
-	/** returns {eId: {c: <Entry object>, p:[], e:[], m:[]}, ...} */
+	/** returns {eId: {entry: <Entry object>, p:[], e:[], m:[]}, ...} */
 	this.getFullIndirectVotesMap = function(directVotesMap) {
 		const scoreMap = JSON.parse(JSON.stringify(directVotesMap))
 
@@ -216,8 +216,8 @@ function EntryList() {
 
 			entryData.l = {}
 			for(const categoryId in entryDataList) {
-				const category = jsonData.l[categoryId].n
-				entryData.l[category] = entryDataList[categoryId]
+				const cat = jsonData.l[categoryId].n
+				entryData.l[cat] = entryDataList[categoryId]
 			}
 
 			entry = (merge && this.getEntryByName(entryData.n))
@@ -256,18 +256,18 @@ function EntryList() {
 		// Build tags list
 		const tagsMap = this.getTagsMap()
 		const categoryList = Object.keys(tagsMap).sort()
-		const tagList = categoryList.map((category)=>({n: category, t:tagsMap[category].sort()}))
+		const tagList = categoryList.map((cat)=>({n: cat, t:tagsMap[cat].sort()}))
 
 		for(const e of entryList) {
 			const entryTags = e.l // {category1: [tag1, tag2, ...], ...}
-			for(const category in entryTags) {
-				const currCategoryTagList = tagList[categoryList.indexOf(category)].t
+			for(const cat in entryTags) {
+				const currCategoryTagList = tagList[categoryList.indexOf(cat)].t
 
 				const tagsSet = []
-				for(const tag of entryTags[category]) {
+				for(const tag of entryTags[cat]) {
 					NB_SET.add(tagsSet, currCategoryTagList.indexOf(tag))
 				}
-				entryTags[category] = NB_SET.toPrintableASCII(tagsSet)
+				entryTags[cat] = NB_SET.toPrintableASCII(tagsSet)
 			}
 
 			e.l = []
@@ -296,16 +296,14 @@ function EntryList() {
 		return -1
 	}
 
-	/**
-	 * {category: [tag1, tag2, ...], ...}
-	 */
+	/** {category: [tag1, tag2, ...], ...} */
 	this.getTagsMap = function() {
 		const tagsMap = {}
 
 		for(const entry of this.entries) {
-			for(const category in entry.tags) {
-				if(!(category in tagsMap)) tagsMap[category] = []
-				for(const tag of entry.tags[category]) if(tag && tagsMap[category].indexOf(tag) < 0) tagsMap[category].push(tag)
+			for(const cat in entry.tags) {
+				if(!(cat in tagsMap)) tagsMap[cat] = []
+				for(const tag of entry.tags[cat]) if(tag && tagsMap[cat].indexOf(tag) < 0) tagsMap[cat].push(tag)
 			}
 		}
 		return tagsMap
@@ -320,15 +318,15 @@ function EntryList() {
 	this.getItemsByTag = function() {
 		const out = {byTag: {}, byCategory:{}}
 		for(const e of this.entries) {
-			for(const category in e.tags) {
-				if(!(category in out.byCategory)) {
-					out.byTag[category] = {}
-					out.byCategory[category] = []
+			for(const cat in e.tags) {
+				if(!(cat in out.byCategory)) {
+					out.byTag[cat] = {}
+					out.byCategory[cat] = []
 				}
-				for(const tag of e.tags[category]) {
-					if(!(tag in out.byTag[category])) out.byTag[category][tag] = []
-					out.byTag[category][tag].push(e.code)
-					if(out.byCategory[category].indexOf(e.code) < 0) out.byCategory[category].push(e.code)
+				for(const tag of e.tags[cat]) {
+					if(!(tag in out.byTag[cat])) out.byTag[cat][tag] = []
+					out.byTag[cat][tag].push(e.code)
+					if(out.byCategory[cat].indexOf(e.code) < 0) out.byCategory[cat].push(e.code)
 				}
 			}
 		}
@@ -355,7 +353,7 @@ function Entry(entryName) {
 	this.code = 'e' + (ENTRY_CODES++)
 	this.name = entryName || ''
 	this.images = []
-	this.tags = {} // {category1: [label1, ...], ...}
+	this.tags = {} // {category1: [tag1, ...], ...}
 	this.lastVote = 0
 
 	this.import = function(jsonData, merge=false) {
@@ -373,5 +371,22 @@ function Entry(entryName) {
 	}
 	this.export = function() {
 		return {n: this.name, i: this.images, l:this.tags}
+	}
+
+	this.diffTags = function(entry2) {
+		const diff = {}
+
+		for(const cat in this.tags) {
+			for(const tag of this.tags[cat]) {
+				if(!(cat in entry2.tags) || entry2.tags[cat].indexOf(tag) < 0) {
+					if(!(cat in diff)) {
+						diff[cat] = []
+					}
+					diff[cat].push(tag)
+				}
+			}
+		}
+
+		return diff
 	}
 }

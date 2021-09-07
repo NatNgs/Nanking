@@ -36,7 +36,7 @@ function loadData(rawdata) {
 		return false
 	}
 
-	refreshTheQ()
+	prepareNextVote()
 	setTimeout(updateCategoriesSelector)
 }
 
@@ -45,7 +45,7 @@ function resetData() {
 		VOTE_SYSTEM.reset()
 		$('#fileToExport').attr('download', 'save.' + (LZW.enable ? 'lzw' : 'json'))
 	}
-	refreshTheQ()
+	prepareNextVote()
 	setTimeout(updateCategoriesSelector())
 }
 
@@ -80,7 +80,7 @@ function importEntryList() {
 	let nbTodo = filesToLoad.files.length
 	const doneOne = () => {
 		if(--nbTodo <= 0) {
-			refreshTheQ()
+			prepareNextVote()
 			setTimeout(updateCategoriesSelector())
 		}
 	}

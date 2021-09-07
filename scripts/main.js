@@ -22,7 +22,7 @@ function init() {
 	})
 	$('#listItemsCategory').on('change', refreshList)
 
-	refreshTheQ()
+	prepareNextVote()
 }
 
 function addNewEntry() {
@@ -85,8 +85,8 @@ function updateEntry(entryCode) {
 			'Delete /!\\': function() {
 				if(!confirm('Entry "'+ entry.name +'", all related information, and related votes will be removed.\nConfirm ?')) return
 				VOTE_SYSTEM.removeEntry(entry.code)
+				prepareNextVote([entry.code])
 				dial.dialog('close')
-				refreshTheQ()
 			},
 			'Confirm': function() {
 				// Check new entry name
@@ -106,8 +106,9 @@ function updateEntry(entryCode) {
 				// Update Entry lists
 				entry.images = Object.keys(newImgs).filter(a=>newImgs[a]).sort()
 
+				prepareNextVote([entry.code])
+
 				dial.dialog('close')
-				refreshTheQ()
 				setTimeout(updateCategoriesSelector())
 			},
 			'Reset': function() {
@@ -227,14 +228,14 @@ function refreshList() {
 				const old = SCORE_SYSTEM.lastScores && SCORE_SYSTEM.lastScores.entries[eId]
 				scoreList.push({
 					eId: eId,
-					name: data.c.name, k: data.k, s: data.i.s, z: data.d.z,
+					name: data.n, k: data.k, s: data.i.s, z: data.d.z,
 					dx: data.d.x, dr: data.d.r, dd: data.d.d, du: data.d.u,
 					ix: data.i.x, ir: data.i.r, id: data.i.d, iu: data.i.u,
 				})
 				if(old) {
-					oldList.push({name: data.c.name, s: old.i.s, z: old.d.z})
+					oldList.push({name: data.n, s: old.i.s, z: old.d.z})
 				} else {
-					oldList.push({name: data.c.name})
+					oldList.push({name: data.n})
 				}
 			}
 		} else {
@@ -297,7 +298,7 @@ function pick2() {
 		eIdList.length --
 
 		// Compute quality
-		const qualityWithE3 = VOTE_SYSTEM.getVote(eId1, eId3) ? 0 : (1-SCORE_SYSTEM.scores.entries[eId3].x)
+		const qualityWithE3 = VOTE_SYSTEM.getVote(eId1, eId3) ? 0 : (1-SCORE_SYSTEM.scores.entries[eId3].d.x) + (1-SCORE_SYSTEM.scores.entries[eId3].i.x)
 
 		if(qualityWithE3 > qualityWithE2) {
 			eId2 = eId3
@@ -307,7 +308,18 @@ function pick2() {
 
 	return [VOTE_SYSTEM.entries.getEntryByCode(eId1), VOTE_SYSTEM.entries.getEntryByCode(eId2)]
 }
-function prepareNextVote() {
+function prepareNextVote(updatedEntries) {
+	if(VOTE_SYSTEM.entries.entries.length < 2) {
+		document.getElementById('theQ').classList.add('toHide')
+		document.getElementById('theQErr').classList.remove('toHide')
+		refreshList()
+		return
+	}
+
+	document.getElementById('theQErr').classList.add('toHide')
+	document.getElementById('theQ').classList.remove('toHide')
+
+	SCORE_SYSTEM.refreshScores(updatedEntries || [])
 	const [a, b] = pick2()
 
 	// Fill voting panel
@@ -338,10 +350,12 @@ function prepareNextVote() {
 		img2.attr('src', pa2i)
 	})
 
-	$('#a0 #bSkip').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, null))
-	$('#a0 #bSame').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, 'e'))
-	$('#a1 button').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, 'p'))
-	$('#a2 button').attr('onclick', '').unbind('click').on('click', ()=>theQ(a.code, b.code, 'm'))
+	$('#a0 #bSkip').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, null))
+	$('#a0 #bSame').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'e'))
+	$('#a1 button').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'p'))
+	$('#a2 button').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'm'))
+
+	refreshList()
 }
 function updateCategoriesSelector() {
 	const lic = $('#listItemsCategory')
@@ -367,31 +381,10 @@ function updateCategoriesSelector() {
 		$(lic.children('option').get(index-1)).after(`<option value="${opt}">${opt}</option>`)
 	}
 }
-function refreshTheQ() {
-	if(VOTE_SYSTEM.entries.entries.length < 2) {
-		document.getElementById('theQ').classList.add('toHide')
-		document.getElementById('theQErr').classList.remove('toHide')
-		refreshList()
-		return
-	}
 
-	document.getElementById('theQErr').classList.add('toHide')
-	document.getElementById('theQ').classList.remove('toHide')
-
-	const directVotesMap = VOTE_SYSTEM.getFullDirectVotesMap()
-	setTimeout(()=>{
-		SCORE_SYSTEM.refreshScoresDirect(directVotesMap)
-		prepareNextVote()
-		setTimeout(()=>{
-			SCORE_SYSTEM.refreshScoresIndirect(directVotesMap);
-			refreshList()
-		}, 100)
-	})
-}
-
-function theQ(c1, c2, vote) {
+function onVote(c1, c2, vote) {
 	VOTE_SYSTEM.castVote(c1, c2, vote)
-	refreshTheQ()
+	prepareNextVote([c1, c2])
 }
 
 function showItemList() {
