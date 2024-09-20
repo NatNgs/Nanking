@@ -13,10 +13,12 @@
 	<script src="https://natngs.github.io/lib/lzw.js"></script>
 
 	<!-- Internal -->
+	<script src="scripts/polyfill.js"></script>
 	<script src="scripts/save.js"></script>
 	<script src="scripts/voteSystem.js"></script>
 	<script src="scripts/score.js"></script>
 	<script src="scripts/main.js"></script>
+	<script src="scripts/MALImport.js"></script>
 </head>
 <body style="position: relative; width: 99vw; height: 99vh; margin: .5vh .5vw;" onload="init()">
 	<div id="screen">
@@ -27,6 +29,7 @@
 		| <button onclick="exportVotes()">Export Votes</button>
 		<button onclick="exportEntryList()">Export Entries</button>
 		<button onclick="$('#importEntryList').click()">Import Entries</button>
+		<button onclick="importMALuserData()">Import MAL list</button>
 		<hr/>
 		Add new entry: <input type="text" id="newEntry"/><button onclick="addNewEntry()">Add</button>
 		<hr/>

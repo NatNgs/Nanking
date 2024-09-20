@@ -46,7 +46,7 @@ function resetData() {
 		$('#fileToExport').attr('download', 'save.' + (LZW.enable ? 'lzw' : 'json'))
 	}
 	prepareNextVote()
-	setTimeout(updateCategoriesSelector())
+	setTimeout(updateCategoriesSelector)
 }
 
 function limF(a, prec) {
@@ -55,7 +55,7 @@ function limF(a, prec) {
 function exportVotes() {
 	const prec = 5
 	const tsv = Object.values(SCORE_SYSTEM.scores.entries).map(e=>
-		[e.c.name.replace(/\s+/g, ' '), limF(e.d, prec), limF(e.s, prec), limF(e.u, prec), limF(e.x, prec), e.p, e.e, e.m].join('\t')
+		[e.n.replace(/\s+/g, ' '), limF(e.d, prec), limF(e.s, prec), limF(e.u, prec), limF(e.x, prec), e.p, e.e, e.m].join('\t')
 	).join('\n')
 	const blob = new Blob([tsv], {type: 'text/tsv'})
 	const link = document.getElementById('fileToExport')

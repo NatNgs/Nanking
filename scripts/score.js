@@ -51,9 +51,15 @@ function ScoreSystem(VOTE_SYSTEM) {
 	}
 
 
-	const initScores = function() {
+	const initScores = function(eIdToUpdate) {
+		THIS.scores = {entries:{}, tags:{}}
+
+		let d = new Date()
 		const directVotesMap = VOTE_SYSTEM.getFullDirectVotesMap()
-		const indirectVotesMap = VOTE_SYSTEM.getFullIndirectVotesMap(directVotesMap)
+		console.log('Getting direct votes map took ' + (new Date() - d) + 'ms')
+		d = new Date()
+		const indirectVotesMap = VOTE_SYSTEM.getFullIndirectVotesMap(directVotesMap, eIdToUpdate)
+		console.log('Getting indirect votes map took ' + (new Date() - d) + 'ms')
 
 		// Initiate Tags Scores
 		const tagsMap = VOTE_SYSTEM.entries.getItemsByTag()
@@ -147,15 +153,19 @@ function ScoreSystem(VOTE_SYSTEM) {
 		}
 	}
 
-	this.refreshScores = function(...eIdToUpdate) {
+	this.refreshScores = function(eIdToUpdate, cb) {
 		this.lastScores = this.scores
-		//if(!this.lastScores || eIdToUpdate.length <= 0) {
-		this.scores = {entries:{}, tags:{}}
-		initScores()
-		/*} else {
-			this.scores = JSON.stringify(JSON.parse(this.lastScores))
-			updateScores(eIdToUpdate)
-		}*/
-		finalizeScoring()
+
+		const begin = new Date()
+		initScores(eIdToUpdate)
+		console.log('Updating scores took ' + (new Date() - begin) + 'ms')
+
+		setTimeout(()=>{
+			const begin = new Date()
+			finalizeScoring()
+			console.log('Finalizing scores took ' + (new Date() - begin) + 'ms')
+			setTimeout(cb)
+		})
 	}
+
 }

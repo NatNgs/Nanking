@@ -215,9 +215,18 @@ function buildHTMLRankingList(theList, minShow=0) {
 	}
 	return htmlContent
 }
+
+let refreshingList = false
+let needRefreshList = false
 function refreshList() {
+	if(refreshingList) {
+		needRefreshList = true
+		return
+	}
+	needRefreshList = false
+	refreshingList = true
+
 	const category = $('#listItemsCategory').val()
-	const fItems = $('#listItemsFilter').slider('value')
 
 	const scoreList = []
 	if(SCORE_SYSTEM.scores) {
@@ -266,8 +275,17 @@ function refreshList() {
 		}
 	}
 
-	document.getElementById('listItems').innerHTML = buildHTMLRankingList(scoreList, fItems)
-	$('#sliderShowSvgItems').empty().append(genRepartitionSvg(scoreList.map(a=>a.x))[0].outerHTML)
+	const endRefreshList = () => {
+		refreshingList = false
+		if(needRefreshList) refreshList()
+	}
+
+	setTimeout(()=>{
+		document.getElementById('listItems').innerHTML = buildHTMLRankingList(scoreList, $('#listItemsFilter').slider('value'))
+		$('#sliderShowSvgItems').empty().append(genRepartitionSvg(scoreList.map(a=>a.dx))[0].outerHTML)
+
+		endRefreshList()
+	})
 }
 
 function pick2() {
@@ -308,7 +326,10 @@ function pick2() {
 
 	return [VOTE_SYSTEM.entries.getEntryByCode(eId1), VOTE_SYSTEM.entries.getEntryByCode(eId2)]
 }
+
+let preparingNextVote = false
 function prepareNextVote(updatedEntries) {
+	if(preparingNextVote) return
 	if(VOTE_SYSTEM.entries.entries.length < 2) {
 		document.getElementById('theQ').classList.add('toHide')
 		document.getElementById('theQErr').classList.remove('toHide')
@@ -316,47 +337,55 @@ function prepareNextVote(updatedEntries) {
 		return
 	}
 
+	const begin = new Date()
+	preparingNextVote = true
+
 	document.getElementById('theQErr').classList.add('toHide')
 	document.getElementById('theQ').classList.remove('toHide')
 
-	SCORE_SYSTEM.refreshScores(updatedEntries || [])
-	const [a, b] = pick2()
+	SCORE_SYSTEM.refreshScores(updatedEntries, ()=>{
+		const [a, b] = pick2()
 
-	// Fill voting panel
-	$('#a1 .title').text(a.name)
-	$('#a2 .title').text(b.name)
+		// Fill voting panel
+		$('#a1 .title').text(a.name)
+		$('#a2 .title').text(b.name)
 
-	const pa1 = a.images
-	const pa2 = b.images
-	const pa1i = pa1.length ? pa1[(Math.random()*pa1.length)|0] : 'pict/unknown.svg'
-	const pa2i = pa2.length ? pa2[(Math.random()*pa2.length)|0] : 'pict/unknown.svg'
+		const pa1 = a.images
+		const pa2 = b.images
+		const pa1i = pa1.length ? pa1[(Math.random()*pa1.length)|0] : 'pict/unknown.svg'
+		const pa2i = pa2.length ? pa2[(Math.random()*pa2.length)|0] : 'pict/unknown.svg'
 
-	// Set loading picture
-	const img1 = $('#a1 img').attr('src', 'pict/loading.svg')
-	const img2 = $('#a2 img').attr('src', 'pict/loading.svg')
-	setTimeout(()=>{
-		// Put images in preload div (for caching purposes)
-		if(PRELOADED_PICTS.indexOf(pa1i) < 0) {
-			PRELOADED_PICTS.push(pa1i)
-			$('#pictPreload').append('<img src="' + pa1i + '"/>')
-		}
-		if(PRELOADED_PICTS.indexOf(pa2i) < 0) {
-			PRELOADED_PICTS.push(pa2i)
-			$('#pictPreload').append('<img src="' + pa2i + '"/>')
-		}
+		// Set loading picture
+		const img1 = $('#a1 img').attr('src', 'pict/loading.svg')
+		const img2 = $('#a2 img').attr('src', 'pict/loading.svg')
+		setTimeout(()=>{
+			// Put images in preload div (for caching purposes)
+			if(PRELOADED_PICTS.indexOf(pa1i) < 0) {
+				PRELOADED_PICTS.push(pa1i)
+				$('#pictPreload').append('<img src="' + pa1i + '"/>')
+			}
+			if(PRELOADED_PICTS.indexOf(pa2i) < 0) {
+				PRELOADED_PICTS.push(pa2i)
+				$('#pictPreload').append('<img src="' + pa2i + '"/>')
+			}
 
-		// Set actual picture
-		img1.attr('src', pa1i)
-		img2.attr('src', pa2i)
+			// Set actual picture
+			img1.attr('src', pa1i)
+			img2.attr('src', pa2i)
+		})
+
+		$('#a0 #bSkip').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, null))
+		$('#a0 #bSame').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'e'))
+		$('#a1 button').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'p'))
+		$('#a2 button').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'm'))
+
+		refreshList()
+
+		preparingNextVote = false
+		console.log('Prepared next vote (took ' + (new Date()-begin) + 'ms)')
 	})
-
-	$('#a0 #bSkip').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, null))
-	$('#a0 #bSame').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'e'))
-	$('#a1 button').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'p'))
-	$('#a2 button').attr('onclick', '').unbind('click').on('click', ()=>onVote(a.code, b.code, 'm'))
-
-	refreshList()
 }
+
 function updateCategoriesSelector() {
 	const lic = $('#listItemsCategory')
 	const catList = Object.keys(VOTE_SYSTEM.entries.getTagsMap())
@@ -415,13 +444,13 @@ function genRepartitionSvg(list) {
 	//svg.append($('<rect x="0" y="0" width="1" height="' + (list.length || 1) + '" fill="#' + ((Math.random()*10)|0) + '' + ((Math.random()*10)|0) + '' + ((Math.random()*10)|0) + '"></rect>'))
 
 	const ll = list.length
-	let w1 = 0
+	let count = 0
 	while(list.length) {
 		const bloc = $('<rect fill="#222"></rect>')
 		const h = list.length
 		const w2 = list.shift()
 
-		if(!w2) break
+		if(w2 === null) break
 
 		while(list[0]===w2) list.shift()
 
@@ -430,7 +459,7 @@ function genRepartitionSvg(list) {
 		bloc.attr('y', ll-h)
 		bloc.attr('height', h)
 		svg.append(bloc)
-		w1 = w2
+		count ++
 	}
 
 	return svg

@@ -2,6 +2,8 @@
 function VoteSystem() {
 	this.entries = new EntryList()
 	const _voteData = {} // {eId1: {eId2:'p', eId3:'e', eId4:'m', ...}, ...}
+	this.getVoteData = ()=>{return _voteData}
+	let cachedIndirectVotesMap = null
 
 	const import_registerVotes = (nbsetASCII, type, eId) => {
 		for(const entryId2 of NB_SET.toList(NB_SET.fromPrintableASCII(nbsetASCII))) {
@@ -99,6 +101,23 @@ function VoteSystem() {
 		return entry
 	}
 
+	let onListChanged = null
+	this.entries.onListChange = (updated)=>{
+		if(onListChanged) {
+			clearTimeout(onListChanged.call)
+			updated.pushAllMissing(onListChanged.updated)
+		}
+		onListChanged = {
+			updated: updated,
+			call: setTimeout(()=>{
+				const dm = this.getFullDirectVotesMap()
+				cachedIndirectVotesMap = null
+				this.getFullIndirectVotesMap(dm, updated.map(e=>e.code))
+				onListChanged = null
+			}, 1000)
+		}
+	}
+
 	/** returns {eId: {entry: <Entry object>, p:[], e:[], m:[]}, ...} */
 	this.getFullDirectVotesMap = function() {
 		// Aggregate data
@@ -110,6 +129,7 @@ function VoteSystem() {
 		}
 		for(const c1 in _voteData) {
 			for(const c2 in _voteData[c1]) {
+				if(!(c1 in scoreMap)) console.warn(scoreMap, c1)
 				scoreMap[c1][_voteData[c1][c2]].push(c2)
 				scoreMap[c2][_voteData[c1][c2] === 'p' ? 'm' : (_voteData[c1][c2] === 'm' ? 'p' : 'e')].push(c1)
 			}
@@ -117,96 +137,152 @@ function VoteSystem() {
 
 		return scoreMap
 	}
+
 	/** returns {eId: {entry: <Entry object>, p:[], e:[], m:[]}, ...} */
-	this.getFullIndirectVotesMap = function(directVotesMap) {
-		const scoreMap = JSON.parse(JSON.stringify(directVotesMap))
 
-		// Compute indirect votes into p2/e2/m2
-		let again = true
-		while(again) {
-			again = false
-
-			for(const c1 in scoreMap) {
-				scoreMap[c1].ptmp = []
-				scoreMap[c1].etmp = []
-				scoreMap[c1].mtmp = []
-			}
-
-			// Fill ptmp/etmp/mtmp
-			for(const c1 in scoreMap) {
-				const sc1 = scoreMap[c1]
-				for(const c2 of sc1.p) {
-					const sc2 = scoreMap[c2]
-					for(const c3 of sc1.m) {
-						const sc3 = scoreMap[c3]
-						if(sc2.mtmp.indexOf(c3) < 0) sc2.mtmp.push(c3)
-						if(sc3.ptmp.indexOf(c2) < 0) sc3.ptmp.push(c2)
-					}
-				}
-				for(const c2 of sc1.e) {
-					const sc2 = scoreMap[c2]
-					for(const c3 of sc1.e) if(sc2.etmp.indexOf(c3) < 0) sc2.etmp.push(c3)
+	this.getFullIndirectVotesMap = function(directVotesMap, toUpdate) {
+		if(!cachedIndirectVotesMap || !toUpdate) {
+			cachedIndirectVotesMap = {}
+			for(const eId in directVotesMap) {
+				const dvmI = directVotesMap[eId]
+				cachedIndirectVotesMap[eId] = {
+					entry: dvmI.entry,
+					p: dvmI.p.copy(),
+					e: dvmI.e.copy(),
+					m: dvmI.m.copy(),
 				}
 			}
-			// Add to p2/e2/m2 if no conflict
-			for(const c1 in scoreMap) {
-				const sc1 = scoreMap[c1]
-				for(const p of sc1.ptmp) {
-					if(p !== c1
-					&& sc1.p.indexOf(p) < 0 && sc1.e.indexOf(p) < 0 && sc1.m.indexOf(p) < 0
-					&& sc1.etmp.indexOf(p) < 0 && sc1.mtmp.indexOf(p) < 0) {
-						sc1.p.push(p)
-						again = true
-					}
-				}
-				for(const e of sc1.etmp) {
-					if(e !== c1
-					&& sc1.p.indexOf(e) < 0 && sc1.e.indexOf(e) < 0 && sc1.m.indexOf(e) < 0
-					&& sc1.ptmp.indexOf(e) < 0 && sc1.mtmp.indexOf(e) < 0) {
-						sc1.e.push(e)
-						again = true
-					}
-				}
-				for(const m of sc1.mtmp) {
-					if(m !== c1
-					&& sc1.p.indexOf(m) < 0 && sc1.e.indexOf(m) < 0 && sc1.m.indexOf(m) < 0
-					&& sc1.etmp.indexOf(m) < 0 && sc1.etmp.indexOf(m) < 0) {
-						sc1.m.push(m)
-						again = true
+		} else {
+			for(const eId in cachedIndirectVotesMap) {
+				const dvmI = directVotesMap[eId]
+				const ivmI = cachedIndirectVotesMap[eId]
+				if(toUpdate.indexOf(eId) >= 0) {
+					// Remove all indirect votes from elements of toUpdate list
+					ivmI.p = dvmI.p.copy()
+					ivmI.e = dvmI.e.copy()
+					ivmI.m = dvmI.m.copy()
+				} else {
+					// Remove all indirect votes to elements of toUpdate list
+					for(const eId2 of toUpdate) {
+						if(dvmI.p.indexOf(eId2) < 0 && ivmI.p.indexOf(eId2) >= 0) ivmI.p.unorderedRm(eId2)
+						if(dvmI.e.indexOf(eId2) < 0 && ivmI.e.indexOf(eId2) >= 0) ivmI.e.unorderedRm(eId2)
+						if(dvmI.m.indexOf(eId2) < 0 && ivmI.m.indexOf(eId2) >= 0) ivmI.m.unorderedRm(eId2)
 					}
 				}
 			}
 		}
 
+		if(!toUpdate) toUpdate = Object.keys(directVotesMap)
+
+		// Compute indirect votes into p2/e2/m2
+		let loop = 0
+		let again = true
+		while(again) {
+			loop++
+			console.log('Computing Idirect votes with depth ' + loop + '...')
+			again = this.getIndirectVotesMap1(cachedIndirectVotesMap, toUpdate)
+		}
+		return cachedIndirectVotesMap
+	}
+
+	this.getIndirectVotesMap1 = function(scoreMap, toUpdate) {
+		if(!scoreMap) JSON.parse(JSON.stringify(directVotesMap))
+		let canBeAffined = false
+
+		// Fill ptmp/etmp/mtmp
+		const begin = +new Date()
+		let dd = begin
+		let i = 0
+		const l = toUpdate.length
+		console.log('Computing indirect votes for ' + l + ' entries over ' + Object.keys(scoreMap).length + ' entries...')
+		for(const c1 in scoreMap) {
+			scoreMap[c1].ptmp = []
+			scoreMap[c1].etmp = []
+			scoreMap[c1].mtmp = []
+		}
+		for(const c1 of toUpdate) {
+			const sc1 = scoreMap[c1]
+			for(const c2 of sc1.p) {
+				const sc2 = scoreMap[c2]
+				for(const c3 of sc1.m) {
+					const sc3 = scoreMap[c3]
+					if(sc2.mtmp.indexOf(c3) < 0) sc2.mtmp.push(c3)
+					if(sc3.ptmp.indexOf(c2) < 0) sc3.ptmp.push(c2)
+				}
+			}
+			for(const c2 of sc1.e) {
+				const sc2 = scoreMap[c2]
+				for(const c3 of sc1.e) if(sc2.etmp.indexOf(c3) < 0) sc2.etmp.push(c3)
+			}
+
+			i++
+			const d2 = +new Date()
+			if(d2 - dd > 3000) {
+				console.log('\tFilling (' + i + '/' + l +'): ' + ((d2 - begin)/1000).toFixed(0) + '/' + ((d2-begin)/(i/l)/1000).toFixed(0) + 's')
+				dd += 3000
+			}
+		}
+
+		// Add to p2/e2/m2 if no conflict
+		for(const c1 in scoreMap) {
+			const sc1 = scoreMap[c1]
+			for(const p of sc1.ptmp) {
+				if(p !== c1
+				&& sc1.p.indexOf(p) < 0 && sc1.e.indexOf(p) < 0 && sc1.m.indexOf(p) < 0
+				&& sc1.etmp.indexOf(p) < 0 && sc1.mtmp.indexOf(p) < 0) {
+					sc1.p.push(p)
+					again = true
+				}
+			}
+			for(const e of sc1.etmp) {
+				if(e !== c1
+				&& sc1.p.indexOf(e) < 0 && sc1.e.indexOf(e) < 0 && sc1.m.indexOf(e) < 0
+				&& sc1.ptmp.indexOf(e) < 0 && sc1.mtmp.indexOf(e) < 0) {
+					sc1.e.push(e)
+					again = true
+				}
+			}
+			for(const m of sc1.mtmp) {
+				if(m !== c1
+				&& sc1.p.indexOf(m) < 0 && sc1.e.indexOf(m) < 0 && sc1.m.indexOf(m) < 0
+				&& sc1.etmp.indexOf(m) < 0 && sc1.etmp.indexOf(m) < 0) {
+					sc1.m.push(m)
+					again = true
+				}
+			}
+		}
+
+		// Finalize
 		for(const c1 in scoreMap) {
 			delete scoreMap[c1].ptmp
 			delete scoreMap[c1].etmp
 			delete scoreMap[c1].mtmp
 		}
 
-		return scoreMap
+		console.log('\tDone in ' + ((new Date() - begin)/1000).toFixed(1) + 's') ; d = +new Date()
+		return canBeAffined
 	}
 
 	this.getVote = function(c1, c2) {
 		const a1 = (c1<c2?c1:c2)
 		const a2 = (c1<c2?c2:c1)
-		return _voteData[a1] && _voteData[a2]
+		return _voteData[a1] && _voteData[a1][a2]
 	}
 }
 
 function EntryList() {
+	const THIS = this
 	this.entries = []
 
 	this.importSimple = function(jsonArray, merge=false) {
-		if(!merge) while(this.entries.length) this.entries.pop()
+		if(!merge) this.clear()
 
 		for(const entryData of jsonArray) {
-			const entry = (merge && this.getEntryByName(entryData.n)) || new Entry(entryData.n)
-			this.entries.push(entry.import(entryData, merge))
+			this.getOrCreateByName(entryData.n).import(entryData, merge)
 		}
 	}
 	this.import = function(jsonData, merge=false) {
-		if(!merge) while(this.entries.length) this.entries.pop()
+		if(!merge) this.clear()
 
 		const fc_idListToList = (tagIdList,categoryId)=>NB_SET.toList(NB_SET.fromPrintableASCII(tagIdList)).map((id)=>jsonData.l[categoryId].t[id])
 
@@ -220,12 +296,7 @@ function EntryList() {
 				entryData.l[cat] = entryDataList[categoryId]
 			}
 
-			entry = (merge && this.getEntryByName(entryData.n))
-			if(!entry) {
-				entry = new Entry(entryData.n)
-				this.entries.push(entry)
-			}
-			entry.import(entryData, merge)
+			this.getOrCreateByName(entryData.n).import(entryData, merge)
 		}
 	}
 
@@ -338,13 +409,26 @@ function EntryList() {
 		let e = this.getEntryByName(entryName)
 		if(!e) {
 			e = new Entry(entryName)
-			this.entries.push(e)
+			this.add(e)
 		}
 		return e
 	}
 
 	this.add = function(entry) {
 		this.entries.push(entry)
+		onListChange([entry])
+	}
+
+	this.clear = function() {
+		const changed = this.entries.copy()
+		this.entries.length = 0
+		onListChange(changed)
+	}
+
+	const onListChange = function(whatChanged) {
+		if(THIS.onListChange) {
+			THIS.onListChange(whatChanged)
+		}
 	}
 }
 
@@ -358,6 +442,7 @@ function Entry(entryName) {
 
 	this.import = function(jsonData, merge=false) {
 		if(!merge) {
+			if(jsonData.c) this.code = jsonData.c
 			this.name = jsonData.n
 			this.images = []
 			this.tags = {}
@@ -370,7 +455,7 @@ function Entry(entryName) {
 		return this
 	}
 	this.export = function() {
-		return {n: this.name, i: this.images, l:this.tags}
+		return {c: this.code, n: this.name, i: this.images, l:this.tags}
 	}
 
 	this.diffTags = function(entry2) {
