@@ -1,0 +1,27 @@
+{
+	"name": "nanking",
+	"version": "1.0.0",
+	"description": "Sort things together",
+	"main": "src/server/server.js",
+	"type": "module",
+	"scripts": {
+		"serve": "node src/server/server.js",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "Nathael Nogues",
+	"license": "MIT",
+	"private": true,
+	"dependencies": {
+		"node": "^26.5.0",
+		"express": "^5.2.1",
+		"body-parser": "^2.3.0",
+		"file-system-db": "^2.1.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/NatNgs/Nanking"
+	},
+	"devDependencies": {
+		"eslint": "^10.7.0"
+	}
+}

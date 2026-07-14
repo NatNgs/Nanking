@@ -1,4 +1,6 @@
-*.json
 *.lzw
 saves/
 resources/
+node_modules/
+package-lock.json
+cert/
