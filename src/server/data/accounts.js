@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 const TOKEN_VALIDITY_LIMIT = 16 * 60 * 60 * 1000 // 16 hours
 const TOKEN_REFRESH_RATE = 1 * 60 * 60 * 1000 // 1 hour
-const USER_REGEX = /^[a-zA-Z0-9_]{3,16}$/
+const USER_REGEX = /^[a-z0-9_.-]{4,20}$/
 class AccountManager {
 	constructor(db) {
 		this.db = db.sub('p#')
@@ -12,7 +12,10 @@ class AccountManager {
 	}
 
 	add(user, pwd) {
+		if(!user || !pwd) return false
+
 		// Check: username should match regex
+		user = user.trim().toLowerCase()
 		if(!user.match(USER_REGEX)) return false
 
 		// If account already exists, return false
@@ -21,7 +24,10 @@ class AccountManager {
 		return true
 	}
 	login(user, pwd) {
+		if(!user || !pwd) return false
+
 		// Check: username should match regex
+		user = user.trim().toLowerCase()
 		if(!user.match(USER_REGEX)) return false
 
 		// If account doesn't exist, return false
@@ -38,6 +44,7 @@ class AccountManager {
 		return this.refresh_token(user)
 	}
 	check_token(token) {
+		if(!token) return false
 		if(!this.tokens[token]) {
 			console.debug('Unknown token', token)
 			return false
@@ -52,6 +59,8 @@ class AccountManager {
 		return this.tokens[token]
 	}
 	refresh_token(user) {
+		user = user.trim().toLowerCase()
+
 		// If current token is not older than TOKEN_REFRESH_RATE, return it without refresh
 		if(this.tokens_reverse[user] && Date.now() - this.tokens_reverse[user].time < TOKEN_REFRESH_RATE) {
 			return this.tokens_reverse[user].token

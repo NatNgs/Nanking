@@ -8,6 +8,7 @@ import { resolve } from 'path'
 import DB from './data/db.js'
 import ACCOUNTS from './data/accounts.js'
 import userRouter from './routers/userRoutes.js'
+import quizRouter from './routers/quizRoutes.js'
 
 const __project = resolve(import.meta.dirname + '/../..')
 
@@ -20,17 +21,21 @@ app.use(json())
 // Unauthenticated
 
 app.get('/', (req, res) => {
-	const file = __project + '/src/client/public/home.html'
+	const file = __project + '/src/client/pages/home/home.html'
 	//console.debug(req.originalUrl, '('+ file + ')')
 	res.sendFile(file)
+})
+app.get('/pages/home/home.html', (req, res) => {
+	res.redirect('/')
 })
 app.get('/favicon.ico', (req, res) => {
-	const file = __project + '/src/client/Nanking.ico'
+	const file = __project + '/src/client/assets/Nanking.ico'
 	//console.debug(req.originalUrl, '('+ file + ')')
 	res.sendFile(file)
 })
-app.use(express_static(__project + '/src/client/public'));
+app.use(express_static(__project + '/src/client'));
 app.post('/login', (req, res) => {
+	// Create new account
 	if(req.body.new === 'true') {
 		const success = ACCOUNTS.add(req.body.login, req.body.pwd)
 		if(!success) {
@@ -39,19 +44,36 @@ app.post('/login', (req, res) => {
 			return
 		}
 	}
+
+	// Check if token is valid
+	if(req.headers.authorization) {
+		const user = ACCOUNTS.check_token(req.headers.authorization)
+		if(!user) {
+			res.status(401).send('Unauthorized')
+			console.warn(req.originalUrl, '=> 401 (Try login with unknown or expired token)')
+			return
+		}
+		ACCOUNTS.refresh_token(user)
+		res.status(200).send('ok')
+		console.debug(req.originalUrl, `=> 200 (${user} (using token))`)
+		return
+	}
+
+	// Login by username and password
 	const newToken = ACCOUNTS.login(req.body.login, req.body.pwd)
 	if(newToken) {
 		res.setHeader('authorization', newToken).status(200).send('ok')
-		console.debug(req.originalUrl, '=> 200 (' + req.body.login + (req.body.new ? ' (new account)':'') + ')')
+		console.debug(req.originalUrl, `=> 200 (${req.body.login}${req.body.new ? ' (new account)':' (using pwd)'})`)
 	} else {
 		res.status(403).send('Login failed')
-		console.warn(req.originalUrl, '=> 403: Login failed (' + req.body.login + (req.body.new ? ' (new account)':'') + ')')
+		console.warn(req.originalUrl, `=> 403: Login failed (${req.body.login}${req.body.new ? ' (new account)':''})`)
 	}
 })
 
 // Authenticated
 
 app.use('/user', userRouter)
+app.use('/quiz', quizRouter)
 
 
 // ERRORS

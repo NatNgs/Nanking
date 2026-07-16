@@ -22,15 +22,11 @@ function authenticate(req, res, next) {
 const userRouter = express.Router()
 userRouter.use(authenticate)
 
-userRouter.get('/', (req, res) => {
-	const file = __project + '/src/client/pages/user_home.html'
-	res.sendFile(file)
-	console.debug(req.originalUrl, '('+ file + ')')
-})
-userRouter.get('/me', (req, res) => {
+function returnUserData(req, res) {
 	// Return user data
-	res.send({username: req.user.username, user_scores: req.user.getUserList()})
-})
+	res.json({username: req.user.username, user_scores: req.user.getUserList()})
+}
+userRouter.get('/me', returnUserData)
 userRouter.put('/entry', (req, res) => {
 	// Check if the score is within bounds (0 to 1)
 	const score = +req.body.score
@@ -40,8 +36,9 @@ userRouter.put('/entry', (req, res) => {
 	}
 
 	req.user.setEntryScore(req.body.entry, score)
-	res.status(200).send({user_scores: req.user.getUserList()})
+	res.json({user_scores: req.user.getUserList()})
 })
 
 
 export default userRouter
+export { authenticate, returnUserData }

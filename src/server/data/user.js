@@ -22,13 +22,19 @@ class User {
 	}
 
 	getUserList() {
-		// Format list as: {'entry label': {man:manual_score, cur:computed_score}, ...}
-		const list = {}
+		const list = []
 		for(const entryId in this.entries) {
+			const entry = ENTRIES.entries[entryId]
+			const score = this.entries[entryId]
 			// Get entries label from DB.entries[id]
-			list[ENTRIES.entries[entryId].name] = this.entries[entryId]
+			list.push({
+				id: entry.id,
+				label: entry.name,
+				image: entry.image,
+				man: score.man,
+				cur: score.cur,
+			})
 		}
-		console.debug('User::getUserList', this.entries, ENTRIES.entries, list)
 		return list
 	}
 

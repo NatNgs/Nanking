@@ -47,18 +47,15 @@ function updateDataTable() {
 
 	if(_receivedData.user_scores) {
 		// Prepare table: sort entries by computed score (then by given score) from most to least
-		_receivedData.user_scores = Object.entries(_receivedData.user_scores)
-			.sort((a,b) => b[1].cur - a[1].cur || b[1].man - a[1].man)
-			.reduce((a,b) => {a[b[0]] = b[1]; return a}, {})
+		_receivedData.user_scores.sort((a,b) => b.cur - a.cur || b.man - a.man)
 
 		const table = $('#userList tbody')[0]
 		table.innerHTML = ''
-		for(const name in _receivedData.user_scores) {
-			const entry = _receivedData.user_scores[name]
+		for(const entry of _receivedData.user_scores) {
 			const div_name = document.createElement('td')
 			const div_manual = document.createElement('td')
 			const div_computed = document.createElement('td')
-			div_name.innerText = name
+			div_name.innerText = entry.label
 			div_manual.innerText = FORMATTER.pretty(entry.man)
 			div_computed.innerText = FORMATTER.pretty(entry.cur)
 
@@ -69,4 +66,21 @@ function updateDataTable() {
 			row.appendChild(div_computed)
 		}
 	}
+}
+
+function clickNewQuiz() {
+	// If less than 3 entries: display "Not enough entries" in the quiz div
+	const options = _receivedData?.user_scores || []
+	if(options.length < 3) {
+		$('#quiz')[0].innerHTML = 'Not enough entries'
+		return
+	}
+
+	// Get 2 random entries
+	const r1 = Math.floor(Math.random() * options.length)
+	let r2 = Math.floor(Math.random() * (options.length - 1))
+	if (r2 >= r1) r2++
+
+	// Display the quiz
+	QUIZ.dual($('#quiz'), options[r1], options[r2])
 }
