@@ -12,10 +12,11 @@
 	"license": "MIT",
 	"private": true,
 	"dependencies": {
-		"node": "^26.5.0",
-		"express": "^5.2.1",
 		"body-parser": "^2.3.0",
-		"file-system-db": "^2.1.0"
+		"express": "^5.2.1",
+		"file-system-db": "^2.1.0",
+		"node": "^26.5.0",
+		"uuid": "^14.0.1"
 	},
 	"repository": {
 		"type": "git",

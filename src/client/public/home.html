@@ -12,7 +12,8 @@
 	<script src="https://cdn.jsdelivr.net/gh/Caligatio/jsSHA@3.3.2/dist/sha.js"></script>
 
 	<!-- Internal -->
-	<script src="home.js"></script>
+	<script src="scripts/home.js"></script>
+	<script src="scripts/scoreFormatter.js"></script>
 </head>
 
 <!-- ########## BODY ########## -->
@@ -21,14 +22,14 @@
 	<form id="form_login">
 		<h2>Login</h2>
 		<p>Login: <input type="text" id="login" name="nankingLogin" pattern="^[a-zA-Z0-9_\-]{4,12}$"></p>
-		<p>Password: <input type="password" id="password" name="nankingPwd" pattern="^.{6,}$"></p>
+		<p>Password: <input type="password" id="password" pattern="^.{6,}$"></p>
 		<button type="submit">Login</button>
 	</form>
 	<hr/>
 	<form id="form_register">
 		<h2>Register</h2>
 		<p>Login: <input type="text" id="new_login" name="nankingLogin"></p>
-		<p>Password: <input type="password" id="new_password" name="nankingPwd" pattern=".{6,}"></p>
+		<p>Password: <input type="password" id="new_password" pattern=".{6,}"></p>
 		<button type="submit">Register</button>
 	</form>
 </body>

@@ -1,0 +1,41 @@
+<!-- Scripts -->
+<script src="scripts/user_home.js"></script>
+<script>initPage()</script>
+
+<!-- ########## BODY ########## -->
+
+<!-- Header -->
+<div>
+	<button onclick="logOut()">Log out</button>
+	<span id="userId"></span>
+	<select id="scoreFormat" name="nankingScoreFormat" onchange="updateScoreFormat(this.value)">
+		<option value="Percent">Percent</option>
+		<option value="MAL">MAL</option>
+	</select>
+</div>
+
+<hr/>
+
+<div>
+<input type="text" id="newEntryName"/>
+<input type="number" id="newEntryScore" min="1" max="10" step="1" value="10"/>
+<button onclick="clickNewEntry()">New Entry</button>
+</div>
+
+<hr/>
+
+<div>
+	<!-- DUEL ZONE -->
+	 <!-- TODO -->
+</div>
+
+<hr/>
+
+<table id="userList">
+	<thead>
+		<th>Entry</th>
+		<th>Manual</th>
+		<th>Computed</th>
+	</thead>
+	<tbody></tbody>
+</table>
