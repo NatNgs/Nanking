@@ -10,9 +10,7 @@ export default defineConfig({
 	},
 	server: {
 		proxy: {
-			'/login': {target: 'https://localhost:8053', secure: false},
-			'/user': {target: 'https://localhost:8053', secure: false},
-			'/quiz': {target: 'https://localhost:8053', secure: false},
+			'/api': {target: 'https://localhost:8053', secure: false},
 		},
 	},
 })

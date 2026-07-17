@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { apiGet, apiPut } from '../../hooks/useApi.js'
+import { useState, useMemo } from 'react'
+import { useOutletContext } from 'react-router'
 import { FORMATTERS } from '../../lib/scoreFormatter.js'
+import EntriesPanel from '../../components/entries/EntriesPanel.jsx'
+import NewEntryForm from '../../components/entries/NewEntryForm.jsx'
 import DualQuiz from '../../components/dual/DualQuiz.jsx'
 import './MainPage.css'
 
@@ -11,105 +13,71 @@ function pickPair(options) {
 	return [options[i1], options[i2]]
 }
 
-function MainPage({onLogOut}) {
-	const [username, setUsername] = useState('')
-	const [userScores, setUserScores] = useState([])
+function MainPage() {
+	const {isAuthenticated, userScores, setUserScores} = useOutletContext()
+
 	const [scoreFormatKey, setScoreFormatKey] = useState('Percent')
-	const [newEntryName, setNewEntryName] = useState('')
-	const [newEntryScore, setNewEntryScore] = useState(10)
+	const [activeView, setActiveView] = useState(null) // 'newEntry' | 'quiz' | null
 	const [quizPair, setQuizPair] = useState(null)
 	const [quizMessage, setQuizMessage] = useState('')
+	const [isPanelOpen, setIsPanelOpen] = useState(true)
 
 	const formatter = useMemo(() => FORMATTERS[scoreFormatKey], [scoreFormatKey])
 
-	const refreshUserData = useCallback(() => {
-		apiGet('/user/me').then((data) => {
-			setUsername(data.username)
-			setUserScores(data.user_scores || [])
-		})
-	}, [])
+	if(!isAuthenticated) return null
 
-	useEffect(() => { refreshUserData() }, [refreshUserData])
-
-	async function handleNewEntry() {
-		if(newEntryScore < formatter.min || newEntryScore > formatter.max) {
-			alert(`Score must be between ${formatter.min} and ${formatter.max}`)
-			return
-		}
-
-		const data = await apiPut('/user/entry', {entry: newEntryName, score: formatter.toNorm(newEntryScore)})
-		setUserScores(data.user_scores || [])
+	function handleShowNewEntry() {
+		setActiveView('newEntry')
 	}
 
-	function handleNewQuiz() {
+	function handleShowQuiz() {
+		if(userScores.length < 3) {
+			setQuizMessage('Not enough entries')
+			setQuizPair(null)
+			setActiveView('quiz')
+			return
+		}
+		setQuizMessage('')
+		setQuizPair(pickPair(userScores))
+		setActiveView('quiz')
+	}
+
+	function handleVoted() {
 		if(userScores.length < 3) {
 			setQuizMessage('Not enough entries')
 			setQuizPair(null)
 			return
 		}
-		setQuizMessage('')
 		setQuizPair(pickPair(userScores))
 	}
 
-	function handleVoted() {
-		handleNewQuiz()
-	}
-
-	const sortedScores = useMemo(
-		() => [...userScores].sort((a, b) => b.cur - a.cur || b.man - a.man),
-		[userScores],
-	)
-
 	return (
-		<div>
-			<div>
-				<button onClick={onLogOut}>Log out</button>
-				<span>{username}</span>
-				<select value={scoreFormatKey} onChange={(e) => setScoreFormatKey(e.target.value)}>
-					<option value="Percent">Percent</option>
-					<option value="MAL">MAL</option>
-				</select>
-			</div>
-
-			<hr/>
-
-			<div>
-				<input type="text" value={newEntryName} onChange={(e) => setNewEntryName(e.target.value)}/>
-				<input type="number" min={formatter.min} max={formatter.max} step={formatter.step}
-					value={newEntryScore} onChange={(e) => setNewEntryScore(+e.target.value)}/>
-				<button onClick={handleNewEntry}>New Entry</button>
-			</div>
-
-			<hr/>
-
-			<div>
-				<button onClick={handleNewQuiz}>Random question</button>
-				<div>
-					{quizMessage}
-					{quizPair && <DualQuiz left={quizPair[0]} right={quizPair[1]} onVoted={handleVoted}/>}
+		<div className="main-page">
+			<EntriesPanel
+				userScores={userScores}
+				formatter={formatter}
+				scoreFormatKey={scoreFormatKey}
+				onScoreFormatKeyChange={setScoreFormatKey}
+				isOpen={isPanelOpen}
+				onToggle={() => setIsPanelOpen((v) => !v)}
+			/>
+			<div className={'main-page-content ' + (isPanelOpen ? 'panel-open' : 'panel-closed')}>
+				<div className="main-page-view-buttons">
+					<button onClick={handleShowNewEntry}>Nouvel élément</button>
+					<button onClick={handleShowQuiz}>Nouvelle question</button>
+				</div>
+				<div className="main-page-view-content">
+					{activeView === 'newEntry' && (
+						<NewEntryForm formatter={formatter} onEntryCreated={setUserScores}/>
+					)}
+					{activeView === 'quiz' && (
+						<>
+							{quizMessage}
+							{quizPair && <DualQuiz left={quizPair[0]} right={quizPair[1]} onVoted={handleVoted}/>}
+						</>
+					)}
 				</div>
 			</div>
-
-			<hr/>
-
-			<table>
-				<thead>
-					<tr>
-						<th>Entry</th>
-						<th>Manual</th>
-						<th>Computed</th>
-					</tr>
-				</thead>
-				<tbody>
-					{sortedScores.map((entry) => (
-						<tr key={entry.id}>
-							<td>{entry.label}</td>
-							<td>{formatter.pretty(entry.man)}</td>
-							<td>{formatter.pretty(entry.cur)}</td>
-						</tr>
-					))}
-				</tbody>
-			</table>
 		</div>
 	)
 }

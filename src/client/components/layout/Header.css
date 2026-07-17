@@ -1,0 +1,25 @@
+.app-header {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 4em;
+	z-index: 100;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 1em;
+	background-color: #FCE8C6;
+	border-bottom: 2px solid #5C4033;
+}
+
+.app-header-title {
+	font-size: 1.4em;
+	font-weight: bold;
+}
+
+.app-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75em;
+}

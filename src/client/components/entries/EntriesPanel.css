@@ -1,0 +1,26 @@
+.entries-panel {
+	position: fixed;
+	top: 4em;
+	bottom: 0;
+	right: 0;
+	width: 300px;
+	overflow-y: auto;
+	background-color: #F5F5F5;
+	border-left: 2px solid #5C4033;
+	box-sizing: border-box;
+	padding: 1em;
+	z-index: 50;
+}
+
+.entries-panel-toggle {
+	position: fixed;
+	top: calc(4em + 1em);
+	right: 300px;
+	z-index: 60;
+	border: 1px solid #5C4033;
+	background-color: #FCE8C6;
+}
+
+.entries-panel-toggle-closed {
+	right: 0;
+}

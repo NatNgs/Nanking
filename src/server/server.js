@@ -33,7 +33,7 @@ app.get('/favicon.ico', (req, res) => {
 	res.sendFile(file)
 })
 app.use(express_static(CONFIG.CLIENT_DIST_PATH));
-app.post('/login', loginLimiter, (req, res) => {
+app.post('/api/login', loginLimiter, (req, res) => {
 	// Create new account
 	if(req.body.new === 'true') {
 		const success = ACCOUNTS.add(req.body.login, req.body.pwd)
@@ -71,15 +71,19 @@ app.post('/login', loginLimiter, (req, res) => {
 
 // Authenticated
 
-app.use('/user', userRouter)
-app.use('/quiz', quizRouter)
+app.use('/api/user', userRouter)
+app.use('/api/quiz', quizRouter)
 
 
 // ERRORS
 
 app.all('{*splat}', (req, res) => {
 	console.debug(req.originalUrl, '(404: Not Found)')
-	res.status(404).redirect('/')
+	if(req.path.startsWith('/api/')) {
+		res.status(404).end()
+	} else {
+		res.status(404).sendFile(CONFIG.CLIENT_DIST_PATH + '/index.html')
+	}
 })
 
 

@@ -1,0 +1,23 @@
+.main-page-content {
+	padding-top: 4em;
+	box-sizing: border-box;
+	min-height: 100vh;
+}
+
+.main-page-content.panel-open {
+	margin-right: 300px;
+}
+
+.main-page-content.panel-closed {
+	margin-right: 0;
+}
+
+.main-page-view-buttons {
+	display: flex;
+	gap: 1em;
+	padding: 1em;
+}
+
+.main-page-view-content {
+	padding: 0 1em;
+}

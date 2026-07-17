@@ -4,23 +4,26 @@
  * the server (sliding session), mirroring the behavior of the previous callAPI().
  */
 async function apiFetch(path, method, data) {
-	const headers = {'Authorization': window.localStorage.getItem('token')}
+	let url = '/api' + path
+	const headers = {}
+	const token = window.localStorage.getItem('token')
+	if(token) headers['Authorization'] = token
 
 	const options = {method, headers}
 	if(method === 'GET') {
-		if(data) path += '?' + new URLSearchParams(data).toString()
+		if(data) url += '?' + new URLSearchParams(data).toString()
 	} else {
 		headers['Content-Type'] = 'application/json'
 		options.body = JSON.stringify(data)
 	}
 
-	const response = await fetch(path, options)
+	const response = await fetch(url, options)
 
-	const token = response.headers.get('authorization')
-	if(token) window.localStorage.setItem('token', token)
+	const refreshedToken = response.headers.get('authorization')
+	if(refreshedToken) window.localStorage.setItem('token', refreshedToken)
 
 	if(!response.ok) {
-		const error = new Error('API request failed: ' + path)
+		const error = new Error('API request failed: ' + url)
 		error.status = response.status
 		throw error
 	}
