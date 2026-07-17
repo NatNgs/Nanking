@@ -2,9 +2,11 @@
 
 ## Scope
 
-New implementation of Nanking in progress, based on a Node.js/Express backend with in-memory persistence (gzip-compressed on disk) and a homemade jQuery SPA front-end.
+New implementation of Nanking in progress, based on a Node.js/Express backend with in-memory persistence (gzip-compressed on disk) and a React SPA front-end built with Vite.
 
-Files involved: [src/client/](../src/client), [src/server/](../src/server), [package.json](../package.json).
+Files involved: [src/client/](../src/client), [src/server/](../src/server), [package.json](../package.json), [vite.config.js](../vite.config.js).
+
+Sources live under `src/client/` (React) and `src/server/` (Express). `npm install` triggers a build (via `postinstall`) that compiles the client with Vite into `dist/client/`. The server has nothing to compile — it is plain ES modules, run directly from `src/server/` (`npm run serve` runs `src/server/server.js`). Only the client goes through a build step.
 
 ## 1. Application description and implemented features
 
@@ -17,8 +19,8 @@ Home page (`/`) offering login and account creation.
 - Account creation: sends the login and the client-side hash with a "new account" flag.
 - Login: the server responds with a session token sent in a dedicated HTTP header.
 - Automatic reconnection: the token is kept in `localStorage` and revalidated/refreshed on every authenticated request (sliding session).
-- Logout: removes the local token and reloads the page.
-- Login constraints: restricted format (lowercase letters, digits, `_.-`, 4 to 20 characters), checked both client-side and server-side.
+- Logout: removes the local token and resets the client-side authentication state.
+- Login constraints: restricted format (letters, digits, `_.-`, 4 to 20 characters), checked both client-side and server-side. Account lookup and uniqueness are always case-insensitive, but the login is displayed back to the user with the exact case it was typed in at registration (`displayLogin`, stored alongside the account, falls back to the lowercase lookup key for accounts created before this field existed).
 
 ### 1.2 Entry management and manual scores
 
@@ -49,31 +51,39 @@ Main page accessible after login:
 ### 2.1 Stack
 
 - **Runtime**: Node.js, native ES modules (`"type": "module"`).
-- **HTTP server**: Express 5, served over **HTTPS** (certificates required in a `cert/` folder, not included in the repository).
-- **Middleware**: body-parser (`urlencoded` for login, `json` for application routes).
+- **HTTP server**: Express 5, served over **HTTPS** by default (certificate required in the `cert/` folder, not included in the repository); a `--http` command-line flag forces plain HTTP for development (see [Authentication and security](#24-authentication-and-security)).
+- **Middleware**: body-parser (`urlencoded` for login, `json` for application routes), `express-rate-limit` (see [Authentication and security](#24-authentication-and-security)).
 - **Persistence**: in-memory JSON object, gzip-compressed on disk as a single file (see [Persistence](#25-data-persistence)).
 - **Session identifiers**: `uuid` v4.
-- **Entry point**: `src/server/server.js`, launched via `npm run serve`.
+- **Front-end**: React, built with Vite (`react-router` for routing).
+- **Entry point**: `src/server/server.js`, launched via `npm run serve` (run directly, not built/copied).
 - Port 8053 by default, overridable through configuration; displays available LAN IPs on startup and handles graceful shutdown (SIGTERM/SIGINT/SIGHUP).
 
 ### 2.2 Folder organization
 
 ```
 src/
-├── client/                    Static front-end (served via express.static)
+├── client/                    React source (built by Vite into dist/client/)
+│   ├── index.html              Vite entry point
+│   ├── main.jsx                 Mounts <BrowserRouter><App/></BrowserRouter>
+│   ├── App.jsx                  Route definitions ("/" renders Home or Main depending on auth state)
 │   ├── assets/                Images (default placeholder)
-│   ├── pages/home/             Unauthenticated home page (login/register)
-│   ├── parts/                  HTML fragments loaded dynamically as an SPA
-│   │   ├── main/                Entry list and scores
-│   │   └── dual/                Voting duel frame
-│   └── scripts/                Shared JS scripts (SPA routing, quiz, score formatting)
+│   ├── hooks/
+│   │   ├── useAuth.js            Login/register/logout, token lifecycle
+│   │   └── useApi.js             fetch-based GET/POST/PUT helpers, token header + refresh handling
+│   ├── pages/
+│   │   ├── home/HomePage.jsx      Login/register forms (unauthenticated)
+│   │   └── main/MainPage.jsx      Entry list, scores, quiz launcher (authenticated)
+│   ├── components/dual/DualQuiz.jsx   Pairwise voting duel component
+│   └── lib/scoreFormatter.js     Score display format conversion (Percent/MAL)
 └── server/
     ├── server.js               Entry point, Express configuration, public routes, startup/shutdown
     ├── config/                  Centralized configuration
-    │   └── config.js              Port, certificate paths, DB path, token durations, shutdown timeout
+    │   └── config.js              Port, certificate paths, DB path, client dist path, token durations, shutdown timeout
     ├── lib/                    Vendored third-party-style helpers with no external dependency
     ├── middleware/              Cross-cutting Express middleware
-    │   └── authenticate.js        Token check + sliding refresh, attaches req.user
+    │   ├── authenticate.js        Token check + sliding refresh, attaches req.user
+    │   └── rateLimit.js           Per-route rate limiting (login vs authenticated routes)
     ├── services/                Business logic between routers and data managers
     │   └── userService.js         Response serialization, score validation
     ├── data/                    Data access layer ("model" managers)
@@ -84,6 +94,9 @@ src/
     └── routers/                 Controller layer (Express routes)
         ├── userRoutes.js          /user/*
         └── quizRoutes.js          /quiz/*
+
+dist/                          Generated by `npm run build` (or `npm install`'s postinstall hook), gitignored
+└── client/                    Vite build output, served statically by Express (src/server/ runs as-is, not built)
 ```
 
 ### 2.3 Architectural pattern
@@ -96,17 +109,19 @@ Layered structure close to a lightweight MVC, typical of an Express application:
 - **Data managers**: model/DAO layer, one singleton per entity (accounts, entries, users), each encapsulating its own logic. Mutations stay in memory only; persistence to disk happens exclusively through an explicit `save()`, called once during graceful shutdown after the HTTP server has fully closed.
 - **DB**: low-level access layer, a single shared singleton, with a key-namespacing system (dot notation) to organize data within one in-memory object.
 
-No server-side view engine. The client is a **minimal homemade jQuery SPA**: HTML fragments are loaded dynamically via AJAX and injected into the page, with no bundler or build step.
+No server-side view engine. The client is a **React SPA built with Vite**, routed with `react-router`. Authentication and API access are centralized in custom hooks (`hooks/useAuth.js`, `hooks/useApi.js`) rather than spread across page scripts.
 
 Routes do not follow a strict REST CRUD convention but stay consistent with HTTP verbs (GET for reads, POST for login/actions, PUT for updating a resource).
 
 ### 2.4 Authentication and security
 
-- Password hashed with SHA-512 client-side (salt = login + fixed constant), then re-hashed server-side with `scrypt` using a random salt generated per account (16 bytes), stored in the database but never transmitted by any API. Password comparison uses a constant-time check (`timingSafeEqual`).
-- Session tokens generated as UUID v4, kept **in server memory only** (not persisted to the database): lost on server restart, which logs out every user.
-- Absolute token expiration after 16 hours, automatic refresh if the token is older than 1 hour (sliding session): every authenticated request returns a refreshed token in the response header, which the client persists.
-- A shared authentication middleware protects the routes under `/user/*` and `/quiz/*`, returning 401 if the token is missing or invalid.
-- These durations, along with the port, certificate paths, and database path, are centralized in `src/server/config/config.js` and overridable via environment variables.
+- Password hashed with SHA-512 client-side (salt = login, always lowercased regardless of the case typed, + fixed constant), then re-hashed server-side with `scrypt` using a random salt generated per account (16 bytes), stored in the database but never transmitted by any API. Password comparison uses a constant-time check (`timingSafeEqual`).
+- Session tokens generated as UUID v4. Each token is bound to the IP address it was issued/refreshed on: `check_token` fails if a valid token is presented from a different IP. Neither the raw token nor the IP are kept in memory — only `sha256(token + '|' + ip)` is stored as the lookup key, so a memory dump exposes nothing directly reusable. This binding, like the tokens themselves, lives **in server memory only** (never persisted): lost on server restart, which logs out every user.
+- Absolute token expiration after 16 hours, automatic refresh if the token is older than 1 hour (sliding session): every authenticated request returns a refreshed token in the response header, which the client persists. If the caller already validated the current token on this request, refreshing returns it as-is instead of minting a new one — no need to keep a raw token in memory just to "give it back" later.
+- A shared authentication middleware protects the routes under `/user/*` and `/quiz/*`, returning 401 if the token is missing, invalid, or bound to a different IP.
+- Rate limiting (`express-rate-limit`, `src/server/middleware/rateLimit.js`): `POST /login` is limited to 5 requests/minute keyed by IP; `/user/*` and `/quiz/*` are limited to 60 requests/minute keyed by the authenticated username (falls back to IP if unavailable). Exceeding the limit returns `429` with a `Retry-After` header.
+- These durations, along with the port, certificate paths, database path, and client dist path, are centralized in `src/server/config/config.js` and overridable via environment variables.
+- HTTPS is the default. If `--http` is passed on the command line, the server starts in plain HTTP mode and `CERT_KEY_PATH`/`CERT_CERT_PATH` are never read, whether they are set correctly or not. Without `--http`, if either certificate file is missing or unreadable, the server logs an error and exits (code 1) rather than starting without transport encryption — there is no silent fallback.
 
 ### 2.5 Data persistence
 
@@ -125,21 +140,21 @@ Data managers only mutate this in-memory object through their own `save()` metho
 
 | Method | Route | Authenticated | Role |
 |---|---|---|---|
-| GET | `/` | no | Serves the home page |
+| GET | `/` | no | Serves the React app's `index.html` (`dist/client/index.html`) |
 | GET | `/favicon.ico` | no | Serves the site icon (file currently missing) |
-| GET | `/*` (static) | no | Serves the client's assets, fragments, and scripts |
-| POST | `/login` | no | Login, account creation, or token revalidation (3 branches depending on the request content) |
+| GET | `/*` (static) | no | Serves the compiled client bundle (`dist/client/`) |
+| POST | `/login` | no (rate-limited by IP) | Login, account creation, or token revalidation (3 branches depending on the request content) |
 | GET | `/user/me` | yes | Returns the current user's data |
 | PUT | `/user/entry` | yes | Creates or updates an entry's manual score |
 | POST | `/quiz/dual` | yes | Receives a duel vote (not processed yet) |
-| ALL | catch-all | no | 404, redirects to the home page |
+| ALL | catch-all | no | 404, redirects to `/` |
 
 ### 2.7 Client-server communication
 
-- AJAX via jQuery, no native fetch.
-- A single client module centralizes SPA routing and API calls: automatic injection of the token in the authorization header, JSON serialization of the request body, capture and persistence of the refreshed token returned by the server.
+- Native `fetch` API, centralized in `hooks/useApi.js` (`apiGet`/`apiPost`/`apiPut`): automatic injection of the token in the `Authorization` header, JSON serialization of the request body, capture and persistence of the refreshed token returned by the server.
 - The token is transmitted exclusively through a custom HTTP header, no cookie or Express session.
 - Exchange format: JSON for application routes, form-urlencoded for login.
+- In development, `vite.config.js` proxies `/login`, `/user`, and `/quiz` from the Vite dev server to the Express server (`npm run dev` starts both, via `concurrently`).
 
 ### 2.8 Automated tests
 
@@ -148,8 +163,9 @@ Unit tests live under `test/`, mirroring the `src/server/` structure, using Node
 ## 3. Points of attention
 
 1. `POST /quiz/dual` is a functional stub: the vote is received but no data is persisted or recomputed. Feature in progress, not delivered.
-2. Elements required at runtime but absent from the repository: the site icon (`Nanking.ico`) and the `cert/` folder containing the HTTPS certificate (`server.key`/`server.cert`, intentionally excluded from version control — it must be generated locally by whoever operates the server).
-3. The home page's stylesheet is currently empty.
-4. Session tokens are kept in memory only (not persisted), so a server restart logs out every user.
-5. No rate-limiting yet on any endpoint (see the TODO and implementation notes in [README.md](../README.md)).
+2. Elements absent from the repository: the site icon (`Nanking.ico`), and the `cert/` folder containing the HTTPS certificate (`server.key`/`server.cert`, intentionally excluded from version control). Required unless the server is started with `--http` (development only).
+3. The home page's stylesheet (`HomePage.css`) is currently empty.
+4. Session tokens (and their IP binding) are kept in memory only (not persisted), so a server restart logs out every user.
+5. `npm install` runs the client build automatically (`postinstall`), which requires no certificate and does not start the server. `npm run serve` and `npm run dev:https` require `cert/` to exist locally; `npm run dev` and `npm run dev:http` do not (they start the server with `--http`).
 6. Serverless-version features not yet ported: MyAnimeList/Jikan import, tags/categories, score computation through transitive vote propagation (see [Serverless.md](Serverless.md)).
+7. Possible future migration to `express-session` (see [README.md](../README.md) TODO) is unaffected by this React migration — the client-side impact described there (`hooks/useAuth.js`, `hooks/useApi.js`) still applies to the current codebase.

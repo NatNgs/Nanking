@@ -1,0 +1,16 @@
+.dual-quiz table {
+	width: 100%;
+}
+.dual-quiz table td {
+	text-align: center;
+}
+.dual-quiz img {
+	width: 100px;
+	height: 100px;
+}
+.dual-quiz-left, .dual-quiz-right {
+	width: 50%;
+}
+.dual-quiz-bt3 {
+	width: 30%;
+}

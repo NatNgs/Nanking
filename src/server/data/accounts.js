@@ -27,7 +27,7 @@ function hashTokenIp(token, ip) {
 class AccountManager {
 	constructor(db) {
 		this.db = db.sub('p#')
-		this.accounts = {} // {user: {hash, salt}}
+		this.accounts = {} // {user: {hash, salt, displayLogin}}
 		this.tokens = {}
 		this.tokens_reverse = {}
 
@@ -41,15 +41,24 @@ class AccountManager {
 		if(!user || !pwd) return false
 
 		// Check: username should match regex
-		user = user.trim().toLowerCase()
+		const displayLogin = user.trim()
+		user = displayLogin.toLowerCase()
 		if(!user.match(USER_REGEX)) return false
 
 		// If account already exists, return false
 		if(this.accounts[user]) return false
 
 		const salt = randomBytes(16).toString('hex')
-		this.accounts[user] = {hash: hashWithSalt(pwd, salt), salt}
+		this.accounts[user] = {hash: hashWithSalt(pwd, salt), salt, displayLogin}
 		return true
+	}
+	/**
+	 * Returns the login as the user originally typed it when creating the account
+	 * (preserving case), falling back to the lookup key itself for accounts stored
+	 * before this field existed.
+	 */
+	getDisplayLogin(user) {
+		return this.accounts[user]?.displayLogin || user
 	}
 	login(user, pwd, ip) {
 		if(!user || !pwd) return false

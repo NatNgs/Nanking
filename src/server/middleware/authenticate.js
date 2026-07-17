@@ -16,6 +16,7 @@ function authenticate(req, res, next) {
 	const newToken = ACCOUNTS.refresh_token(user, req.ip, token)
 	res.setHeader('authorization', newToken)
 	req.user = getUser(user)
+	req.user.displayLogin = ACCOUNTS.getDisplayLogin(user)
 	next()
 }
 

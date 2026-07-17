@@ -5,7 +5,13 @@
 	"main": "src/server/server.js",
 	"type": "module",
 	"scripts": {
+		"build": "vite build",
+		"postinstall": "npm run build",
 		"serve": "node src/server/server.js",
+		"dev:http": "node src/server/server.js --http",
+		"dev:https": "node src/server/server.js",
+		"dev:client": "vite",
+		"dev": "concurrently \"npm:dev:http\" \"npm:dev:client\"",
 		"test": "node --test --test-global-setup=test/globalSetup.js test/**/*.test.js"
 	},
 	"author": "Nathael Nogues",
@@ -15,7 +21,11 @@
 		"body-parser": "^2.3.0",
 		"express": "^5.2.1",
 		"express-rate-limit": "^8.6.0",
+		"jssha": "^3.3.2",
 		"node": "^26.5.0",
+		"react": "^19.2.7",
+		"react-dom": "^19.2.7",
+		"react-router": "^8.2.0",
 		"uuid": "^14.0.1"
 	},
 	"repository": {
@@ -23,6 +33,10 @@
 		"url": "https://github.com/NatNgs/Nanking"
 	},
 	"devDependencies": {
-		"eslint": "^10.7.0"
+		"@vitejs/plugin-react": "^6.0.3",
+		"concurrently": "^10.0.3",
+		"eslint": "^10.7.0",
+		"eslint-plugin-react-hooks": "^7.1.1",
+		"vite": "^8.1.5"
 	}
 }

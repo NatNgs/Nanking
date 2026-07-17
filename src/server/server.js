@@ -1,10 +1,10 @@
-import { createServer } from 'node:https'
+import { createServer as createHttpsServer } from 'node:https'
+import { createServer as createHttpServer } from 'node:http'
 import express, { 'static' as express_static } from 'express'
 const app = express()
 import { readFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { urlencoded, json } from 'body-parser'
-import { resolve } from 'node:path'
 import CONFIG from './config/config.js'
 import DB from './data/db.js'
 import ACCOUNTS from './data/accounts.js'
@@ -13,8 +13,6 @@ import { saveAllUsers } from './data/user.js'
 import { loginLimiter } from './middleware/rateLimit.js'
 import userRouter from './routers/userRoutes.js'
 import quizRouter from './routers/quizRoutes.js'
-
-const __project = resolve(import.meta.dirname + '/../..')
 
 // Configuring express to use body-parser
 // as middle-ware
@@ -25,19 +23,16 @@ app.use(json())
 // Unauthenticated
 
 app.get('/', (req, res) => {
-	const file = __project + '/src/client/pages/home/home.html'
+	const file = CONFIG.CLIENT_DIST_PATH + '/index.html'
 	//console.debug(req.originalUrl, '('+ file + ')')
 	res.sendFile(file)
-})
-app.get('/pages/home/home.html', (req, res) => {
-	res.redirect('/')
 })
 app.get('/favicon.ico', (req, res) => {
-	const file = __project + '/src/client/assets/Nanking.ico'
+	const file = CONFIG.CLIENT_DIST_PATH + '/assets/Nanking.ico'
 	//console.debug(req.originalUrl, '('+ file + ')')
 	res.sendFile(file)
 })
-app.use(express_static(__project + '/src/client'));
+app.use(express_static(CONFIG.CLIENT_DIST_PATH));
 app.post('/login', loginLimiter, (req, res) => {
 	// Create new account
 	if(req.body.new === 'true') {
@@ -91,20 +86,39 @@ app.all('{*splat}', (req, res) => {
 //
 // Launching server
 
-// Creating object of key and certificate
-// for SSL
-const options = {
-	key: readFileSync(CONFIG.CERT_KEY_PATH),
-	cert: readFileSync(CONFIG.CERT_CERT_PATH),
+// HTTPS by default. Pass --http on the command line to force plain HTTP (development
+// only): certificate options are then ignored entirely, valid or not.
+const useHttp = process.argv.includes('--http')
+
+let protocol
+let server
+if(useHttp) {
+	protocol = 'http'
+	console.warn('Starting in plain HTTP mode (--http). Do not use this mode in production.')
+	server = createHttpServer(app)
+} else {
+	protocol = 'https'
+	let options
+	try {
+		options = {
+			key: readFileSync(CONFIG.CERT_KEY_PATH),
+			cert: readFileSync(CONFIG.CERT_CERT_PATH),
+		}
+	} catch(e) {
+		console.error('Could not read SSL certificate/key (' + e.message + ').')
+		console.error('Pass --http to start without HTTPS (development only).')
+		process.exit(1)
+	}
+	server = createHttpsServer(options, app)
 }
 
 const serverPort = CONFIG.PORT
-const server = createServer(options, app).listen(serverPort, () => {
+server.listen(serverPort, () => {
 	// Listing IP and ports available for connexion (LAN)
 	console.info('Server listening on:')
 	Object.values(networkInterfaces()).forEach((ifs) => ifs.forEach((iface) =>
 		('IPv4' === iface.family)
-		&& console.info('\t' + iface.address + ':' + serverPort)
+		&& console.info('\t' + protocol + '://' + iface.address + ':' + serverPort)
 	))
 	console.info() // Newline
 })

@@ -6,3 +6,4 @@ package-lock.json
 cert/
 test/tmp/
 .claude/
+dist/

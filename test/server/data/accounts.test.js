@@ -210,4 +210,43 @@ describe('AccountManager', () => {
 		const reloadedAccounts = new AccountManager(reloadedDb)
 		assert.deepEqual(reloadedAccounts.tokens_reverse, {})
 	})
+
+	test('getDisplayLogin() returns the login with the case it was created with', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('Bobby', 'hashedpwd')
+		assert.equal(accounts.getDisplayLogin('bobby'), 'Bobby')
+	})
+
+	test('login() succeeds regardless of the case used, once the account exists', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('Bobby', 'hashedpwd')
+		assert.ok(accounts.login('BOBBY', 'hashedpwd'))
+		assert.ok(accounts.login('bobby', 'hashedpwd'))
+	})
+
+	test('add() refuses an account whose login differs only by case from an existing one', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('Bobby', 'hashedpwd')
+		assert.equal(accounts.add('bobby', 'otherpwd'), false)
+		assert.equal(accounts.add('BOBBY', 'otherpwd'), false)
+	})
+
+	test('getDisplayLogin() falls back to the lookup key for accounts stored before displayLogin existed', () => {
+		const accounts = new AccountManager(db)
+		// Simulates a legacy account persisted before this field was introduced
+		accounts.accounts.bobby = {hash: 'x', salt: 'y'}
+		assert.equal(accounts.getDisplayLogin('bobby'), 'bobby')
+	})
+
+	test('displayLogin survives a save()/db.save()/load() round-trip', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('Bobby', 'hashedpwd')
+		accounts.save()
+		db.save(TEST_DB_PATH)
+
+		const reloadedDb = new Manager({})
+		reloadedDb.load(TEST_DB_PATH)
+		const reloadedAccounts = new AccountManager(reloadedDb)
+		assert.equal(reloadedAccounts.getDisplayLogin('bobby'), 'Bobby')
+	})
 })
