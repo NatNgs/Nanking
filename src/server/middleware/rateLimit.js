@@ -37,4 +37,18 @@ const apiLimiter = rateLimit({
 	handler,
 })
 
-export { loginLimiter, apiLimiter }
+/**
+ * Looser limit on the public profile route (`GET /user/:username`), keyed by
+ * IP. Calibrated for casual browsing, not for password brute-forcing like
+ * `loginLimiter` - kept separate rather than reused for that reason.
+ */
+const publicProfileLimiter = rateLimit({
+	windowMs: MINUTE,
+	limit: 30,
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: (req) => ipKeyGenerator(req.ip),
+	handler,
+})
+
+export { loginLimiter, apiLimiter, publicProfileLimiter }

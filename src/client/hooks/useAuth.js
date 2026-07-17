@@ -52,4 +52,4 @@ function useAuth() {
 	return {isAuthenticated, isLoading, login, register, logOut}
 }
 
-export { useAuth }
+export { useAuth, hashPassword }

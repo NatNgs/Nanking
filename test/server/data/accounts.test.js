@@ -249,4 +249,61 @@ describe('AccountManager', () => {
 		const reloadedAccounts = new AccountManager(reloadedDb)
 		assert.equal(reloadedAccounts.getDisplayLogin('bobby'), 'Bobby')
 	})
+
+	test('verifyPassword() succeeds with the correct password, without emitting or refreshing any token', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('bobby', 'hashedpwd')
+		assert.equal(accounts.verifyPassword('bobby', 'hashedpwd'), true)
+		assert.deepEqual(accounts.tokens_reverse, {})
+	})
+
+	test('verifyPassword() fails with a wrong password', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('bobby', 'hashedpwd')
+		assert.equal(accounts.verifyPassword('bobby', 'wrongpwd'), false)
+	})
+
+	test('verifyPassword() fails when the account does not exist', () => {
+		const accounts = new AccountManager(db)
+		assert.equal(accounts.verifyPassword('ghost', 'hashedpwd'), false)
+	})
+
+	test('remove() deletes the account and returns true', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('bobby', 'hashedpwd')
+		assert.equal(accounts.remove('bobby'), true)
+		assert.equal(accounts.accounts.bobby, undefined)
+		assert.equal(accounts.login('bobby', 'hashedpwd'), false)
+	})
+
+	test('remove() returns false when the account does not exist', () => {
+		const accounts = new AccountManager(db)
+		assert.equal(accounts.remove('ghost'), false)
+	})
+
+	test('remove() invalidates the associated token', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('bobby', 'hashedpwd')
+		const token = accounts.login('bobby', 'hashedpwd', '1.2.3.4')
+		accounts.remove('bobby')
+		assert.equal(accounts.check_token(token, '1.2.3.4'), false)
+		assert.equal(accounts.tokens_reverse.bobby, undefined)
+	})
+
+	test('remove() persists across a save()/db.save()/reload cycle, even when save() runs again afterwards', () => {
+		const accounts = new AccountManager(db)
+		accounts.add('bobby', 'hashedpwd')
+		accounts.save()
+		db.save(TEST_DB_PATH)
+
+		accounts.remove('bobby')
+		accounts.save() // must not re-introduce the removed account into the shared db
+		db.save(TEST_DB_PATH)
+
+		const reloadedDb = new Manager({})
+		reloadedDb.load(TEST_DB_PATH)
+		const reloadedAccounts = new AccountManager(reloadedDb)
+		assert.equal(reloadedAccounts.login('bobby', 'hashedpwd'), false)
+		assert.equal(reloadedAccounts.accounts.bobby, undefined)
+	})
 })

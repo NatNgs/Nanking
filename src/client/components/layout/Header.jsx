@@ -1,13 +1,14 @@
+import { Link } from 'react-router'
 import './Header.css'
 
 function Header({username, isAuthenticated, onOpenLogin, onLogOut}) {
 	return (
 		<header className="app-header">
-			<span className="app-header-title">Nanking</span>
+			<Link to="/" className="app-header-link app-header-title">Nanking</Link>
 			<div className="app-header-actions">
 				{isAuthenticated ? (
 					<>
-						<span className="app-header-username">{username}</span>
+						<Link to="/user/me" className="app-header-link app-header-username">{username}</Link>
 						<button onClick={onLogOut}>Log out</button>
 					</>
 				) : (

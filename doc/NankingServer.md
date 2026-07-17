@@ -39,7 +39,13 @@ Main page accessible after login:
 
 **Current state: feature not finalized.** The server receives the vote but does not persist it or recompute the "computed" score from it: that score stays strictly equal to the entered manual score. The comparison-based scoring mechanism (present in the Serverless version through transitive propagation, see [Serverless.md](Serverless.md)) is not yet ported to this new server.
 
-### 1.4 Features not yet ported from the Serverless version
+### 1.4 User profiles and account deletion
+
+- `/user/<username>`: public page, accessible with or without being logged in. Displays the target user's login as a title and a table of their entries with **computed scores only** (never manual scores). Returns a "user not found" error page if the account does not exist (case-insensitive lookup, consistent with login).
+- `/user/me`: private page, requires being logged in (redirects to `/` otherwise). Displays the current user's login as a title, a link to their own public profile page (`/user/<username>`), and a "Remove my account" button.
+- Account deletion: opens a confirmation pop-in asking to re-enter the password. On submit, the server re-checks the password against the stored hash (`AccountManager.verifyPassword()`, same hashing logic as `login()` but without creating or refreshing any token) **in addition to** the already-validated session token. On success, the account and all of its user data (scores) are permanently deleted — the shared entry catalog is never touched. The client then clears the local token and redirects to `/`.
+
+### 1.5 Features not yet ported from the Serverless version
 
 - MyAnimeList / Jikan import.
 - Tag/category system per entry.
@@ -65,16 +71,20 @@ Main page accessible after login:
 src/
 ├── client/                    React source (built by Vite into dist/client/)
 │   ├── index.html              Vite entry point
-│   ├── main.jsx                 Mounts <BrowserRouter><App/></BrowserRouter>
-│   ├── App.jsx                  Route definitions ("/" renders Home or Main depending on auth state)
+│   ├── main.jsx                 Mounts <RouterProvider router={router}/>
+│   ├── router.jsx               createBrowserRouter route tree (loader + errorElement for 404s)
 │   ├── assets/                Images (default placeholder)
 │   ├── hooks/
-│   │   ├── useAuth.js            Login/register/logout, token lifecycle
-│   │   └── useApi.js             fetch-based GET/POST/PUT helpers, token header + refresh handling
+│   │   ├── useAuth.js            Login/register/logout, token lifecycle, hashPassword()
+│   │   └── useApi.js             fetch-based GET/POST/PUT/DELETE helpers, token header + refresh handling
 │   ├── pages/
-│   │   ├── home/HomePage.jsx      Login/register forms (unauthenticated)
-│   │   └── main/MainPage.jsx      Entry list, scores, quiz launcher (authenticated)
-│   ├── components/dual/DualQuiz.jsx   Pairwise voting duel component
+│   │   ├── main/MainPage.jsx      Entry list, scores, quiz launcher (authenticated)
+│   │   ├── profile/ProfilePage.jsx  Public profile page (/user/:username), computed scores only
+│   │   ├── account/AccountPage.jsx  Private account page (/user/me), account deletion entry point
+│   │   └── error/ErrorPage.jsx      404 / "user not found" (via useRouteError/isRouteErrorResponse)
+│   ├── components/
+│   │   ├── dual/DualQuiz.jsx           Pairwise voting duel component
+│   │   └── account/DeleteAccountModal.jsx  Password confirmation pop-in for account deletion
 │   └── lib/scoreFormatter.js     Score display format conversion (Percent/MAL)
 └── server/
     ├── server.js               Entry point, Express configuration, public routes, startup/shutdown
@@ -83,17 +93,17 @@ src/
     ├── lib/                    Vendored third-party-style helpers with no external dependency
     ├── middleware/              Cross-cutting Express middleware
     │   ├── authenticate.js        Token check + sliding refresh, attaches req.user
-    │   └── rateLimit.js           Per-route rate limiting (login vs authenticated routes)
+    │   └── rateLimit.js           Per-route rate limiting (login / authenticated routes / public profile)
     ├── services/                Business logic between routers and data managers
-    │   └── userService.js         Response serialization, score validation
+    │   └── userService.js         Response serialization, score validation, public profile data, account deletion
     ├── data/                    Data access layer ("model" managers)
     │   ├── db.js                  In-memory store wrapper, gzip load/save
-    │   ├── accounts.js            Accounts, authentication, session tokens
+    │   ├── accounts.js            Accounts, authentication, session tokens, verifyPassword/remove
     │   ├── entries.js             Global entry catalog
-    │   └── user.js                Per-user scores
+    │   └── user.js                Per-user scores, deleteUser
     └── routers/                 Controller layer (Express routes)
-        ├── userRoutes.js          /user/*
-        └── quizRoutes.js          /quiz/*
+        ├── userRoutes.js          /api/user/*
+        └── quizRoutes.js          /api/quiz/*
 
 dist/                          Generated by `npm run build` (or `npm install`'s postinstall hook), gitignored
 └── client/                    Vite build output, served statically by Express (src/server/ runs as-is, not built)
@@ -118,8 +128,9 @@ Routes do not follow a strict REST CRUD convention but stay consistent with HTTP
 - Password hashed with SHA-512 client-side (salt = login, always lowercased regardless of the case typed, + fixed constant), then re-hashed server-side with `scrypt` using a random salt generated per account (16 bytes), stored in the database but never transmitted by any API. Password comparison uses a constant-time check (`timingSafeEqual`).
 - Session tokens generated as UUID v4. Each token is bound to the IP address it was issued/refreshed on: `check_token` fails if a valid token is presented from a different IP. Neither the raw token nor the IP are kept in memory — only `sha256(token + '|' + ip)` is stored as the lookup key, so a memory dump exposes nothing directly reusable. This binding, like the tokens themselves, lives **in server memory only** (never persisted): lost on server restart, which logs out every user.
 - Absolute token expiration after 16 hours, automatic refresh if the token is older than 1 hour (sliding session): every authenticated request returns a refreshed token in the response header, which the client persists. If the caller already validated the current token on this request, refreshing returns it as-is instead of minting a new one — no need to keep a raw token in memory just to "give it back" later.
-- A shared authentication middleware protects the routes under `/user/*` and `/quiz/*`, returning 401 if the token is missing, invalid, or bound to a different IP.
-- Rate limiting (`express-rate-limit`, `src/server/middleware/rateLimit.js`): `POST /login` is limited to 5 requests/minute keyed by IP; `/user/*` and `/quiz/*` are limited to 60 requests/minute keyed by the authenticated username (falls back to IP if unavailable). Exceeding the limit returns `429` with a `Retry-After` header.
+- A shared authentication middleware protects the authenticated routes under `/user/*` and `/quiz/*` (applied per-route rather than globally, so that the public `GET /user/:username` route can coexist under the same `/user` prefix), returning 401 if the token is missing, invalid, or bound to a different IP.
+- Rate limiting (`express-rate-limit`, `src/server/middleware/rateLimit.js`): `POST /login` is limited to 5 requests/minute keyed by IP; `/user/*` and `/quiz/*` (authenticated routes) are limited to 60 requests/minute keyed by the authenticated username (falls back to IP if unavailable); the public `GET /user/:username` profile route is limited to 30 requests/minute keyed by IP (`publicProfileLimiter`, looser than the login limiter since it is not a password brute-force target). Exceeding any limit returns `429` with a `Retry-After` header.
+- Account deletion (`DELETE /user/me`) requires both a valid session token (`authenticate` middleware) and the account's password re-entered and re-verified server-side (`AccountManager.verifyPassword()`), a dedicated method that mirrors `login()`'s hashing/comparison logic without emitting or refreshing any token.
 - These durations, along with the port, certificate paths, database path, and client dist path, are centralized in `src/server/config/config.js` and overridable via environment variables.
 - HTTPS is the default. If `--http` is passed on the command line, the server starts in plain HTTP mode and `CERT_KEY_PATH`/`CERT_CERT_PATH` are never read, whether they are set correctly or not. Without `--http`, if either certificate file is missing or unreadable, the server logs an error and exits (code 1) rather than starting without transport encryption — there is no silent fallback.
 
@@ -143,10 +154,12 @@ Data managers only mutate this in-memory object through their own `save()` metho
 | GET | `/` | no | Serves the React app's `index.html` (`dist/client/index.html`) |
 | GET | `/favicon.ico` | no | Serves the site icon (file currently missing) |
 | GET | `/*` (static) | no | Serves the compiled client bundle (`dist/client/`) |
-| POST | `/login` | no (rate-limited by IP) | Login, account creation, or token revalidation (3 branches depending on the request content) |
-| GET | `/user/me` | yes | Returns the current user's data |
-| PUT | `/user/entry` | yes | Creates or updates an entry's manual score |
-| POST | `/quiz/dual` | yes | Receives a duel vote (not processed yet) |
+| POST | `/api/login` | no (rate-limited by IP) | Login, account creation, or token revalidation (3 branches depending on the request content) |
+| GET | `/api/user/me` | yes | Returns the current user's data |
+| PUT | `/api/user/entry` | yes | Creates or updates an entry's manual score |
+| DELETE | `/api/user/me` | yes (+ password re-entry) | Permanently deletes the current account and its user data |
+| GET | `/api/user/:username` | no (rate-limited by IP) | Public profile: display login + computed scores only. 404 if unknown |
+| POST | `/api/quiz/dual` | yes | Receives a duel vote (not processed yet) |
 | ALL | catch-all | no | 404, redirects to `/` |
 
 ### 2.7 Client-server communication

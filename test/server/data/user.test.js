@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { unlinkSync, existsSync } from 'fs'
 import { Manager } from '../../../src/server/data/db.js'
 import ENTRIES from '../../../src/server/data/entries.js'
-import { User } from '../../../src/server/data/user.js'
+import { User, getUser, deleteUser } from '../../../src/server/data/user.js'
 
 const TEST_DB_PATH = 'test/tmp/user.test.json'
 
@@ -101,5 +101,35 @@ describe('User', () => {
 		const reloadedBob = new User(db, 'bob')
 		assert.equal(reloadedAlice.getUserList()[0].man, 0.9)
 		assert.equal(reloadedBob.getUserList()[0].man, 0.2)
+	})
+
+	// getUser()/deleteUser() operate on the module's own singleton DB/USERS_CACHE
+	// (not the local `db` used above), so tests use unique usernames to stay isolated.
+	describe('deleteUser()', () => {
+		test('removes the user from the cache and from the persisted db', () => {
+			const name = uniqueName('Naruto')
+			const username = uniqueName('deleteuser-target')
+			const user = getUser(username)
+			user.setEntryScore(name, 0.8)
+			user.save()
+
+			deleteUser(username)
+
+			assert.equal(getUser(username).getUserList().length, 0)
+		})
+
+		test('does not affect another user\'s data', () => {
+			const name = uniqueName('Naruto')
+			const victim = uniqueName('deleteuser-victim')
+			const survivor = uniqueName('deleteuser-survivor')
+			getUser(victim).setEntryScore(name, 0.3)
+			getUser(victim).save()
+			getUser(survivor).setEntryScore(name, 0.7)
+			getUser(survivor).save()
+
+			deleteUser(victim)
+
+			assert.equal(getUser(survivor).getUserList()[0].man, 0.7)
+		})
 	})
 })

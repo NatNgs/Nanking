@@ -13,6 +13,14 @@
 	border-bottom: 2px solid #5C4033;
 }
 
+.app-header-link {
+	color: #000000;
+	text-decoration: none;
+}
+.app-header-link:hover {
+	text-decoration: underline;
+}
+
 .app-header-title {
 	font-size: 1.4em;
 	font-weight: bold;

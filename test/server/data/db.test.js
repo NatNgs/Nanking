@@ -63,4 +63,17 @@ describe('Manager', () => {
 		assert.ok(reloadedDb.sub('p#').has('bobby'))
 		assert.equal(reloadedDb.sub('p#').has('alice'), false)
 	})
+
+	test('sub-manager delete(null) removes only its own subtree, not the whole root', () => {
+		const db = new Manager({})
+		db.sub('users.alice').set('entries', {0: 0.5})
+		db.sub('users.bobby').set('entries', {0: 0.8})
+		db.sub('entries').set('0', {name: 'Naruto'})
+
+		db.sub('users.bobby').delete(null)
+
+		assert.deepEqual(db.get('users.alice'), {entries: {0: 0.5}})
+		assert.equal(db.get('users.bobby'), undefined)
+		assert.deepEqual(db.get('entries.0'), {name: 'Naruto'})
+	})
 })

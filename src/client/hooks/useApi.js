@@ -41,5 +41,8 @@ function apiPost(path, data) {
 function apiPut(path, data) {
 	return apiFetch(path, 'PUT', data)
 }
+function apiDelete(path, data) {
+	return apiFetch(path, 'DELETE', data)
+}
 
-export { apiGet, apiPost, apiPut }
+export { apiGet, apiPost, apiPut, apiDelete }

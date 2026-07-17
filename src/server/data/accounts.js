@@ -82,6 +82,45 @@ class AccountManager {
 		// Create new token, random string
 		return this.refresh_token(user, ip, null)
 	}
+	/**
+	 * Checks a password against the stored hash without creating or refreshing
+	 * any token, unlike login(). Used to re-confirm identity before a sensitive
+	 * action (account deletion).
+	 */
+	verifyPassword(user, pwd) {
+		if(!user || !pwd) return false
+		user = user.trim().toLowerCase()
+		if(!user.match(USER_REGEX)) return false
+
+		const account = this.accounts[user]
+		if(!account) return false
+
+		const hash = hashWithSalt(pwd, account.salt)
+		return timingSafeEqual(Buffer.from(hash), Buffer.from(account.hash))
+	}
+	/**
+	 * Permanently deletes an account and its associated token, if any.
+	 * this.db.delete() is required in addition to delete this.accounts[user]:
+	 * save() only ever performs additive set() calls from this.accounts, so it
+	 * never removes stale entries from the persisted db - the deletion must be
+	 * applied directly on the shared db object to survive a later save().
+	 */
+	remove(user) {
+		if(!user) return false
+		user = user.trim().toLowerCase()
+		if(!this.accounts[user]) return false
+
+		delete this.accounts[user]
+		this.db.delete(user)
+
+		const tokenInfo = this.tokens_reverse[user]
+		if(tokenInfo) {
+			delete this.tokens[tokenInfo.hash]
+			delete this.tokens_reverse[user]
+		}
+
+		return true
+	}
 	save() {
 		for(const user in this.accounts) this.db.set(user, this.accounts[user])
 	}

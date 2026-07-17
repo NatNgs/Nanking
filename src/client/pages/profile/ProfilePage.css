@@ -1,0 +1,16 @@
+.profile-page {
+	max-width: 600px;
+	margin: 5em auto 2em;
+	padding: 0 1em;
+}
+
+.profile-page table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.profile-page th, .profile-page td {
+	text-align: left;
+	padding: 0.4em 0.6em;
+	border-bottom: 1px solid #5C4033;
+}

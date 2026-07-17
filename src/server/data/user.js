@@ -56,5 +56,13 @@ function getUser(username) {
 function saveAllUsers() {
 	for(const username in USERS_CACHE) USERS_CACHE[username].save()
 }
+/**
+ * Permanently deletes a user's data (cache + persisted db subtree), never
+ * touching the shared ENTRIES catalog.
+ */
+function deleteUser(username) {
+	delete USERS_CACHE[username]
+	DB.sub('users.' + username).delete(null)
+}
 
-export { getUser, saveAllUsers, User }
+export { getUser, saveAllUsers, deleteUser, User }
