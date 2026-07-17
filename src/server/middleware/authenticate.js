@@ -7,13 +7,13 @@ import { getUser } from '../data/user.js'
  */
 function authenticate(req, res, next) {
 	const token = req.headers.authorization
-	const user = ACCOUNTS.check_token(token)
+	const user = ACCOUNTS.check_token(token, req.ip)
 	if(!user) {
 		console.warn(req.originalUrl, '=> 401 (Unauthorized)')
 		res.status(401).send('Unauthorized')
 		return
 	}
-	const newToken = ACCOUNTS.refresh_token(user)
+	const newToken = ACCOUNTS.refresh_token(user, req.ip, token)
 	res.setHeader('authorization', newToken)
 	req.user = getUser(user)
 	next()

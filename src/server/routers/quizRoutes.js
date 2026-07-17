@@ -1,9 +1,11 @@
 import express from 'express'
 import authenticate from '../middleware/authenticate.js'
+import { apiLimiter } from '../middleware/rateLimit.js'
 import { returnUserData } from '../services/userService.js'
 
 const quizRouter = express.Router()
 quizRouter.use(authenticate)
+quizRouter.use(apiLimiter)
 
 // TODO: implement pairwise comparison scoring (see doc/NankingServer.md)
 quizRouter.post('/dual', (req, res) => {

@@ -1,9 +1,11 @@
 import express from 'express'
 import authenticate from '../middleware/authenticate.js'
+import { apiLimiter } from '../middleware/rateLimit.js'
 import { returnUserData, setEntryScore } from '../services/userService.js'
 
 const userRouter = express.Router()
 userRouter.use(authenticate)
+userRouter.use(apiLimiter)
 
 userRouter.get('/me', returnUserData)
 userRouter.put('/entry', (req, res) => {

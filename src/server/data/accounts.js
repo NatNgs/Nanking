@@ -1,6 +1,6 @@
 import DB from './db.js'
 import { v4 as uuidv4 } from 'uuid'
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import CONFIG from '../config/config.js'
 
 const TOKEN_VALIDITY_LIMIT = CONFIG.TOKEN_VALIDITY_LIMIT
@@ -13,6 +13,15 @@ const USER_REGEX = /^[a-z0-9_.-]{4,20}$/
  */
 function hashWithSalt(pwd, salt) {
 	return scryptSync(pwd, salt, 64).toString('hex')
+}
+
+/**
+ * Hashes a (token, ip) pair for in-memory storage. The raw token/IP are never
+ * kept in memory past this point: only this hash is stored, so that a memory
+ * dump does not expose directly reusable session tokens or IP addresses.
+ */
+function hashTokenIp(token, ip) {
+	return createHash('sha256').update(token + '|' + ip).digest('hex')
 }
 
 class AccountManager {
@@ -42,7 +51,7 @@ class AccountManager {
 		this.accounts[user] = {hash: hashWithSalt(pwd, salt), salt}
 		return true
 	}
-	login(user, pwd) {
+	login(user, pwd, ip) {
 		if(!user || !pwd) return false
 
 		// Check: username should match regex
@@ -62,42 +71,60 @@ class AccountManager {
 		}
 
 		// Create new token, random string
-		return this.refresh_token(user)
+		return this.refresh_token(user, ip, null)
 	}
 	save() {
 		for(const user in this.accounts) this.db.set(user, this.accounts[user])
 	}
-	check_token(token) {
+	/**
+	 * Validates a token, and checks that it is being used from the same IP address
+	 * it was issued/refreshed on. Neither the raw token nor the IP are ever kept in
+	 * memory: only hash(token, ip) is stored, so a memory dump exposes nothing directly
+	 * reusable. Never persisted to disk: the binding resets on restart.
+	 */
+	check_token(token, ip) {
 		if(!token) return false
-		if(!this.tokens[token]) {
-			console.debug('Unknown token', token)
+		const hash = hashTokenIp(token, ip)
+		const user = this.tokens[hash]
+		if(!user) {
+			console.debug('Unknown token (or IP mismatch)')
 			return false
 		}
-		if(Date.now() - this.tokens_reverse[this.tokens[token]].time > TOKEN_VALIDITY_LIMIT) {
-			const user = this.tokens[token]
-			delete this.tokens[token]
+		const tokenInfo = this.tokens_reverse[user]
+		if(Date.now() - tokenInfo.time > TOKEN_VALIDITY_LIMIT) {
+			delete this.tokens[hash]
 			delete this.tokens_reverse[user]
-			console.debug('Expired token', token, user)
+			console.debug('Expired token', user)
 			return false
 		}
-		return this.tokens[token]
+		return user
 	}
-	refresh_token(user) {
+	/**
+	 * Refreshes (or creates) the session token for `user`, bound to `ip`.
+	 * `currentToken` is the token the caller already validated on this request (if any):
+	 * when the existing binding is still fresh enough, it is returned as-is instead of
+	 * generating a new one, since the caller already knows it — no need to keep the raw
+	 * token in memory to "give it back" later.
+	 */
+	refresh_token(user, ip, currentToken) {
 		user = user.trim().toLowerCase()
 
-		// If current token is not older than TOKEN_REFRESH_RATE, return it without refresh
-		if(this.tokens_reverse[user] && Date.now() - this.tokens_reverse[user].time < TOKEN_REFRESH_RATE) {
-			return this.tokens_reverse[user].token
+		// If the current token is still bound to this exact (token, ip) pair and is not
+		// older than TOKEN_REFRESH_RATE, return it without refresh
+		const current = this.tokens_reverse[user]
+		if(current && currentToken
+		&& current.hash === hashTokenIp(currentToken, ip)
+		&& Date.now() - current.time < TOKEN_REFRESH_RATE) {
+			return currentToken
 		}
 
 		// Do refresh the token
 		const token = uuidv4()
-		if(this.tokens_reverse[user]) {
-			delete this.tokens[this.tokens_reverse[user].token]
-		}
-		this.tokens[token] = user
-		this.tokens_reverse[user] = {token, time: Date.now()}
-		//console.debug('Token updated for user', user, token)
+		if(current) delete this.tokens[current.hash]
+
+		const hash = hashTokenIp(token, ip)
+		this.tokens[hash] = user
+		this.tokens_reverse[user] = {hash, time: Date.now()}
 		return token
 	}
 }
