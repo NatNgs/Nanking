@@ -1,10 +1,11 @@
-import express, { 'static' as express_static } from 'express'
-import { authenticate, returnUserData } from './userRoutes.js'
-
+import express from 'express'
+import authenticate from '../middleware/authenticate.js'
+import { returnUserData } from '../services/userService.js'
 
 const quizRouter = express.Router()
 quizRouter.use(authenticate)
 
+// TODO: implement pairwise comparison scoring (see doc/NankingServer.md)
 quizRouter.post('/dual', (req, res) => {
 	console.log('Quiz::dual', req.body)
 

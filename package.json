@@ -6,7 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"serve": "node src/server/server.js",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "node --test --test-global-setup=test/globalSetup.js test/**/*.test.js"
 	},
 	"author": "Nathael Nogues",
 	"license": "MIT",
@@ -14,7 +14,6 @@
 	"dependencies": {
 		"body-parser": "^2.3.0",
 		"express": "^5.2.1",
-		"file-system-db": "^2.1.0",
 		"node": "^26.5.0",
 		"uuid": "^14.0.1"
 	},

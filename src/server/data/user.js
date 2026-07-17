@@ -17,8 +17,6 @@ class User {
 	setEntryScore(entryName, score) {
 		const entry = ENTRIES.getEntryByName(entryName, true)
 		this.entries[entry.id] = {entry, man:score, cur:score}
-
-		this.db.set('entries.' + entry.id, score)
 	}
 
 	getUserList() {
@@ -38,6 +36,15 @@ class User {
 		return list
 	}
 
+	save() {
+		// Convert this.entries to proper DB format
+		const json = {}
+		for(const entryId in this.entries) {
+			json[entryId] = this.entries[entryId].man
+		}
+		this.db.set('entries', json)
+	}
+
 }
 
 
@@ -46,5 +53,8 @@ function getUser(username) {
 	if(!USERS_CACHE.hasOwnProperty(username)) USERS_CACHE[username] = new User(DB, username)
 	return USERS_CACHE[username]
 }
+function saveAllUsers() {
+	for(const username in USERS_CACHE) USERS_CACHE[username].save()
+}
 
-export { getUser }
+export { getUser, saveAllUsers, User }

@@ -17,9 +17,21 @@
 		"arrow-spacing": ["warn", {"after": true, "before": true}],
 		"eol-last": ["error", "always"],
 		"indent": ["error", "tab", {"SwitchCase": 1}],
+		"keyword-spacing": ["warn", {
+			"overrides": {
+				"if": {"after": false},
+				"for": {"after": false},
+				"while": {"after": false},
+				"switch": {"after": false},
+				"catch": {"after": false}
+			}
+		}],
 		"linebreak-style": ["error", "unix"],
+		"max-len": ["warn", {"code": 127}],
 		"no-empty": ["warn", { "allowEmptyCatch": true }],
+		"no-trailing-spaces": ["warn"],
 		"no-unused-vars": ["warn", {"args": "none", "vars": "local" }],
+		"no-var": ["error"],
 		"prefer-const": ["error", {
 			"destructuring": "all",
 			"ignoreReadBeforeAssign": true

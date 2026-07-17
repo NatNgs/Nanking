@@ -1,14 +1,31 @@
 import DB from './db.js'
 import { v4 as uuidv4 } from 'uuid'
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import CONFIG from '../config/config.js'
 
-const TOKEN_VALIDITY_LIMIT = 16 * 60 * 60 * 1000 // 16 hours
-const TOKEN_REFRESH_RATE = 1 * 60 * 60 * 1000 // 1 hour
+const TOKEN_VALIDITY_LIMIT = CONFIG.TOKEN_VALIDITY_LIMIT
+const TOKEN_REFRESH_RATE = CONFIG.TOKEN_REFRESH_RATE
 const USER_REGEX = /^[a-z0-9_.-]{4,20}$/
+
+/**
+ * Hashes the password (already hashed client-side) with the user's server-side salt.
+ * The salt is never transmitted by the API: it never leaves the server.
+ */
+function hashWithSalt(pwd, salt) {
+	return scryptSync(pwd, salt, 64).toString('hex')
+}
+
 class AccountManager {
 	constructor(db) {
 		this.db = db.sub('p#')
+		this.accounts = {} // {user: {hash, salt}}
 		this.tokens = {}
 		this.tokens_reverse = {}
+
+		// Load accounts from db
+		for(const user of this.db.keys()) {
+			this.accounts[user] = this.db.get(user)
+		}
 	}
 
 	add(user, pwd) {
@@ -19,8 +36,10 @@ class AccountManager {
 		if(!user.match(USER_REGEX)) return false
 
 		// If account already exists, return false
-		if(this.db.has(user)) return false
-		this.db.set(user, pwd)
+		if(this.accounts[user]) return false
+
+		const salt = randomBytes(16).toString('hex')
+		this.accounts[user] = {hash: hashWithSalt(pwd, salt), salt}
 		return true
 	}
 	login(user, pwd) {
@@ -31,17 +50,22 @@ class AccountManager {
 		if(!user.match(USER_REGEX)) return false
 
 		// If account doesn't exist, return false
-		if(!this.db.has(user)) {
+		const account = this.accounts[user]
+		if(!account) {
 			console.warn('Failed login (account does not exist)', user)
 			return false
 		}
-		if(this.db.get(user) !== pwd) {
+		const hash = hashWithSalt(pwd, account.salt)
+		if(!timingSafeEqual(Buffer.from(hash), Buffer.from(account.hash))) {
 			console.warn('Failed login (wrong password)', user)
 			return false
 		}
 
 		// Create new token, random string
 		return this.refresh_token(user)
+	}
+	save() {
+		for(const user in this.accounts) this.db.set(user, this.accounts[user])
 	}
 	check_token(token) {
 		if(!token) return false
@@ -52,7 +76,7 @@ class AccountManager {
 		if(Date.now() - this.tokens_reverse[this.tokens[token]].time > TOKEN_VALIDITY_LIMIT) {
 			const user = this.tokens[token]
 			delete this.tokens[token]
-			delete this.tokens_reverse[this.tokens[token]]
+			delete this.tokens_reverse[user]
 			console.debug('Expired token', token, user)
 			return false
 		}
@@ -80,3 +104,4 @@ class AccountManager {
 
 const ACCOUNTS = new AccountManager(DB)
 export default ACCOUNTS
+export { AccountManager }

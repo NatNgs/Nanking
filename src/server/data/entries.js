@@ -13,7 +13,7 @@ class EntriesManager {
 		this.entries = {}
 
 		// Load entries from db
-		for(const entryId in this.db.keys()) {
+		for(const entryId of this.db.keys()) {
 			const data = this.db.get(entryId)
 			const entry = new Entry(entryId, data.name)
 			this.entries[entryId] = entry
@@ -35,7 +35,6 @@ class EntriesManager {
 		while(this.entries[key]) key++
 		const entry = new Entry(key, name)
 		this.entries[entry.id] = entry
-		this.save()
 
 		return entry
 	}
@@ -56,3 +55,4 @@ class EntriesManager {
 
 const ENTRIES = new EntriesManager(DB)
 export default ENTRIES
+export { EntriesManager, Entry }

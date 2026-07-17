@@ -1,12 +1,15 @@
-import { createServer } from 'https'
+import { createServer } from 'node:https'
 import express, { 'static' as express_static } from 'express'
 const app = express()
-import { readFileSync } from 'fs'
-import { networkInterfaces } from 'os'
+import { readFileSync } from 'node:fs'
+import { networkInterfaces } from 'node:os'
 import { urlencoded, json } from 'body-parser'
-import { resolve } from 'path'
+import { resolve } from 'node:path'
+import CONFIG from './config/config.js'
 import DB from './data/db.js'
 import ACCOUNTS from './data/accounts.js'
+import ENTRIES from './data/entries.js'
+import { saveAllUsers } from './data/user.js'
 import userRouter from './routers/userRoutes.js'
 import quizRouter from './routers/quizRoutes.js'
 
@@ -90,11 +93,11 @@ app.all('{*splat}', (req, res) => {
 // Creating object of key and certificate
 // for SSL
 const options = {
-	key: readFileSync(__project + '/cert/server.key'),
-	cert: readFileSync(__project + '/cert/server.cert'),
+	key: readFileSync(CONFIG.CERT_KEY_PATH),
+	cert: readFileSync(CONFIG.CERT_CERT_PATH),
 }
 
-const serverPort = 8053
+const serverPort = CONFIG.PORT
 const server = createServer(options, app).listen(serverPort, () => {
 	// Listing IP and ports available for connexion (LAN)
 	console.info('Server listening on:')
@@ -108,21 +111,29 @@ const server = createServer(options, app).listen(serverPort, () => {
 //
 // Listen for termination signals
 let shutting_down = null
-async function gracefulShutdown() {
+function gracefulShutdown() {
 	if(shutting_down) return
 
-	console.log('Shutdown triggered, gracefully stopping...');
+	console.log('Shutdown triggered, gracefully stopping...')
 
 	shutting_down = setTimeout(() => {
 		console.error('Shutdown timed out, force stopping...')
 		process.exit(-1)
-	}, 10000) // 10s timeout
+	}, CONFIG.SHUTDOWN_TIMEOUT)
 
-	// Stop server
-	server.close();
+	// Stop server, then persist data and exit once fully closed
+	server.close(() => {
+		clearTimeout(shutting_down)
 
-	console.log('Shutdown complete');
-	process.exit(0);
+		// Push in-memory changes from each manager, then flush the database to disk once
+		ACCOUNTS.save()
+		ENTRIES.save()
+		saveAllUsers()
+		DB.save(CONFIG.DB_PATH)
+
+		console.log('Shutdown complete')
+		process.exit(0)
+	})
 }
 process.on('SIGTERM', gracefulShutdown);  // Kill command
 process.on('SIGINT', gracefulShutdown);   // Ctrl+C
