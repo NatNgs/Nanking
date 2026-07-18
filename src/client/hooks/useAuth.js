@@ -16,24 +16,8 @@ function hashPassword(login, pwd) {
 }
 
 function useAuth() {
-	const [isAuthenticated, setIsAuthenticated] = useState(false)
+	const [isAuthenticated, setIsAuthenticated] = useState(window.localStorage.getItem('token'))
 	const [isLoading, setIsLoading] = useState(true)
-
-	useEffect(() => {
-		setIsLoading(false)
-		if(window.localStorage.getItem('token')) {
-			setIsAuthenticated(true)
-		}
-
-		// Revalidate the existing token
-		/*apiGet('/user/me', {})
-			.then(() => setIsAuthenticated(true))
-			.catch((e) => {
-				if(e.response.status !== 429)
-					window.localStorage.removeItem('token')
-			})
-			.finally(() => setIsLoading(false))*/
-	}, [])
 
 	const login = useCallback(async (rawLogin, pwd) => {
 		const pwdHash = hashPassword(rawLogin, pwd)

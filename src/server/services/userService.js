@@ -12,12 +12,12 @@ function returnUserData(req, res) {
  * Public profile data for `username`: computed scores only (never manual
  * scores). Returns null if the account does not exist.
  */
-function returnPublicUserData(username) {
+function getPublicUserData(username) {
 	const lookupKey = username.trim().toLowerCase()
 	if(!ACCOUNTS.accounts[lookupKey]) return null
 
 	const user = getUser(lookupKey)
-	const scores = user.getUserList().map(({id, label, image, cur}) => ({id, label, image, cur}))
+	const scores = user.getUserList()
 	return {username: ACCOUNTS.getDisplayLogin(lookupKey), user_scores: scores}
 }
 
@@ -40,4 +40,4 @@ function setEntryScore(user, entryName, score) {
 	return true
 }
 
-export { returnUserData, setEntryScore, returnPublicUserData, deleteAccount }
+export { returnUserData, setEntryScore, getPublicUserData as returnPublicUserData, deleteAccount }

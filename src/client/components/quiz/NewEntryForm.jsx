@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { apiPut } from '../../hooks/useApi.js'
+import { apiPut, apiPost } from '../../hooks/useApi.js'
 import './NewEntryForm.css'
 
 function NewEntryForm({scoreFormatter, onEntryCreated}) {
@@ -18,7 +18,8 @@ function NewEntryForm({scoreFormatter, onEntryCreated}) {
 			return
 		}
 
-		const data = await apiPut('/user/entry', {entry: newEntryName, score: scoreFormatter.toNorm(newEntryScore)})
+		const entry = await apiPut('/entry/new', {name: newEntryName})
+		const data = await apiPost('/quiz/default', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
 		onEntryCreated(data.user_scores || [])
 		setNewEntryName('')
 	}

@@ -18,7 +18,7 @@ function ProfilePage() {
 	const {username, user_scores} = useLoaderData()
 
 	const sortedScores = useMemo(
-		() => [...user_scores].sort((a, b) => b.cur - a.cur),
+		() => [...user_scores].sort((a, b) => b.score - a.score),
 		[user_scores],
 	)
 
@@ -36,7 +36,7 @@ function ProfilePage() {
 					{sortedScores.map((entry) => (
 						<tr key={entry.id}>
 							<td>{entry.label}</td>
-							<td>{scoreFormatter.pretty(entry.cur)}</td>
+							<td>{scoreFormatter.pretty(entry.score)}</td>
 						</tr>
 					))}
 				</tbody>

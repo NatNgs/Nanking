@@ -1,69 +1,55 @@
 import { createServer as createHttpsServer } from 'node:https'
 import { createServer as createHttpServer } from 'node:http'
-import express, { 'static' as express_static } from 'express'
-const app = express()
 import { readFileSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
+
+import express, { 'static' as express_static } from 'express'
+const app = express()
+
 import { urlencoded, json } from 'body-parser'
+
 import CONFIG from './config/config.js'
 import DB from './data/db.js'
 import ACCOUNTS from './data/accounts.js'
 import ENTRIES from './data/entries.js'
-import { saveAllUsers } from './data/user.js'
-import { loginLimiter, apiLimiter } from './middleware/rateLimit.js'
-import userRouter from './routers/userRoutes.js'
-import quizRouter from './routers/quizRoutes.js'
+import { loadAllUsers, saveAllUsers } from './data/user.js'
 
-// Configuring express to use body-parser
-// as middle-ware
+import { pageLimiter } from './middleware/rateLimit.js'
+import apiRouter from './routers/apiRoutes.js'
+
+import { launchComputation } from './services/scoresComputerService.js'
+
+
+// Init previously saved user data
+loadAllUsers()
+
+// Init score computation worker
+launchComputation()
+
+// Configuring express to use body-parser as middle-ware
 app.use(urlencoded({ extended: false }));
 app.use(json())
 
+/* HARD DEBUG */
+app.all('{*path}', (req, res, next) => {
+	console.debug(req.method, req.originalUrl, req.ip)
+	next()
+})
 
-// Unauthenticated
-
-app.get('/', (req, res) => {
+// Home
+app.get('/', pageLimiter, (req, res) => {
 	const file = CONFIG.CLIENT_DIST_PATH + '/index.html'
-	//console.debug(req.originalUrl, '('+ file + ')')
 	res.sendFile(file)
 })
-app.get('/favicon.ico', (req, res) => {
-	const file = CONFIG.CLIENT_DIST_PATH + '/assets/Nanking.ico'
-	//console.debug(req.originalUrl, '('+ file + ')')
-	res.sendFile(file)
-})
-app.use(express_static(CONFIG.CLIENT_DIST_PATH));
-app.post('/api/login', loginLimiter, (req, res) => {
-	// Create new account
-	if(req.body.new === 'true') {
-		const success = ACCOUNTS.add(req.body.login, req.body.pwd)
-		if(!success) {
-			res.status(400).send('Could not create account')
-			console.warn(req.originalUrl, '=> 400: Could not create account (' + req.body.login + (req.body.new ? ' (new account)':'') + ')')
-			return
-		}
-	}
 
-	// Login by username and password
-	const newToken = ACCOUNTS.login(req.body.login, req.body.pwd, req.ip)
-	if(newToken) {
-		res.setHeader('authorization', newToken).status(200).send('ok')
-		console.debug(req.originalUrl, `=> 200 (${req.body.login}${req.body.new ? ' (new account)':' (using pwd)'})`)
-	} else {
-		res.status(403).send('Login failed')
-		console.warn(req.originalUrl, `=> 403: Login failed (${req.body.login}${req.body.new ? ' (new account)':''})`)
-	}
-})
+// Files
+app.use(express_static(CONFIG.CLIENT_DIST_PATH), pageLimiter);
 
-// Authenticated
-
-app.use('/api/user', userRouter)
-app.use('/api/quiz', quizRouter)
-
+// API
+app.use('/api', apiRouter)
 
 // ERRORS
-
-app.all('{*splat}', (req, res) => {
+app.all('{*path}', (req, res) => {
 	console.debug(req.originalUrl, '(404: Not Found)')
 	if(req.path.startsWith('/api/')) {
 		res.status(404).end()

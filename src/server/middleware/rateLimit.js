@@ -16,7 +16,7 @@ function handler(req, res) {
  */
 const loginLimiter = rateLimit({
 	windowMs: MINUTE,
-	limit: 10,
+	limit: 6,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req.ip),
@@ -51,4 +51,16 @@ const publicProfileLimiter = rateLimit({
 	handler,
 })
 
-export { loginLimiter, apiLimiter, publicProfileLimiter }
+/**
+ * Limit on all routes outside of API
+ */
+const pageLimiter = rateLimit({
+	windowMs: MINUTE,
+	limit: 60,
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: (req) => ipKeyGenerator(req.ip),
+	handler,
+})
+
+export { loginLimiter, apiLimiter, publicProfileLimiter, pageLimiter }

@@ -5,6 +5,7 @@ class Entry {
 		this.id = id
 		this.name = name
 		this.image = 'assets/unknown.svg'
+		this.globalScore = 0.5 // All-users-combined computed score
 	}
 }
 class EntriesManager {

@@ -3,7 +3,7 @@ import './EntriesPanel.css'
 
 function EntriesPanel({userScores, scoreFormatter, isOpen, onToggle}) {
 	const sortedScores = useMemo(
-		() => [...userScores].sort((a, b) => b.cur - a.cur || b.man - a.man),
+		() => [...userScores].sort((a, b) => b.score - a.score),
 		[userScores],
 	)
 
@@ -22,16 +22,14 @@ function EntriesPanel({userScores, scoreFormatter, isOpen, onToggle}) {
 						<thead>
 							<tr>
 								<th>Entry</th>
-								<th>Manual</th>
-								<th>Computed</th>
+								<th>Score</th>
 							</tr>
 						</thead>
 						<tbody>
 							{sortedScores.map((entry) => (
 								<tr key={entry.id}>
 									<td>{entry.label}</td>
-									<td class="scoreCol">{scoreFormatter.pretty(entry.man)}</td>
-									<td class="scoreCol">{scoreFormatter.pretty(entry.cur)}</td>
+									<td class="scoreCol">{scoreFormatter.pretty(entry.score)}</td>
 								</tr>
 							))}
 						</tbody>

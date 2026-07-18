@@ -5,7 +5,7 @@ import { getUser } from '../data/user.js'
  * Express middleware: checks the authentication token sent in the `Authorization` header.
  * Refreshes the token (sliding session) and attaches the current user to `req.user`.
  */
-function authenticate(req, res, next) {
+function requireAuthentication(req, res, next) {
 	const token = req.headers.authorization
 	const user = ACCOUNTS.check_token(token, req.ip)
 	if(!user) {
@@ -20,4 +20,4 @@ function authenticate(req, res, next) {
 	next()
 }
 
-export default authenticate
+export default requireAuthentication

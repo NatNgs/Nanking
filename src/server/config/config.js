@@ -24,17 +24,18 @@ try {
 
 /**
  * Centralized server configuration.
- * Each value can be overridden by an environment variable of the same name.
+ * Each value can be overridden by localConfig
  */
 const CONFIG = {
-	PORT:                +(localConfig.port                 || process.env.PORT                 || 8053                          ),
-	CERT_KEY_PATH:       p(localConfig?.cert.keyPath        || process.env.CERT_KEY_PATH        || null                          ),
-	CERT_CERT_PATH:      p(localConfig?.cert.certPath       || process.env.CERT_CERT_PATH       || null                          ),
-	DB_PATH:             p(localConfig.dbPath               || process.env.DB_PATH              || './data/NankingServerData.gz' ),
-	CLIENT_DIST_PATH:    p(localConfig.clientDistPath       || process.env.CLIENT_DIST_PATH     || './dist/client'               ),
-	TOKEN_VALIDITY_LIMIT:+(localConfig?.token.validityLimit || process.env.TOKEN_VALIDITY_LIMIT || (16 * 60 * 60)                ) * 1000,
-	TOKEN_REFRESH_RATE:  +(localConfig?.token.refreshRate   || process.env.TOKEN_REFRESH_RATE   || (1 * 60 * 60)                 ) * 1000,
-	SHUTDOWN_TIMEOUT:    +(localConfig.shutdownTimeout      || process.env.SHUTDOWN_TIMEOUT     || (60)                          ) * 1000,
+	PORT:                  +(localConfig.port                 || 8053                          ),
+	CERT_KEY_PATH:         p(localConfig?.cert.keyPath        || null                          ),
+	CERT_CERT_PATH:        p(localConfig?.cert.certPath       || null                          ),
+	DB_PATH:               p(localConfig.dbPath               || './data/NankingServerData.gz' ),
+	CLIENT_DIST_PATH:      p(localConfig.clientDistPath       || './dist/client'               ),
+	TOKEN_VALIDITY_LIMIT:  +(localConfig?.token.validityLimit || (16 * 60 * 60)                ) * 1000,
+	TOKEN_REFRESH_RATE:    +(localConfig?.token.refreshRate   || (1 * 60 * 60)                 ) * 1000,
+	SHUTDOWN_TIMEOUT:      +(localConfig.shutdownTimeout      || (60)                          ) * 1000,
+	SCORE_COMPUTE_INTERVAL:+(localConfig.scoreComputeInterval || (60)                          ) * 1000,
 }
 
 export default CONFIG

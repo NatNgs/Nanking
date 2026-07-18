@@ -19,8 +19,6 @@ function Layout() {
 	const [scoreFormat, setScoreFormat] = useState('Percent')
 	const scoreFormatter = useMemo(() => FORMATTERS[scoreFormat], [scoreFormat])
 
-	if(auth.isLoading) return null
-
 	async function handleLogin(rawLogin, pwd) {
 		await auth.login(rawLogin, pwd)
 		setLoginModalMode(null)
@@ -29,8 +27,6 @@ function Layout() {
 		await auth.register(rawLogin, pwd)
 		setLoginModalMode(null)
 	}
-
-
 	return (
 		<>
 			<Header
