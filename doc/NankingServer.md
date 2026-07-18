@@ -83,7 +83,7 @@ src/
 │   │   ├── account/AccountPage.jsx  Private account page (/user/me), account deletion entry point
 │   │   └── error/ErrorPage.jsx      404 / "user not found" (via useRouteError/isRouteErrorResponse)
 │   ├── components/
-│   │   ├── dual/DualQuiz.jsx           Pairwise voting duel component
+│   │   ├── quiz/DualQuiz.jsx           Pairwise voting duel component
 │   │   └── account/DeleteAccountModal.jsx  Password confirmation pop-in for account deletion
 │   └── lib/scoreFormatter.js     Score display format conversion (Percent/MAL)
 └── server/

@@ -1,11 +1,38 @@
-* {
-	box-sizing: border-box;
-	border-radius: 0;
-}
-
 body {
 	margin: 0;
-	background-color: #FAFAFA;
+	background-color: #F8F9FA;
 	font-family: system-ui, sans-serif;
 	color: #222222;
+}
+
+button, select {
+	background-color: #D5D5D5;
+	border: 1px solid black;
+	border-radius: 3px;
+	padding: 0.33em 0.5em;
+}
+button, select {
+	cursor: pointer;
+}
+input {
+	background-color: #FFF;
+	border: 1px solid black;
+	border-radius: 3px;
+	padding: 0.33em 0.5em;
+}
+
+/* Hover effects on inputs */
+button:hover {
+	background-color: #F5E9A9;
+}
+select:hover {
+	background-color: #E5E5A9;
+}
+input:hover, button:hover, select:hover {
+	box-shadow: 0 0 0.1em black;
+}
+
+/* Remove margin top before h1-h6 if they are the first element of their parent */
+h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, h6:first-child {
+	margin-top: 0;
 }

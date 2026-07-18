@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useLoaderData } from 'react-router'
+import { useLoaderData, useOutletContext } from 'react-router'
 import { apiGet } from '../../hooks/useApi.js'
 import { FORMATTERS } from '../../lib/scoreFormatter.js'
 import './ProfilePage.css'
@@ -14,8 +14,8 @@ async function profileLoader({params}) {
 }
 
 function ProfilePage() {
+	const {scoreFormatter} = useOutletContext()
 	const {username, user_scores} = useLoaderData()
-	const formatter = FORMATTERS.Percent
 
 	const sortedScores = useMemo(
 		() => [...user_scores].sort((a, b) => b.cur - a.cur),
@@ -36,7 +36,7 @@ function ProfilePage() {
 					{sortedScores.map((entry) => (
 						<tr key={entry.id}>
 							<td>{entry.label}</td>
-							<td>{formatter.pretty(entry.cur)}</td>
+							<td>{scoreFormatter.pretty(entry.cur)}</td>
 						</tr>
 					))}
 				</tbody>

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import './EntriesPanel.css'
 
-function EntriesPanel({userScores, formatter, scoreFormatKey, onScoreFormatKeyChange, isOpen, onToggle}) {
+function EntriesPanel({userScores, scoreFormatter, isOpen, onToggle}) {
 	const sortedScores = useMemo(
 		() => [...userScores].sort((a, b) => b.cur - a.cur || b.man - a.man),
 		[userScores],
@@ -18,10 +18,6 @@ function EntriesPanel({userScores, formatter, scoreFormatKey, onScoreFormatKeyCh
 			</button>
 			{isOpen && (
 				<aside className="entries-panel">
-					<select value={scoreFormatKey} onChange={(e) => onScoreFormatKeyChange(e.target.value)}>
-						<option value="Percent">Percent</option>
-						<option value="MAL">MAL</option>
-					</select>
 					<table>
 						<thead>
 							<tr>
@@ -34,8 +30,8 @@ function EntriesPanel({userScores, formatter, scoreFormatKey, onScoreFormatKeyCh
 							{sortedScores.map((entry) => (
 								<tr key={entry.id}>
 									<td>{entry.label}</td>
-									<td>{formatter.pretty(entry.man)}</td>
-									<td>{formatter.pretty(entry.cur)}</td>
+									<td class="scoreCol">{scoreFormatter.pretty(entry.man)}</td>
+									<td class="scoreCol">{scoreFormatter.pretty(entry.cur)}</td>
 								</tr>
 							))}
 						</tbody>

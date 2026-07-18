@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import jsSHA from 'jssha'
-import { apiPost } from './useApi.js'
+import { apiGet, apiPost } from './useApi.js'
 
 /**
  * Hashes the password client-side before it ever reaches the network, salted with
@@ -20,16 +20,19 @@ function useAuth() {
 	const [isLoading, setIsLoading] = useState(true)
 
 	useEffect(() => {
-		if(!window.localStorage.getItem('token')) {
-			setIsLoading(false)
-			return
+		setIsLoading(false)
+		if(window.localStorage.getItem('token')) {
+			setIsAuthenticated(true)
 		}
 
-		// Revalidate the existing token (auto-login), like init() used to do
-		apiPost('/login', {})
+		// Revalidate the existing token
+		/*apiGet('/user/me', {})
 			.then(() => setIsAuthenticated(true))
-			.catch(() => window.localStorage.removeItem('token'))
-			.finally(() => setIsLoading(false))
+			.catch((e) => {
+				if(e.response.status !== 429)
+					window.localStorage.removeItem('token')
+			})
+			.finally(() => setIsLoading(false))*/
 	}, [])
 
 	const login = useCallback(async (rawLogin, pwd) => {

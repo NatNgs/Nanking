@@ -1,4 +1,5 @@
-*.lzw
+*.gz
+*.local.*
 saves/
 resources/
 node_modules/

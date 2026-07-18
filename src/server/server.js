@@ -10,7 +10,7 @@ import DB from './data/db.js'
 import ACCOUNTS from './data/accounts.js'
 import ENTRIES from './data/entries.js'
 import { saveAllUsers } from './data/user.js'
-import { loginLimiter } from './middleware/rateLimit.js'
+import { loginLimiter, apiLimiter } from './middleware/rateLimit.js'
 import userRouter from './routers/userRoutes.js'
 import quizRouter from './routers/quizRoutes.js'
 
@@ -42,20 +42,6 @@ app.post('/api/login', loginLimiter, (req, res) => {
 			console.warn(req.originalUrl, '=> 400: Could not create account (' + req.body.login + (req.body.new ? ' (new account)':'') + ')')
 			return
 		}
-	}
-
-	// Check if token is valid
-	if(req.headers.authorization) {
-		const user = ACCOUNTS.check_token(req.headers.authorization, req.ip)
-		if(!user) {
-			res.status(401).send('Unauthorized')
-			console.warn(req.originalUrl, '=> 401 (Try login with unknown or expired token, or IP mismatch)')
-			return
-		}
-		ACCOUNTS.refresh_token(user, req.ip, req.headers.authorization)
-		res.status(200).send('ok')
-		console.debug(req.originalUrl, `=> 200 (${user} (using token))`)
-		return
 	}
 
 	// Login by username and password

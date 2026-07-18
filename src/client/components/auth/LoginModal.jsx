@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './LoginModal.css'
 
-const LOGIN_PATTERN = /^[a-zA-Z0-9_.-]{4,20}$/
+const LOGIN_PATTERN = /^[a-zA-Z0-9_.\-]{4,20}$/
 const PASSWORD_PATTERN = /^.{6,}$/
 
 function LoginModal({initialMode, onLogin, onRegister, onClose}) {

@@ -22,9 +22,18 @@ async function apiFetch(path, method, data) {
 	const refreshedToken = response.headers.get('authorization')
 	if(refreshedToken) window.localStorage.setItem('token', refreshedToken)
 
+	// if no refreshedToken and status is 401, means the token is expired, remove it
+	if(!refreshedToken && response.status === 401) {
+		// Remove token and refresh the page
+		window.localStorage.removeItem('token')
+		alert('Session token expired. Please log in again.')
+		window.location.reload()
+		return null
+	}
+
 	if(!response.ok) {
 		const error = new Error('API request failed: ' + url)
-		error.status = response.status
+		error.response = response
 		throw error
 	}
 

@@ -16,7 +16,7 @@ function handler(req, res) {
  */
 const loginLimiter = rateLimit({
 	windowMs: MINUTE,
-	limit: 5,
+	limit: 10,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req.ip),
@@ -30,7 +30,7 @@ const loginLimiter = rateLimit({
  */
 const apiLimiter = rateLimit({
 	windowMs: MINUTE,
-	limit: 60,
+	limit: 120,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => req.user?.username || ipKeyGenerator(req.ip),

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Outlet } from 'react-router'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useCurrentUser } from '../../hooks/useCurrentUser.js'
+import { FORMATTERS } from '../../lib/scoreFormatter.js'
 import Header from './Header.jsx'
 import LoginModal from '../auth/LoginModal.jsx'
 
@@ -15,6 +16,9 @@ function Layout() {
 	const {username, userScores, setUserScores} = useCurrentUser(auth.isAuthenticated)
 	const [loginModalMode, setLoginModalMode] = useState(null) // null | 'login' | 'register'
 
+	const [scoreFormat, setScoreFormat] = useState('Percent')
+	const scoreFormatter = useMemo(() => FORMATTERS[scoreFormat], [scoreFormat])
+
 	if(auth.isLoading) return null
 
 	async function handleLogin(rawLogin, pwd) {
@@ -26,11 +30,13 @@ function Layout() {
 		setLoginModalMode(null)
 	}
 
+
 	return (
 		<>
 			<Header
 				username={username}
 				isAuthenticated={auth.isAuthenticated}
+				setScoreFormat={setScoreFormat}
 				onOpenLogin={setLoginModalMode}
 				onLogOut={auth.logOut}
 			/>
@@ -38,6 +44,7 @@ function Layout() {
 				username,
 				userScores,
 				setUserScores,
+				scoreFormatter,
 				isAuthenticated: auth.isAuthenticated,
 			}}/>
 			{loginModalMode && (
