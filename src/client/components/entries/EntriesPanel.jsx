@@ -1,11 +1,22 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import './EntriesPanel.css'
+import { apiGet } from '../../hooks/useApi.js'
 
-function EntriesPanel({userScores, scoreFormatter, isOpen, onToggle}) {
+function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onToggle}) {
 	const sortedScores = useMemo(
-		() => [...userScores].sort((a, b) => b.score - a.score),
+		() => [...userScores].sort((a, b) => b.score - a.score || b.globalScore - a.globalScore),
 		[userScores],
 	)
+
+	// Call api /user/me to update userScores every 10 seconds
+	useEffect(() => {
+		const interval = setInterval(() => {
+			apiGet('/user/me').then((data) => {
+				setUserScores(data.user_scores || [])
+			})
+		}, 10000)
+		return () => clearInterval(interval)
+	}, [setUserScores])
 
 	return (
 		<>
@@ -22,7 +33,8 @@ function EntriesPanel({userScores, scoreFormatter, isOpen, onToggle}) {
 						<thead>
 							<tr>
 								<th>Entry</th>
-								<th>Score</th>
+								<th>Personal</th>
+								<th>Global</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -30,6 +42,7 @@ function EntriesPanel({userScores, scoreFormatter, isOpen, onToggle}) {
 								<tr key={entry.id}>
 									<td>{entry.label}</td>
 									<td class="scoreCol">{scoreFormatter.pretty(entry.score)}</td>
+									<td class="scoreCol">{scoreFormatter.pretty(entry.globalScore)}</td>
 								</tr>
 							))}
 						</tbody>

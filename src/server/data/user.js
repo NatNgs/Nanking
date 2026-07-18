@@ -25,6 +25,7 @@ class User {
 				label: entry.name,
 				image: entry.image,
 				score: this.entries[entryId],
+				globalScore: entry.globalScore,
 			})
 		}
 		return list

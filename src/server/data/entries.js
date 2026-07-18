@@ -11,7 +11,7 @@ class Entry {
 class EntriesManager {
 	constructor(db) {
 		this.db = db.sub('entries')
-		this.entries = {}
+		this.entries = {} // id: Entry
 
 		// Load entries from db
 		for(const entryId of this.db.keys()) {

@@ -12,7 +12,8 @@ const respondWithEntryData = (id, res) => {
 
 	res.json({
 		id: entry.id,
-		name: entry.name
+		name: entry.name,
+		globalScore: entry.globalScore,
 	})
 }
 entriesRoutes.put('/new', (req, res) => {

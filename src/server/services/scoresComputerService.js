@@ -1,5 +1,6 @@
 import CONFIG from '../config/config.js'
 import { ALL_USERS } from '../data/user.js'
+import ENTRIES from '../data/entries.js'
 
 let computationTimeoutHandler = null
 function launchComputation() {
@@ -51,7 +52,25 @@ function computeUserScores(user) {
 
 function computeGlobalScores() {
 	// Average all users scores
-	// TODO: where to store ?
+	const allScores = {} // item: [user1Score, user2Score, ...]
+
+	// Get current entries scores
+	for(const entryId in ENTRIES.entries) {
+		allScores[entryId] = [ENTRIES.entries[entryId].globalScore]
+	}
+
+	for(const username in ALL_USERS) {
+		const user = ALL_USERS[username]
+		for(const entryId in user.entries) {
+			if(!allScores[entryId]) allScores[entryId] = []
+			allScores[entryId].push(user.entries[entryId])
+		}
+	}
+
+	// Average allScores and set entries new globalScores
+	for(const entryId in allScores) {
+		ENTRIES.entries[entryId].globalScore = allScores[entryId].reduce((a, b) => a + b) / allScores[entryId].length
+	}
 }
 
 export { launchComputation, computeUserScores }

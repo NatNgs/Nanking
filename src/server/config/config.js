@@ -35,7 +35,7 @@ const CONFIG = {
 	TOKEN_VALIDITY_LIMIT:  +(localConfig?.token.validityLimit || (16 * 60 * 60)                ) * 1000,
 	TOKEN_REFRESH_RATE:    +(localConfig?.token.refreshRate   || (1 * 60 * 60)                 ) * 1000,
 	SHUTDOWN_TIMEOUT:      +(localConfig.shutdownTimeout      || (60)                          ) * 1000,
-	SCORE_COMPUTE_INTERVAL:+(localConfig.scoreComputeInterval || (60)                          ) * 1000,
+	SCORE_COMPUTE_INTERVAL:+(localConfig.scoreComputeInterval || (3)                          ) * 1000,
 }
 
 export default CONFIG

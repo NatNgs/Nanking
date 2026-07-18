@@ -51,6 +51,7 @@ function MainPage() {
 		<div className="main-page">
 			<EntriesPanel
 				userScores={userScores}
+				setUserScores={setUserScores}
 				scoreFormatter={scoreFormatter}
 				isOpen={isPanelOpen}
 				onToggle={() => setIsPanelOpen((v) => !v)}
