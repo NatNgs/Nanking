@@ -17,6 +17,9 @@ class User {
 
 	getUserList() {
 		const list = []
+
+		const minUserScore = Math.min(...Object.values(this.entries))
+		const maxUserScore = Math.max(...Object.values(this.entries))
 		for(const entryId in this.entries) {
 			const entry = ENTRIES.entries[entryId]
 			// Get entries label from DB.entries[id]
@@ -24,7 +27,7 @@ class User {
 				id: entry.id,
 				label: entry.name,
 				image: entry.image,
-				score: this.entries[entryId],
+				score: (this.entries[entryId] - minUserScore) / (maxUserScore - minUserScore), // Stretch score between 0 and 1
 				globalScore: entry.globalScore,
 			})
 		}

@@ -5,6 +5,7 @@ import userRouter from './userRoutes.js'
 import quizRouter from './quizRoutes.js'
 import entryRouter from './entriesRoutes.js'
 import ACCOUNTS from '../data/accounts.js'
+import ENTRIES from '../data/entries.js'
 
 const apiRouter = express.Router()
 
@@ -31,6 +32,20 @@ apiRouter.post('/login', loginLimiter, (req, res) => {
 		res.status(403).send('Login failed')
 		console.warn(req.originalUrl, `=> 403: Login failed (${req.body.login}${req.body.new ? ' (new account)':''})`)
 	}
+})
+apiRouter.get('/entries', (req, res) => {
+	const scores = ENTRIES.getGlobalScores()
+	const content = [] // [{id, name, score, image}]
+	for(const [id, score] of Object.entries(scores)) {
+		const entry = ENTRIES.getEntryById(id)
+		content.push({
+			id: entry.id,
+			label: entry.name,
+			score: score,
+			image: entry.image,
+		})
+	}
+	res.json(content)
 })
 
 // Authenticated

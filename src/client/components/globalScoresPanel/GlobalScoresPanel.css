@@ -1,0 +1,19 @@
+.scoreCol {
+	text-align: right;
+	font-family: monospace;
+}
+
+table {
+	width: 100%;
+}
+/* Draw every first row with slightly lighter background and every other row with slighly darker background */
+table > tbody > tr:nth-child(even) {
+	background-color: #E8E8E8;
+}
+table > tbody > tr:nth-child(odd) {
+	background-color: #F8F8F8;
+}
+/* Draw line after thead row */
+table th {
+	border-bottom: 1px solid #5C4033;
+}

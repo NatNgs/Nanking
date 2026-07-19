@@ -24,7 +24,7 @@ function launchComputation() {
 function computeUserScores(user) {
 	const currScores = {}
 	for(const entryId in user.entries) {
-		if(user.entries[entryId]+1) { // remove invalid scores
+		if(user.entries[entryId] || user.entries[entryId] === 0) { // remove invalid scores (NaN, null, undefined)
 			currScores[entryId] = user.entries[entryId]
 		}
 	}
@@ -34,19 +34,16 @@ function computeUserScores(user) {
 		q.apply(currScores, entriesLists)
 	}
 
+	// Append globalScore to every enty
+	for(const entryId in currScores) {
+		entriesLists[entryId].push(ENTRIES.entries[entryId].globalScore)
+	}
+
 	// Compute average for each entry, and set it to the user
-	const averages = {}
 	for(const entryId in entriesLists) {
 		const entriesList = entriesLists[entryId]
 		const average = entriesList.reduce((a, b) => a + b) / entriesList.length
-		averages[entryId] = average
-	}
-
-	// Stretch scores from 0 (worst) to 1 (best)
-	const min = Math.min(...Object.values(averages))
-	const max = Math.max(...Object.values(averages))
-	for(const entryId in averages) {
-		user.entries[entryId] = (averages[entryId] - min) / (max - min)
+		user.entries[entryId] = average
 	}
 }
 
@@ -68,8 +65,23 @@ function computeGlobalScores() {
 	}
 
 	// Average allScores and set entries new globalScores
+	const averages = {}
 	for(const entryId in allScores) {
-		ENTRIES.entries[entryId].globalScore = allScores[entryId].reduce((a, b) => a + b) / allScores[entryId].length
+		// If an entry has no user score, remove it
+		if(allScores[entryId].length <= 1) {
+			delete allScores[entryId]
+			delete ENTRIES.entries[entryId]
+			continue
+		}
+
+		averages[entryId] = allScores[entryId].reduce((a, b) => a + b) / allScores[entryId].length
+	}
+
+	// Stretch scores from 0 (worst) to 1 (best)
+	const min = Math.min(...Object.values(averages))
+	const max = Math.max(...Object.values(averages))
+	for(const entryId in averages) {
+		ENTRIES.entries[entryId].globalScore = (averages[entryId] - min) / (max - min)
 	}
 }
 

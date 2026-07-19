@@ -5,6 +5,9 @@ import { useCurrentUser } from '../../hooks/useCurrentUser.js'
 import { FORMATTERS } from '../../lib/scoreFormatter.js'
 import Header from './Header.jsx'
 import LoginModal from '../auth/LoginModal.jsx'
+import EntriesPanel from '../../components/entries/EntriesPanel.jsx'
+
+import './Layout.css'
 
 /**
  * Shared route layout: mounts the fixed Header (always visible, connected or
@@ -15,6 +18,8 @@ function Layout() {
 	const auth = useAuth()
 	const {username, userScores, setUserScores} = useCurrentUser(auth.isAuthenticated)
 	const [loginModalMode, setLoginModalMode] = useState(null) // null | 'login' | 'register'
+
+	const [isPanelOpen, setIsPanelOpen] = useState(auth.isAuthenticated)
 
 	const [scoreFormat, setScoreFormat] = useState('Percent')
 	const scoreFormatter = useMemo(() => FORMATTERS[scoreFormat], [scoreFormat])
@@ -36,6 +41,7 @@ function Layout() {
 				onOpenLogin={setLoginModalMode}
 				onLogOut={auth.logOut}
 			/>
+			<div class={'main-page-content ' + (isPanelOpen ? 'panel-open ' : 'panel-closed ')}>
 			<Outlet context={{
 				username,
 				userScores,
@@ -43,6 +49,17 @@ function Layout() {
 				scoreFormatter,
 				isAuthenticated: auth.isAuthenticated,
 			}}/>
+			</div>
+			{auth.isAuthenticated && (
+				<EntriesPanel
+					userScores={userScores}
+					setUserScores={setUserScores}
+					scoreFormatter={scoreFormatter}
+					isOpen={isPanelOpen}
+					onToggle={() => setIsPanelOpen((v) => !v)}
+				/>
+			)}
+
 			{loginModalMode && (
 				<LoginModal
 					initialMode={loginModalMode}

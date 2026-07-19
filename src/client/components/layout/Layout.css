@@ -1,0 +1,9 @@
+
+
+.main-page-content.panel-open {
+	width: calc(100% - 300px);
+}
+
+.main-page-content.panel-closed {
+	width: 100%
+}

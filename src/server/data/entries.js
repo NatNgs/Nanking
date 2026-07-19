@@ -43,6 +43,15 @@ class EntriesManager {
 		return this.entries[id]
 	}
 
+	getGlobalScores() {
+		const scores = {}
+		for(const entryId in this.entries) {
+			const entry = this.entries[entryId]
+			scores[entry.id] = entry.globalScore
+		}
+		return scores
+	}
+
 	save() {
 		// Convert this.entries to proper DB format
 		const json = {}

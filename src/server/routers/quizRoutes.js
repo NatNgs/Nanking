@@ -21,8 +21,10 @@ quizRouter.post('/dual', (req, res, next) => {
 
 // Action to perform after a successful quiz
 quizRouter.post('/{*type}', (req, res) => {
-	// Do computeUserScores once
-	computeUserScores(req.user)
+	// Do computeUserScores until it stabilizes
+	let totalUpdate = 1;
+	while(totalUpdate > 0.01)
+		totalUpdate = computeUserScores(req.user)
 
 	// Return updated user data
 	returnUserData(req, res)

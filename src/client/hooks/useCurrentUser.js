@@ -13,6 +13,7 @@ function useCurrentUser(enabled) {
 	const refreshUserData = useCallback(() => {
 		if(!enabled) return
 		apiGet('/user/me').then((data) => {
+			if(!data) return
 			setUsername(data.username)
 			setUserScores(data.user_scores || [])
 		})

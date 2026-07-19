@@ -11,9 +11,11 @@ function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onTogg
 	// Call api /user/me to update userScores every 10 seconds
 	useEffect(() => {
 		const interval = setInterval(() => {
-			apiGet('/user/me').then((data) => {
-				setUserScores(data.user_scores || [])
-			})
+			if(isOpen) {
+				apiGet('/user/me').then((data) => {
+					setUserScores(data.user_scores || [])
+				})
+			}
 		}, 10000)
 		return () => clearInterval(interval)
 	}, [setUserScores])
