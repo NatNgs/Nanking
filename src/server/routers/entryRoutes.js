@@ -3,8 +3,8 @@ import requireAuthentication from '../middleware/authenticate.js'
 import ENTRIES from '../data/entries.js'
 
 
-const entriesRoutes = express.Router()
-entriesRoutes.use(requireAuthentication)
+const entryRoutes = express.Router()
+entryRoutes.use(requireAuthentication)
 
 const respondWithEntryData = (id, res) => {
 	const entry = ENTRIES.getEntryById(id)
@@ -16,7 +16,7 @@ const respondWithEntryData = (id, res) => {
 		globalScore: entry.globalScore,
 	})
 }
-entriesRoutes.put('/new', (req, res) => {
+entryRoutes.put('/new', (req, res) => {
 	// Check if such entry already exists
 	const entry = ENTRIES.getEntryByName(req.body.name, true)
 	if(!entry) {
@@ -24,6 +24,6 @@ entriesRoutes.put('/new', (req, res) => {
 	}
 	return respondWithEntryData(entry.id, res)
 })
-entriesRoutes.get('/:id', (req, res) => respondWithEntryData(req.params.id, res))
+entryRoutes.get('/:id', (req, res) => respondWithEntryData(req.params.id, res))
 
-export default entriesRoutes
+export default entryRoutes

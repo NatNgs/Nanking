@@ -13,18 +13,18 @@ function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onTogg
 		[userScores],
 	)
 
-	// Call api /user/me to update userScores every 10 seconds
+	// Call api /user/me to update userScores every 30 seconds
 	useEffect(() => {
 		let timeout = null
 		const call = () => {
 			if(isToBeDisplayed && isOpen) {
 				apiGet('/user/me').then((data) => {
 					setUserScores(data.user_scores || [])
-					setTimeout(call, 10000)
+					setTimeout(call, 30000)
 				}).catch((e) => {
-					// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=10s)
+					// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=30s)
 					if(e.response.status === 429) {
-						const retryAfter = e.response.headers['retry-after'] || 10
+						const retryAfter = Math.max(e.response.headers['retry-after'] || 60, 30)
 						timeout = setTimeout(call, retryAfter * 1000)
 					}
 				})

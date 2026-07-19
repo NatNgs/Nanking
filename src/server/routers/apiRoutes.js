@@ -3,7 +3,7 @@ import requireAuthentication from '../middleware/authenticate.js'
 import { apiLimiter, loginLimiter } from '../middleware/rateLimit.js'
 import userRouter from './userRoutes.js'
 import quizRouter from './quizRoutes.js'
-import entryRouter from './entriesRoutes.js'
+import entryRouter from './entryRoutes.js'
 import ACCOUNTS from '../data/accounts.js'
 import ENTRIES from '../data/entries.js'
 
@@ -34,6 +34,22 @@ apiRouter.post('/login', loginLimiter, (req, res) => {
 	}
 })
 apiRouter.get('/entries', (req, res) => {
+	// if contains query param "?q=<query>", filter entries by name
+	if(req.query?.q) {
+		const entries = ENTRIES.searchEntry(req.query.q)
+		const content = [] // [{id, name, image}]
+		for(const entry of entries) {
+			content.push({
+				id: entry.id,
+				label: entry.name,
+				image: entry.image,
+			})
+		}
+		res.json(content)
+		return
+	}
+
+	// Does not contains query param, return all
 	const scores = ENTRIES.getGlobalScores()
 	const content = [] // [{id, name, score, image}]
 	for(const [id, score] of Object.entries(scores)) {

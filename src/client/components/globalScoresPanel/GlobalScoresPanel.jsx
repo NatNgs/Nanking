@@ -11,17 +11,17 @@ function GlobalScoresPanel({scoreFormatter}) {
 		[globalScores],
 	)
 
-	// Call api /user/me to update userScores every 10 seconds
+	// Call api /user/me to update userScores every 30 seconds
 	useEffect(() => {
 		let timeout;
 		const call = () => {
 			apiGet('/entries').then((data) => {
 				setGlobalScores(data || [])
-				timeout = setTimeout(call, 10000)
+				timeout = setTimeout(call, 30000)
 			}).catch((e) => {
-				// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=10s)
+				// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=30s)
 				if(e.response.status === 429) {
-					const retryAfter = e.response.headers['retry-after'] || 10
+					const retryAfter = Math.max(e.response.headers['retry-after'] || 60, 30)
 					timeout = setTimeout(call, retryAfter * 1000)
 				}
 			})

@@ -39,6 +39,20 @@ class EntriesManager {
 
 		return entry
 	}
+	searchEntry(searchInput) {
+		// Convert searchInput to regex
+		const regex = new RegExp(searchInput.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\s+/g, '\\s+'), 'i')
+		const result = []
+		for(const entryId in this.entries) {
+			const entry = this.entries[entryId]
+			if(regex.test(entry.name)) result.push(entry)
+		}
+		// Sort results by name length (Matches the beginning of the name first, then smaller first), then limit to 32 results
+		result.sort((a, b) =>  a.name.length - b.name.length)
+		if(result.length > 32) result.length = 32
+		return result
+	}
+
 	getEntryById(id) {
 		return this.entries[id]
 	}

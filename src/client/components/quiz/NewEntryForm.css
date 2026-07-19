@@ -9,8 +9,12 @@
 	gap: 0.5em;
 }
 
-.new-entry-form > .content :first-child {
+.new-entry-form > .content > * {
+	flex: 0 1 auto;
+}
+.new-entry-form > .content > :first-child {
 	flex: 1;
+	min-width: 10em;
 	max-width: 50em;
 }
 
@@ -23,6 +27,9 @@
 }
 .labelled label, .labelled span {
 	font-size: 80%;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .labelled input {
 	width: 100%;
