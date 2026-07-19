@@ -13,16 +13,42 @@ function GlobalScoresPanel({scoreFormatter}) {
 
 	// Call api /user/me to update userScores every 10 seconds
 	useEffect(() => {
-		let i;
+		let timeout;
 		const call = () => {
 			apiGet('/entries').then((data) => {
 				setGlobalScores(data || [])
+				timeout = setTimeout(call, 10000)
+			}).catch((e) => {
+				// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=10s)
+				if(e.response.status === 429) {
+					const retryAfter = e.response.headers['retry-after'] || 10
+					timeout = setTimeout(call, retryAfter * 1000)
+				}
 			})
-			i = setTimeout(call, 10000)
 		}
 		call()
-		return () => (i && clearTimeout(i))
+		return () => (timeout && clearTimeout(timeout))
 	}, [setGlobalScores])
+
+		function scoreToColor(score) {
+		// Score is from 0 to 1
+		// Convert it to a color: 0 => #000000, 0.3 => #FF0000, 0.6 => #FFFF00, 0.9 => #00AA00, 1 => #00AAFF
+		const colors = [{step:0, r:0, g:0, b:0}, {step:0.3, r:255, g:0, b:0}, {step:0.6, r:255, g:255, b:0}, {step:0.9, r:0, g:170, b:0}, {step:1, r:0, g:170, b:255}]
+
+		// Find the two colors around current score
+		let i = 1
+		while(score > colors[i].step && i < colors.length - 1) {
+			i++
+		}
+
+		// Interpolate between the two colors
+		const prevColor = colors[i-1]
+		const nextColor = colors[i]
+		const r = Math.round(prevColor.r + (nextColor.r - prevColor.r) * (score - prevColor.step) / (nextColor.step - prevColor.step))
+		const g = Math.round(prevColor.g + (nextColor.g - prevColor.g) * (score - prevColor.step) / (nextColor.step - prevColor.step))
+		const b = Math.round(prevColor.b + (nextColor.b - prevColor.b) * (score - prevColor.step) / (nextColor.step - prevColor.step))
+		return `rgb(${r},${g},${b})`
+	}
 
 	return (
 		<table>
@@ -36,7 +62,7 @@ function GlobalScoresPanel({scoreFormatter}) {
 				{sortedScores.map((entry) => (
 					<tr key={entry.id}>
 						<td>{entry.label}</td>
-						<td class="scoreCol">{scoreFormatter.pretty(entry.score)}</td>
+						<td class="scoreCol">{scoreFormatter.pretty(entry.score)} <span style={{color:scoreToColor(entry.score)}}>●</span></td>
 					</tr>
 				))}
 			</tbody>

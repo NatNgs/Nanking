@@ -1,8 +1,13 @@
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import './EntriesPanel.css'
 import { apiGet } from '../../hooks/useApi.js'
 
 function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onToggle}) {
+	// Only show panel when screen is wide enough (desktop mode)
+	const [isToBeDisplayed, setToBeDisplayed] = useState(window.innerWidth > 1000)
+	const updateMedia = () => setToBeDisplayed(window.innerWidth > 1000)
+	useEffect(() => window.addEventListener('resize', updateMedia), [updateMedia])
+
 	const sortedScores = useMemo(
 		() => [...userScores].sort((a, b) => b.score - a.score || b.globalScore - a.globalScore),
 		[userScores],
@@ -10,18 +15,50 @@ function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onTogg
 
 	// Call api /user/me to update userScores every 10 seconds
 	useEffect(() => {
-		const interval = setInterval(() => {
-			if(isOpen) {
+		let timeout = null
+		const call = () => {
+			if(isToBeDisplayed && isOpen) {
 				apiGet('/user/me').then((data) => {
 					setUserScores(data.user_scores || [])
+					setTimeout(call, 10000)
+				}).catch((e) => {
+					// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=10s)
+					if(e.response.status === 429) {
+						const retryAfter = e.response.headers['retry-after'] || 10
+						timeout = setTimeout(call, retryAfter * 1000)
+					}
 				})
 			}
-		}, 10000)
-		return () => clearInterval(interval)
+		}
+		call()
+		return () => {
+			if(timeout) clearTimeout(timeout)
+		}
 	}, [setUserScores])
+
+	function scoreToColor(score) {
+		// Score is from 0 to 1
+		// Convert it to a color: 0 => #000000, 0.3 => #FF0000, 0.6 => #FFFF00, 0.9 => #00AA00, 1 => #00AAFF
+		const colors = [{step:0, r:0, g:0, b:0}, {step:0.3, r:255, g:0, b:0}, {step:0.6, r:255, g:255, b:0}, {step:0.9, r:0, g:170, b:0}, {step:1, r:0, g:170, b:255}]
+
+		// Find the two colors around current score
+		let i = 1
+		while(score > colors[i].step && i < colors.length - 1) {
+			i++
+		}
+
+		// Interpolate between the two colors
+		const prevColor = colors[i-1]
+		const nextColor = colors[i]
+		const r = Math.round(prevColor.r + (nextColor.r - prevColor.r) * (score - prevColor.step) / (nextColor.step - prevColor.step))
+		const g = Math.round(prevColor.g + (nextColor.g - prevColor.g) * (score - prevColor.step) / (nextColor.step - prevColor.step))
+		const b = Math.round(prevColor.b + (nextColor.b - prevColor.b) * (score - prevColor.step) / (nextColor.step - prevColor.step))
+		return `rgb(${r},${g},${b})`
+	}
 
 	return (
 		<>
+		{isToBeDisplayed && (
 			<button
 				type="button"
 				className={'entries-panel-toggle' + (isOpen ? '' : ' entries-panel-toggle-closed')}
@@ -29,13 +66,15 @@ function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onTogg
 			>
 				{isOpen ? '>' : '<'}
 			</button>
-			{isOpen && (
-				<aside className="entries-panel">
+		)}
+		{isToBeDisplayed && isOpen && (
+			<aside className="entries-panel">
+				<div class="tableContainer">
 					<table>
 						<thead>
 							<tr>
 								<th>Entry</th>
-								<th>Personal</th>
+								<th>Score</th>
 								<th>Global</th>
 							</tr>
 						</thead>
@@ -43,14 +82,15 @@ function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onTogg
 							{sortedScores.map((entry) => (
 								<tr key={entry.id}>
 									<td>{entry.label}</td>
-									<td class="scoreCol">{scoreFormatter.pretty(entry.score)}</td>
-									<td class="scoreCol">{scoreFormatter.pretty(entry.globalScore)}</td>
+									<td class="scoreCol">{scoreFormatter.pretty(entry.score)} <span style={{color:scoreToColor(entry.score)}}>●</span></td>
+									<td class="scoreCol">{scoreFormatter.pretty(entry.globalScore)} <span style={{color:scoreToColor(entry.globalScore)}}>●</span></td>
 								</tr>
 							))}
 						</tbody>
 					</table>
-				</aside>
-			)}
+				</div>
+			</aside>
+		)}
 		</>
 	)
 }

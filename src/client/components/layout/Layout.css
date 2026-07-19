@@ -1,7 +1,6 @@
 
-
 .main-page-content.panel-open {
-	width: calc(100% - 300px);
+	width: calc(100% - var(--RightPanelWidth));
 }
 
 .main-page-content.panel-closed {

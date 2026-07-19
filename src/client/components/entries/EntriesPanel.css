@@ -1,11 +1,22 @@
+/* Create Variable RightPanelWidth */
+:root {
+	--RightPanelWidth: 0;
+	--RightPanelBackground: #C8E5C8;
+}
+@media (min-width: 1000px) {
+	:root {
+		--RightPanelWidth: calc(300px + 50vw - 500px);
+	}
+}
+
 .entries-panel {
 	position: fixed;
 	top: 4em;
 	bottom: 0;
 	right: 0;
-	width: 300px;
-	overflow-y: auto;
-	background-color: #F5F5F5;
+	width: var(--RightPanelWidth);
+	overflow: none;
+	background-color: var(--RightPanelBackground);
 	border-left: 2px solid #5C4033;
 	box-sizing: border-box;
 	padding: 1em;
@@ -15,11 +26,11 @@
 .entries-panel-toggle {
 	position: fixed;
 	top: calc(4em + 1em);
-	right: 300px;
+	right: var(--RightPanelWidth);
 	z-index: 60;
 	border: 1px solid #5C4033;
-	border-right: 1px solid #F5F5F5;
-	background-color: #E5E5E5;
+	border-right: 1px solid var(--RightPanelBackground);
+	background-color: var(--RightPanelBackground);
 	border-radius: 25% 0 0 25%;
 	height: 3em;
 	cursor: pointer;
@@ -40,9 +51,31 @@
 	font-family: monospace;
 }
 
+.tableContainer {
+	overflow: auto;
+	padding: 0;
+	max-height: 100%;
+}
 .entries-panel table {
 	width: 100%;
+	border-spacing: 0;
+	margin: 0;
 }
+.entries-panel table th {
+	background-color: #A8D5A8;
+	position: sticky;
+	top: 0;
+}
+.entries-panel table th:nth-child(n+2) {
+	border-left: 1px solid #484;
+}
+.entries-panel table td, .entries-panel table th {
+	padding: .1em .5em;
+}
+.entries-panel table td:nth-child(n+2) {
+	border-left: 1px solid #888;
+}
+
 /* Draw every first row with slightly lighter background and every other row with slighly darker background */
 .entries-panel table > tbody > tr:nth-child(even) {
 	background-color: #E8E8E8;

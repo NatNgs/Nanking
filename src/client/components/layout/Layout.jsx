@@ -51,6 +51,8 @@ function Layout() {
 			}}/>
 			</div>
 			{auth.isAuthenticated && (
+				// No panel if viewport is less than 1000px wide
+
 				<EntriesPanel
 					userScores={userScores}
 					setUserScores={setUserScores}
