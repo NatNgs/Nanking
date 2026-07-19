@@ -5,7 +5,7 @@ import { apiGet, apiPut, apiPost } from '../../hooks/useApi.js'
 import './NewEntryForm.css'
 
 const debounceDellay = 1000;
-function NewEntryForm({scoreFormatter, onEntryCreated}) {
+function NewEntryForm({scoreFormatter}) {
 	const [newEntryName, setNewEntryName] = useState('')
 	const [newEntryScore, setNewEntryScore] = useState(10)
 	const [errorMessage, setErrorMessage] = useState('')

@@ -1,20 +1,25 @@
+.dual-quiz {
+	background-color: #FFFFFF;
+}
 .dual-quiz table {
 	width: 100%;
+	border-collapse: collapse;
 }
 .dual-quiz table td {
 	text-align: center;
-	border: 1px solid #5C4033;
 }
 .dual-quiz img {
 	width: 100px;
 	height: 100px;
-	border: 1px solid #5C4033;
 }
 .dual-quiz-left, .dual-quiz-right {
 	width: 50%;
 }
+.dual-quiz-right {
+	border-left: 1px solid #5C4033;
+}
 .dual-quiz-bt3 {
-	width: 30%;
+	width: calc(100% / 3 - 2em);
 	border: 1px solid #5C4033;
-	background-color: #FFFFFF;
+	margin: 1em;
 }

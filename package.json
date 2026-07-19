@@ -9,8 +9,9 @@
 		"postinstall": "npm run build",
 		"serve:http": "node src/server/server.js --http",
 		"serve:https": "node src/server/server.js",
-		"dev": "concurrently \"npm:serve:http\" \"npm:dev:client\"",
+		"dev": "concurrently \"npm:serve:https\" \"npm:dev:client\"",
 		"dev:https": "concurrently \"npm:serve:https\" \"npm:dev:client\"",
+		"dev:client": "vite serve",
 		"build:watch": "vite build --watch",
 		"test": "node --test --test-global-setup=test/globalSetup.js test/**/*.test.js"
 	},
