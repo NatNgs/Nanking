@@ -4,10 +4,12 @@ import NewEntryForm from '../../components/quiz/NewEntryForm.jsx'
 import DualQuiz from '../../components/quiz/DualQuiz.jsx'
 import './MainPage.css'
 import GlobalScoresPanel from '../../components/globalScoresPanel/GlobalScoresPanel.jsx'
-
+import { useCurrentUser } from '../../hooks/useCurrentUser.js'
 
 function MainPage() {
-	const {isAuthenticated, userScores, scoreFormatter} = useOutletContext()
+	const {scoreFormatter} = useOutletContext()
+	const {username, userScores, userVotes, refreshUserData} = useCurrentUser()
+
 	const [activeView, setActiveView] = useState(null) // 'newEntry' | 'quiz' | null
 
 	function setView(name) {
@@ -16,7 +18,7 @@ function MainPage() {
 
 	return (
 		<div className="main-page">
-			{isAuthenticated && (
+			{username && (
 				<div className="main-page-view-buttons" >
 					<button onClick={()=>setView(null)}>Global scores</button>
 					<button onClick={()=>setView('newEntry')}>New entry</button>

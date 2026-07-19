@@ -105,6 +105,7 @@ class Manager {
 	 * Persists the current in-memory database content to disk, gzip-compressed.
 	 */
 	save(path) {
+		console.log('Saving database to', path)
 		mkdirSync(dirname(path), {recursive: true})
 		writeFileSync(path, gzipSync(JSON.stringify(this.db)))
 	}
@@ -112,6 +113,11 @@ class Manager {
 
 const DB = new Manager({})
 DB.load(CONFIG.DB_PATH)
+
+// every 15minutes, save the database to disk
+setInterval(() => {
+	DB.save(CONFIG.DB_PATH)
+}, 15 * 60 * 1000)
 
 export default DB
 export { Manager }

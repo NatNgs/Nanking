@@ -1,9 +1,11 @@
 import { useMemo, useEffect, useState } from 'react'
 import './EntriesPanel.css'
 import { apiGet } from '../../hooks/useApi.js'
+import { useCurrentUser } from '../../hooks/useCurrentUser.js'
 
-function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onToggle}) {
+function EntriesPanel({scoreFormatter, isOpen, onToggle}) {
 	// Only show panel when screen is wide enough (desktop mode)
+	const {username, userScores, userVotes, refreshUserData} = useCurrentUser()
 	const [isToBeDisplayed, setToBeDisplayed] = useState(window.innerWidth > 1000)
 	const updateMedia = () => setToBeDisplayed(window.innerWidth > 1000)
 	useEffect(() => window.addEventListener('resize', updateMedia), [updateMedia])
@@ -17,24 +19,14 @@ function EntriesPanel({userScores, setUserScores, scoreFormatter, isOpen, onTogg
 	useEffect(() => {
 		let timeout = null
 		const call = () => {
-			if(isToBeDisplayed && isOpen) {
-				apiGet('/user/me').then((data) => {
-					setUserScores(data.user_scores || [])
-					setTimeout(call, 30000)
-				}).catch((e) => {
-					// In case of TooManyRequests 429, set to retry after header 'Retry-After' seconds (min=30s)
-					if(e.response.status === 429) {
-						const retryAfter = Math.max(e.response.headers['retry-after'] || 60, 30)
-						timeout = setTimeout(call, retryAfter * 1000)
-					}
-				})
-			}
+			refreshUserData()
+			timeout = setTimeout(call, 30000)
 		}
 		call()
 		return () => {
 			if(timeout) clearTimeout(timeout)
 		}
-	}, [setUserScores])
+	}, [])
 
 	function scoreToColor(score) {
 		// Score is from 0 to 1

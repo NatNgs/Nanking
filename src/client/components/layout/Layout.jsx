@@ -16,7 +16,6 @@ import './Layout.css'
  */
 function Layout() {
 	const auth = useAuth()
-	const {username, userScores, setUserScores} = useCurrentUser(auth.isAuthenticated)
 	const [loginModalMode, setLoginModalMode] = useState(null) // null | 'login' | 'register'
 
 	const [isPanelOpen, setIsPanelOpen] = useState(auth.isAuthenticated)
@@ -35,27 +34,17 @@ function Layout() {
 	return (
 		<>
 			<Header
-				username={username}
-				isAuthenticated={auth.isAuthenticated}
 				setScoreFormat={setScoreFormat}
 				onOpenLogin={setLoginModalMode}
 				onLogOut={auth.logOut}
 			/>
 			<div class={'main-page-content ' + (isPanelOpen ? 'panel-open ' : 'panel-closed ')}>
-			<Outlet context={{
-				username,
-				userScores,
-				setUserScores,
-				scoreFormatter,
-				isAuthenticated: auth.isAuthenticated,
-			}}/>
+			<Outlet context={{scoreFormatter}}/>
 			</div>
 			{auth.isAuthenticated && (
 				// No panel if viewport is less than 1000px wide
 
 				<EntriesPanel
-					userScores={userScores}
-					setUserScores={setUserScores}
 					scoreFormatter={scoreFormatter}
 					isOpen={isPanelOpen}
 					onToggle={() => setIsPanelOpen((v) => !v)}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../hooks/useAuth.js'
 import { apiGet } from './useApi.js'
 
 /**
@@ -6,22 +7,32 @@ import { apiGet } from './useApi.js'
  * becomes true. Centralized here so both Header (username) and MainPage
  * (userScores) can share a single fetch instead of duplicating it.
  */
-function useCurrentUser(enabled) {
-	const [username, setUsername] = useState('')
-	const [userScores, setUserScores] = useState([])
+function useCurrentUser() {
+	const auth = useAuth()
 
-	const refreshUserData = useCallback(() => {
-		if(!enabled) return
-		apiGet('/user/me').then((data) => {
-			if(!data) return
+	const [username, setUsername] = useState(null)
+	const [userScores, setUserScores] = useState([])
+	const [userVotes, setUserVotes] = useState([])
+
+	async function _refreshUserData () {
+		if(!auth.isAuthenticated) {
+			setUsername(null)
+			setUserScores([])
+			setUserVotes([])
+			return
+		}
+		await apiGet('/user/me').then((data) => {
 			setUsername(data.username)
 			setUserScores(data.user_scores || [])
+			setUserVotes(data.votes || [])
 		})
-	}, [enabled])
+	}
 
-	useEffect(() => { refreshUserData() }, [refreshUserData])
+	const refreshUserData = useCallback(() => _refreshUserData(), [])
 
-	return {username, userScores, refreshUserData, setUserScores}
+	useEffect(() => _refreshUserData(), [])
+
+	return {username, userScores, refreshUserData, setUserScores, userVotes}
 }
 
 export { useCurrentUser }

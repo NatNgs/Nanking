@@ -5,7 +5,11 @@ import { getUser, deleteUser } from '../data/user.js'
  * Serializes the current user's data for the HTTP response.
  */
 function returnUserData(req, res) {
-	res.json({username: req.user.displayLogin || req.user.username, user_scores: req.user.getUserList()})
+	res.json({
+		username: req.user.displayLogin || req.user.username,
+		user_scores: req.user.getUserList(),
+		votes: req.user.quiz.map(q=>q.toJson()),
+	})
 }
 
 /**

@@ -46,7 +46,6 @@ function NewEntryForm({scoreFormatter}) {
 		}
 
 		const data = await apiPost('/quiz/default', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
-		onEntryCreated(data.user_scores || [])
 		setNewEntryName('')
 	}
 

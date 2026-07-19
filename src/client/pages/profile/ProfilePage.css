@@ -13,4 +13,12 @@
 	text-align: left;
 	padding: 0.4em 0.6em;
 	border-bottom: 1px solid #5C4033;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+td.scoreCol {
+	width: 3em;
+	text-align: center;
+	font-family: monospace;
 }

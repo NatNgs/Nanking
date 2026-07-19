@@ -30,7 +30,7 @@ function GlobalScoresPanel({scoreFormatter}) {
 		return () => (timeout && clearTimeout(timeout))
 	}, [setGlobalScores])
 
-		function scoreToColor(score) {
+	function scoreToColor(score) {
 		// Score is from 0 to 1
 		// Convert it to a color: 0 => #000000, 0.3 => #FF0000, 0.6 => #FFFF00, 0.9 => #00AA00, 1 => #00AAFF
 		const colors = [{step:0, r:0, g:0, b:0}, {step:0.3, r:255, g:0, b:0}, {step:0.6, r:255, g:255, b:0}, {step:0.9, r:0, g:170, b:0}, {step:1, r:0, g:170, b:255}]
