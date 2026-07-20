@@ -7,6 +7,8 @@ export default defineConfig({
 	build: {
 		outDir: '../../dist/client',
 		emptyOutDir: true,
+		minify: false,  // Disable minification
+		sourcemap: true // Generate source maps
 	},
 	server: {
 		proxy: {

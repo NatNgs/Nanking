@@ -11,5 +11,5 @@ dist/
 log/
 */tmp/*
 .vscode
-data/
+/data/
 

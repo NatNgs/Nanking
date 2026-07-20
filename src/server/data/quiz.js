@@ -104,7 +104,11 @@ class DualQuiz extends AbstractQuiz {
 		}
 	}
 	equals(other) {
-		return this.type === other.type && this.neg === other.neg && this.pos === other.pos
+		return this.type === other.type
+			&& (
+				(this.neg === other.neg && this.pos === other.pos)
+				|| (this.neg === other.pos && this.pos === other.neg)
+			)
 	}
 	toJson() {
 		return {

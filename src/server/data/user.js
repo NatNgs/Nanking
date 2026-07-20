@@ -40,6 +40,9 @@ class User {
 	didQuiz(quiz) {
 		this.quiz.push(quiz)
 	}
+	removeQuiz(quiz) {
+		this.quiz = this.quiz.filter((q) => !(q.equals(quiz)))
+	}
 
 	save() {
 		// Convert this.quiz to proper Db format

@@ -26,14 +26,19 @@ input[type=number] {
 }
 
 /* Hover effects on inputs */
-button:hover {
+button:not(:disabled):hover {
 	background-color: #F5E9A9;
-}
-select:hover {
-	background-color: #E5E5A9;
-}
-input:hover, button:hover, select:hover {
 	box-shadow: 0 0 0.1em black;
+}
+select:not(:disabled):hover {
+	background-color: #E5E5A9;
+	box-shadow: 0 0 0.1em black;
+}
+input:not(:disabled):hover {
+	box-shadow: 0 0 0.1em black;
+}
+button:disabled, select:disabled, input:disabled {
+	color: gray;
 }
 
 /* Remove margin top before h1-h6 if they are the first element of their parent */
