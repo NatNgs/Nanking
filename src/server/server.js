@@ -44,6 +44,7 @@ app.get('/', pageLimiter, (req, res) => {
 
 // Files
 app.use(express_static(CONFIG.CLIENT_DIST_PATH), pageLimiter);
+app.use('/entryImages', express_static(CONFIG.DATA_DIR + '/entryImages'));
 
 // API
 app.use('/api', apiRouter)

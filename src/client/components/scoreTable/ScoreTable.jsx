@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import './ScoreTable.css'
 import { scoreToColor } from '../../lib/scoreToColor.js'
 
@@ -98,7 +99,7 @@ function ScoreTable({entries, columns, scoreFormatter}) {
 				<tbody>
 					{sortedEntries.map((entry) => (
 						<tr key={entry.id}>
-							<td>{entry.label}</td>
+							<td><Link className="entryLabel" to={'/entry/' + entry.id}>{entry.label}</Link></td>
 							{columns.map((col) => {
 								const value = columnScores.get(entry.id)[col.column]
 								return (

@@ -47,6 +47,9 @@ class DefaultValueQuiz extends AbstractQuiz {
 	equals(other) {
 		return this.type === other.type && this.entry === other.entry
 	}
+	referencesEntry(entry) {
+		return this.entry === entry
+	}
 	toJson() {
 		return {
 			type: this.type,
@@ -109,6 +112,9 @@ class DualQuiz extends AbstractQuiz {
 				(this.neg === other.neg && this.pos === other.pos)
 				|| (this.neg === other.pos && this.pos === other.neg)
 			)
+	}
+	referencesEntry(entry) {
+		return this.neg === entry || this.pos === entry
 	}
 	toJson() {
 		return {

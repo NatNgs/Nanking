@@ -1,6 +1,7 @@
 port: 8153
 
 dbPath: ./test/tmp/NankingServerData.test.gz
+dataDir: ./test/tmp/data
 
 rateLimit:
   login: { limit: 50, windowSeconds: 60 }

@@ -20,4 +20,25 @@ function requireAuthentication(req, res, next) {
 	next()
 }
 
+/**
+ * Like requireAuthentication, but never blocks: attaches req.user only when
+ * a valid token is present, otherwise lets the request through anonymously.
+ * Used for routes that must stay publicly reachable but personalize their
+ * response when the caller happens to be logged in.
+ */
+function attachUserIfAuthenticated(req, res, next) {
+	const token = req.headers.authorization
+	if(!token) return next()
+
+	const user = ACCOUNTS.check_token(token, req.ip)
+	if(!user) return next()
+
+	const newToken = ACCOUNTS.refresh_token(user, req.ip, token)
+	res.setHeader('authorization', newToken)
+	req.user = getUser(user)
+	req.user.displayLogin = ACCOUNTS.getDisplayLogin(user)
+	next()
+}
+
 export default requireAuthentication
+export { attachUserIfAuthenticated }

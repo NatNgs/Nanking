@@ -17,6 +17,7 @@ class EntriesManager {
 		for(const entryId of this.db.keys()) {
 			const data = this.db.get(entryId)
 			const entry = new Entry(entryId, data.name)
+			if(data.image) entry.image = data.image
 			this.entries[entryId] = entry
 		}
 	}
@@ -39,6 +40,18 @@ class EntriesManager {
 
 		return entry
 	}
+	/**
+	 * Looks for an entry whose name matches `name` case-insensitively, skipping
+	 * `excludeEntryId` (typically the entry being renamed, so it never conflicts with itself).
+	 */
+	getEntryByNameIgnoreCase(name, excludeEntryId=null) {
+		const lower = name.trim().toLowerCase()
+		for(const entryId in this.entries) {
+			if(entryId === String(excludeEntryId)) continue
+			if(this.entries[entryId].name.toLowerCase() === lower) return this.entries[entryId]
+		}
+		return null
+	}
 	searchEntry(searchInput) {
 		// Convert searchInput to regex
 		const regex = new RegExp(searchInput.replace(/\./g, '\\.').replace(/\*/g, '.*').replace(/\s+/g, '\\s+'), 'i')
@@ -57,6 +70,10 @@ class EntriesManager {
 		return this.entries[id]
 	}
 
+	deleteEntry(id) {
+		delete this.entries[id]
+	}
+
 	getGlobalScores() {
 		const scores = {}
 		for(const entryId in this.entries) {
@@ -71,7 +88,7 @@ class EntriesManager {
 		const json = {}
 		for(const entryId in this.entries) {
 			const entry = this.entries[entryId]
-			json[entry.id] = {name: entry.name}
+			json[entry.id] = {name: entry.name, image: entry.image}
 		}
 		this.db.set(null, json)
 	}

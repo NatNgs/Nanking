@@ -55,9 +55,9 @@ function AccountPage() {
 						<td>{vote.type}</td>
 						<td>
 							<div class="voteDetail">{vote.type === 'default'
-								? (<><span className="entryLabel" title={userScores.find(s => s.id === vote.entry).label}>{userScores.find(s => s.id === vote.entry).label}</span> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
+								? (<><Link className="entryLabel" to={'/entry/' + vote.entry} title={userScores.find(s => s.id === vote.entry).label}>{userScores.find(s => s.id === vote.entry).label}</Link> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
 								: (<>
-								<span className="entryLabel" title={userScores.find(s => s.id === vote.neg).label}>{userScores.find(s => s.id === vote.neg).label}</span> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <span className="entryLabel" title={userScores.find(s => s.id === vote.pos).label}>{userScores.find(s => s.id === vote.pos).label}</span>
+								<Link className="entryLabel" to={'/entry/' + vote.neg} title={userScores.find(s => s.id === vote.neg).label}>{userScores.find(s => s.id === vote.neg).label}</Link> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <Link className="entryLabel" to={'/entry/' + vote.pos} title={userScores.find(s => s.id === vote.pos).label}>{userScores.find(s => s.id === vote.pos).label}</Link>
 								</>)
 							}</div>
 						</td>

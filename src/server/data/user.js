@@ -43,6 +43,14 @@ class User {
 	removeQuiz(quiz) {
 		this.quiz = this.quiz.filter((q) => !(q.equals(quiz)))
 	}
+	/**
+	 * Removes every vote referencing `entry` and its computed score for this user.
+	 * Used when an entry is permanently deleted, to cascade the deletion to all user data.
+	 */
+	removeAllReferencesToEntry(entry) {
+		this.quiz = this.quiz.filter((q) => !q.referencesEntry(entry))
+		delete this.entries[entry.id]
+	}
 
 	save() {
 		// Convert this.quiz to proper Db format
@@ -75,5 +83,16 @@ function deleteUser(username) {
 	delete ALL_USERS[username]
 	DB.sub('users.' + username).delete(null)
 }
+/**
+ * True if at least one known user still has a vote referencing `entry`.
+ * Used to decide whether an entry can be permanently deleted once a single
+ * user's votes on it have been removed.
+ */
+function anyUserReferencesEntry(entry) {
+	for(const username in ALL_USERS) {
+		if(ALL_USERS[username].quiz.some((q) => q.referencesEntry(entry))) return true
+	}
+	return false
+}
 
-export { getUser, loadAllUsers, saveAllUsers, deleteUser, ALL_USERS, User }
+export { getUser, loadAllUsers, saveAllUsers, deleteUser, anyUserReferencesEntry, ALL_USERS, User }

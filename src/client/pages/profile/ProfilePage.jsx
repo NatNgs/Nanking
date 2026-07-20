@@ -5,9 +5,9 @@ import './ProfilePage.css'
 
 const COLUMNS = [{column: 'Score', score: (e) => e.score, sortOrder: 1}]
 
-async function profileLoader({params}) {
+async function profileLoader({params, request}) {
 	try {
-		return await apiGet('/user/' + params.username)
+		return await apiGet('/user/' + params.username, null, {signal: request.signal})
 	} catch(err) {
 		if(err.status === 404) throw new Response('user', {status: 404})
 		throw err

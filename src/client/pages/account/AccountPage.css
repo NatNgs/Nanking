@@ -4,32 +4,6 @@
 	width: fit-content;
 }
 
-.entryLabel {
-	border-radius: 3px;
-	background-color: #A8D5A8; /* Light green */
-	padding: 0 0.5em;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 0 1 auto;
-}
-.entryScore {
-	border-radius: 3px;
-	background-color: #FED186; /* Light yellow */
-	padding: 0 0.5em;
-	flex: 0;
-}
-.dualOperator {
-	border-radius: 3px;
-	background-color: #FFA8A8; /* Light red */
-	padding: 0 0.5em;
-	flex: 0;
-}
-.voteDetail {
-	display: flex;
-	/* Children horizontally aligned, verticaly centered */
-	align-items: center;
-	gap: 0.5em;
-}
 /* Alternate row background color, white and gray */
 .account-page tr:nth-child(even) {
 	background-color: #FFFFFF;

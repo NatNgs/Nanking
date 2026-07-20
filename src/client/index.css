@@ -45,3 +45,40 @@ button:disabled, select:disabled, input:disabled {
 h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, h6:first-child {
 	margin-top: 0;
 }
+
+/* Entry display: shared across AccountPage, ScoreTable, DualQuiz, EntryPage links, etc. */
+.entryLabel {
+	border-radius: 3px;
+	background-color: #A8D5A8; /* Light green */
+	padding: 0 0.5em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 0 1 auto;
+	display: inline-block;
+	max-width: 100%;
+}
+a.entryLabel {
+	text-decoration: none;
+	color: inherit;
+}
+a.entryLabel:hover {
+	text-decoration: underline;
+}
+.entryScore {
+	border-radius: 3px;
+	background-color: #FED186; /* Light yellow */
+	padding: 0 0.5em;
+	flex: 0;
+}
+.dualOperator {
+	border-radius: 3px;
+	background-color: #FFA8A8; /* Light red */
+	padding: 0 0.5em;
+	flex: 0;
+}
+.voteDetail {
+	display: flex;
+	/* Children horizontally aligned, verticaly centered */
+	align-items: center;
+	gap: 0.5em;
+}

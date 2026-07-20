@@ -59,8 +59,10 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		return text.split(' ')[0]
 	}
 
-	function accountRow(label) {
-		return page.locator('.score-table tbody tr', {has: page.locator(`td:has-text("${label}")`)})
+	// The entries score table (columns: Score/Global) lives in the EntriesPanel
+	// sidebar shown on the home page (desktop only), not on /user/me.
+	function entriesPanelRow(label) {
+		return page.locator('.entries-panel .score-table tbody tr', {has: page.locator(`td:has-text("${label}")`)})
 	}
 
 	test('register and log in', async () => {
@@ -79,28 +81,26 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		await createEntry('Second entry', 10)
 	})
 
-	test('account page shows both entries at 1/10 and 10/10', async () => {
-		await page.locator('.app-header-username').click()
-
-		const firstRow = accountRow('First entry')
+	test('entries panel shows both entries at 1/10 and 10/10', async () => {
+		const firstRow = entriesPanelRow('First entry')
 		await firstRow.waitFor({state: 'visible', timeout: 5000})
 		assert.equal(await scoreCellText(firstRow, 2), '1')
 
-		const secondRow = accountRow('Second entry')
+		const secondRow = entriesPanelRow('Second entry')
 		await secondRow.waitFor({state: 'visible', timeout: 5000})
 		assert.equal(await scoreCellText(secondRow, 2), '10')
 	})
 
 	test('switching back to Percent immediately shows 0% and 100%, without reloading the page', async () => {
-		// Still on /user/me from the previous test: switching format must update
-		// the table in place, with no navigation/reload involved.
+		// Still on the home page from the previous test: switching format must
+		// update the table in place, with no navigation/reload involved.
 		await page.locator('select[name=format]').selectOption('Percent')
 
-		const firstRow = accountRow('First entry')
+		const firstRow = entriesPanelRow('First entry')
 		await firstRow.waitFor({state: 'visible', timeout: 5000})
 		assert.equal(await scoreCellText(firstRow, 2), '0%')
 
-		const secondRow = accountRow('Second entry')
+		const secondRow = entriesPanelRow('Second entry')
 		assert.equal(await scoreCellText(secondRow, 2), '100%')
 	})
 
@@ -119,17 +119,18 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 	 */
 	async function voteAndCheck(buttonText, expectedOp) {
 		await page.locator('.dual-quiz table').waitFor({state: 'visible', timeout: 5000})
-		const leftLabel = await page.locator('.dual-quiz-left div').innerText()
-		const rightLabel = await page.locator('.dual-quiz-right div').innerText()
+		const leftLabel = await page.locator('.dual-quiz-left .entryLabel').innerText()
+		const rightLabel = await page.locator('.dual-quiz-right .entryLabel').innerText()
 
 		await page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`).click()
 		await page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`).waitFor({state: 'visible', timeout: 5000})
 
 		await page.locator('.app-header-username').click()
-		const voteText = `dual: ${leftLabel} ${expectedOp} ${rightLabel}`
-		await page.locator('.account-page li', {hasText: voteText}).last().waitFor({state: 'visible', timeout: 5000})
-		const lastVoteText = (await page.locator('.account-page li').last().innerText()).trim()
-		assert.equal(lastVoteText, voteText)
+		const voteText = `${leftLabel} ${expectedOp} ${rightLabel}`
+		await page.locator('.account-page tbody tr', {hasText: voteText}).last().waitFor({state: 'visible', timeout: 5000})
+		const lastRow = page.locator('.account-page tbody tr').last()
+		assert.equal(await lastRow.locator('td').nth(0).innerText(), 'dual')
+		assert.equal((await lastRow.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), voteText)
 
 		// Back to the Dual quiz for the next vote in this scenario
 		await page.locator('.app-header-title').click()

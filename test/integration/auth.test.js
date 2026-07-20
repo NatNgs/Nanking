@@ -134,6 +134,17 @@ describe('Auth integration flow', {concurrency: false}, () => {
 		assert.equal(await page.locator('.account-page button:has-text("Remove my account")').isVisible(), true)
 	})
 
+	test('unknown page while logged in shows 404 with the header still showing username/logout', async () => {
+		await page.goto(BASE_URL + '/wrongpage')
+		await page.locator('.error-page h2').waitFor({state: 'visible', timeout: 3000})
+		assert.equal(await page.locator('.error-page h2').innerText(), 'Page not found')
+		await assertLoggedInAs(LOGIN)
+
+		// Back to the account page, so the following tests can resume from there
+		await page.goto(BASE_URL + '/user/me')
+		await page.locator('.account-page h1').waitFor({state: 'visible'})
+	})
+
 	test('account removal fails with a wrong password, still logged in', async () => {
 		await page.locator('.account-page button:has-text("Remove my account")').click()
 		await disableNativeFormValidation()
@@ -156,6 +167,12 @@ describe('Auth integration flow', {concurrency: false}, () => {
 		await page.locator('.app-header-actions button:has-text("Login")').click()
 		await submitLoginModal(LOGIN, PASSWORD)
 		await assertLoginModalError('Login failed')
+		await assertLoggedOut()
+	})
+
+	test('unknown page while logged out shows the header with login/register', async () => {
+		await page.goto(BASE_URL + '/wrongpage')
+		await page.locator('.error-page h2').waitFor({state: 'visible', timeout: 3000})
 		await assertLoggedOut()
 	})
 })

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useOutletContext } from 'react-router'
 import NewEntryForm from '../../components/quiz/NewEntryForm.jsx'
 import DualQuiz from '../../components/quiz/DualQuiz.jsx'
@@ -13,6 +13,14 @@ function MainPage() {
 
 	const [activeView, setActiveView] = useState(null) // 'newEntry' | 'quiz' | null
 	const [isPanelOpen, setIsPanelOpen] = useState(isAuthenticated)
+
+	// isAuthenticated can flip to true after this component's first render
+	// (e.g. logging in from the home page instead of arriving already logged
+	// in) - open the panel on that transition instead of leaving it stuck
+	// closed from the initial useState() snapshot.
+	useEffect(() => {
+		if(isAuthenticated) setIsPanelOpen(true)
+	}, [isAuthenticated])
 
 	function setView(name) {
 		setActiveView(name)

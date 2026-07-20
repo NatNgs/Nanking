@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { apiPost } from '../../hooks/useApi.js'
 import './DualQuiz.css'
@@ -100,11 +101,11 @@ function DualQuiz() {
 					<tr>
 						<td className="dual-quiz-left">
 							<img src={left.image}/><br/>
-							<div>{left.label}</div>
+							<Link className="entryLabel" to={'/entry/' + left.id}>{left.label}</Link>
 						</td>
 						<td className="dual-quiz-right">
 							<img src={right.image}/><br/>
-							<div>{right.label}</div>
+							<Link className="entryLabel" to={'/entry/' + right.id}>{right.label}</Link>
 						</td>
 					</tr>
 					<tr>

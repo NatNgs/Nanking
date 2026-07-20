@@ -86,4 +86,40 @@ describe('EntriesManager', () => {
 		const reloadedEntries = new EntriesManager(reloadedDb)
 		assert.ok(reloadedEntries.getEntryByName('Naruto'))
 	})
+
+	test('save() then reload also round-trips a custom image', () => {
+		const entries = new EntriesManager(db)
+		const entry = entries.getEntryByName('Naruto', true)
+		entry.image = '/entryImages/0.png'
+		entries.save()
+
+		const reloaded = new EntriesManager(db)
+		assert.equal(reloaded.getEntryById(entry.id).image, '/entryImages/0.png')
+	})
+
+	test('getEntryByNameIgnoreCase finds an entry regardless of case', () => {
+		const entries = new EntriesManager(db)
+		const entry = entries.getEntryByName('Naruto', true)
+		assert.equal(entries.getEntryByNameIgnoreCase('NARUTO'), entry)
+		assert.equal(entries.getEntryByNameIgnoreCase('naruto'), entry)
+	})
+
+	test('getEntryByNameIgnoreCase returns null when no entry matches', () => {
+		const entries = new EntriesManager(db)
+		entries.getEntryByName('Naruto', true)
+		assert.equal(entries.getEntryByNameIgnoreCase('One Piece'), null)
+	})
+
+	test('getEntryByNameIgnoreCase excludes the given entry id (renaming to its own name is not a conflict)', () => {
+		const entries = new EntriesManager(db)
+		const entry = entries.getEntryByName('Naruto', true)
+		assert.equal(entries.getEntryByNameIgnoreCase('naruto', entry.id), null)
+	})
+
+	test('deleteEntry removes the entry so it can no longer be found by id', () => {
+		const entries = new EntriesManager(db)
+		const entry = entries.getEntryByName('Naruto', true)
+		entries.deleteEntry(entry.id)
+		assert.equal(entries.getEntryById(entry.id), undefined)
+	})
 })

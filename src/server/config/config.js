@@ -45,6 +45,7 @@ const CONFIG = {
 	CERT_CERT_PATH:        p(localConfig?.cert?.certPath        || null                          ),
 	DB_PATH:               p(localConfig.dbPath                || './data/NankingServerData.gz' ),
 	CLIENT_DIST_PATH:      p(localConfig.clientDistPath        || './dist/client'               ),
+	DATA_DIR:              p(localConfig.dataDir               || './data'                      ),
 	TOKEN_VALIDITY_LIMIT:  +(localConfig?.token?.validityLimit || (16 * 60 * 60)                ) * 1000,
 	TOKEN_REFRESH_RATE:    +(localConfig?.token?.refreshRate   || (1 * 60 * 60)                 ) * 1000,
 	SHUTDOWN_TIMEOUT:      +(localConfig.shutdownTimeout       || (60)                          ) * 1000,
