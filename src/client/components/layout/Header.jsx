@@ -1,10 +1,10 @@
 import { Link } from 'react-router'
 import { FORMATTERS } from '../../lib/scoreFormatter.js'
 import './Header.css'
-import { useCurrentUser } from '../../hooks/useCurrentUser.js'
+import { useUserContext } from '../../context/UserContext.jsx'
 
-function Header({setScoreFormat, onOpenLogin, onLogOut}) {
-	const {username} = useCurrentUser()
+function Header({setScoreFormat, onOpenLogin}) {
+	const {username, logOut} = useUserContext()
 
 	return (
 		<header className="app-header">
@@ -21,7 +21,7 @@ function Header({setScoreFormat, onOpenLogin, onLogOut}) {
 				{username ? (
 					<>
 						<Link to="/user/me" className="app-header-link app-header-username">{username}</Link>
-						<button onClick={onLogOut}>Log out</button>
+						<button onClick={logOut}>Log out</button>
 					</>
 				) : (
 					<>

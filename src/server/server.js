@@ -62,15 +62,12 @@ app.all('{*path}', (req, res) => {
 //
 // Launching server
 
-// HTTPS by default. Pass --http on the command line to force plain HTTP (development
-// only): certificate options are then ignored entirely, valid or not.
-const useHttp = process.argv.includes('--http')
-
+// HTTP if no certificate is configured (development only), HTTPS otherwise.
 let protocol
 let server
-if(useHttp) {
+if(CONFIG.CERT_KEY_PATH == null) {
 	protocol = 'http'
-	console.warn('Starting in plain HTTP mode (--http). Do not use this mode in production.')
+	console.warn('No certificate configured: starting in plain HTTP mode. Do not use this mode in production.')
 	server = createHttpServer(app)
 } else {
 	protocol = 'https'
@@ -82,7 +79,6 @@ if(useHttp) {
 		}
 	} catch(e) {
 		console.error('Could not read SSL certificate/key (' + e.message + ').')
-		console.error('Pass --http to start without HTTPS (development only).')
 		process.exit(1)
 	}
 	server = createHttpsServer(options, app)

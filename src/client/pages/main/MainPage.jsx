@@ -4,11 +4,11 @@ import NewEntryForm from '../../components/quiz/NewEntryForm.jsx'
 import DualQuiz from '../../components/quiz/DualQuiz.jsx'
 import './MainPage.css'
 import GlobalScoresPanel from '../../components/globalScoresPanel/GlobalScoresPanel.jsx'
-import { useCurrentUser } from '../../hooks/useCurrentUser.js'
+import { useUserContext } from '../../context/UserContext.jsx'
 
 function MainPage() {
 	const {scoreFormatter} = useOutletContext()
-	const {username, userScores, userVotes, refreshUserData} = useCurrentUser()
+	const {username, userScores} = useUserContext()
 
 	const [activeView, setActiveView] = useState(null) // 'newEntry' | 'quiz' | null
 

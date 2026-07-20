@@ -8,3 +8,8 @@ cert/
 test/tmp/
 .claude/
 dist/
+log/
+*/tmp/*
+.vscode
+data/
+

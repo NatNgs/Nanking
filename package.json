@@ -7,13 +7,12 @@
 	"scripts": {
 		"build": "vite build",
 		"postinstall": "npm run build",
-		"serve:http": "node src/server/server.js --http",
-		"serve:https": "node src/server/server.js",
-		"dev": "concurrently \"npm:serve:https\" \"npm:dev:client\"",
-		"dev:https": "concurrently \"npm:serve:https\" \"npm:dev:client\"",
+		"serve": "node src/server/server.js",
+		"dev": "concurrently \"npm:serve\" \"npm:dev:client\"",
 		"dev:client": "vite serve",
 		"build:watch": "vite build --watch",
-		"test": "node --test --test-global-setup=test/globalSetup.js test/**/*.test.js"
+		"test": "node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js",
+		"test:integration": "npm run build && node --test --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
 	},
 	"author": "Nathael Nogues",
 	"license": "MIT",
@@ -42,6 +41,7 @@
 		"concurrently": "^10.0.3",
 		"eslint": "^10.7.0",
 		"eslint-plugin-react-hooks": "^7.1.1",
+		"playwright": "^1.56.0",
 		"vite": "^8.1.5"
 	}
 }

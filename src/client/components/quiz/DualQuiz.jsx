@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useOutletContext } from 'react-router'
+import { useUserContext } from '../../context/UserContext.jsx'
 import { apiPost } from '../../hooks/useApi.js'
 import './DualQuiz.css'
 
@@ -10,7 +10,7 @@ import './DualQuiz.css'
  * new pair — mirrors QUIZ.dual() + clickNewQuiz() from the legacy client.
  */
 function DualQuiz() {
-	const {userScores, setUserScores, scoreFormatter} = useOutletContext()
+	const {userScores} = useUserContext()
 	const [isVoting, setIsVoting] = useState(true)
 	const [left, setLeft] = useState(null)
 	const [right, setRight] = useState(null)
@@ -65,7 +65,7 @@ function DualQuiz() {
 		// Disable voting while the vote is being sent
 		setIsVoting(true)
 		try {
-			await apiPost('/quiz/dual', {neg: left.id, vote: value, pos: right.id})
+			await apiPost('/quiz/dual', {neg: left.id, value, pos: right.id})
 		} finally {
 			pickNewPair()
 		}

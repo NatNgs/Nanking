@@ -8,40 +8,50 @@ the client is built, into `dist/client/`.
 
 ## Configuration
 
-The server reads its configuration from `src/server/config/config.js`. Every value has
-a default and can be overridden with an environment variable of the same name:
+The server reads its configuration from a YAML file, selected by environment name:
+`data/config.<env>.yml`. The environment name is resolved from the `--env=<name>`
+command-line flag, then the `ENV` environment variable, then defaults to `local`. If
+the resulting file is missing or invalid, the server logs a warning and starts with
+default values instead of failing.
 
-| Variable | Default | Purpose |
+```sh
+node src/server/server.js --env=local   # reads data/config.local.yml (also the default)
+ENV=test node src/server/server.js      # reads data/config.test.yml
+```
+
+Every value has a default, overridable via the config file:
+
+| Key | Default | Purpose |
 |---|---|---|
-| `PORT` | `8053` | HTTPS port the server listens on |
-| `CERT_KEY_PATH` | `cert/server.key` | TLS private key |
-| `CERT_CERT_PATH` | `cert/server.cert` | TLS certificate |
-| `DB_PATH` | `data/Nanking-server.json` | Gzip-compressed database file |
-| `CLIENT_DIST_PATH` | `dist/client` | Compiled React app served as static files |
-| `TOKEN_VALIDITY_LIMIT` | 16 hours (ms) | Absolute session token expiration |
-| `TOKEN_REFRESH_RATE` | 1 hour (ms) | Minimum delay between two token refreshes |
-| `SHUTDOWN_TIMEOUT` | 60 seconds (ms) | Force-exit delay if graceful shutdown hangs |
+| `port` | `8053` | Port the server listens on |
+| `cert.keyPath` / `cert.certPath` | *(none)* | TLS private key/certificate — see below |
+| `dbPath` | `data/NankingServerData.gz` | Gzip-compressed database file |
+| `clientDistPath` | `dist/client` | Compiled React app served as static files |
+| `token.validityLimit` | 16 hours (seconds) | Absolute session token expiration |
+| `token.refreshRate` | 1 hour (seconds) | Minimum delay between two token refreshes |
+| `shutdownTimeout` | 60 seconds | Force-exit delay if graceful shutdown hangs |
+| `rateLimit.<login\|api\|publicProfile\|page>.limit` / `.windowSeconds` | see `rateLimit.js` | Per-route request rate limits |
 
-**HTTPS certificate**: the server starts over HTTPS by default and requires a
-certificate in `cert/server.key`/`cert/server.cert` (this folder is intentionally
-excluded from version control), for example:
+**HTTPS certificate**: the server starts in plain HTTP mode unless `cert.keyPath` is
+set in the loaded config file. When it is set, the server reads the certificate and
+starts over HTTPS, for example:
 
 ```sh
 mkdir cert
 openssl req -x509 -newkey rsa:2048 -nodes -keyout cert/server.key -out cert/server.cert -days 365
 ```
 
-If `CERT_KEY_PATH`/`CERT_CERT_PATH` point to a missing or unreadable file while running
-in HTTPS mode, the server logs an error and exits (exit code 1) rather than starting
-without transport encryption.
-
-Pass `--http` on the command line to force plain HTTP instead — certificate options
-are then ignored entirely, whether they are set or not. Intended for local development
-only; never use `--http` in production.
-
-```sh
-node src/server/server.js --http
+```yaml
+# data/config.local.yml
+cert:
+  keyPath: ./cert/server.key
+  certPath: ./cert/server.cert
 ```
+
+If `cert.keyPath`/`cert.certPath` point to a missing or unreadable file, the server
+logs an error and exits (exit code 1) rather than starting without transport
+encryption. With no `cert` section at all (the default), the server starts in plain
+HTTP mode — intended for local development only, never for production.
 
 ## Installation
 
@@ -68,7 +78,8 @@ npm run serve
 ```
 
 Runs `src/server/server.js` directly (requires `dist/client/` to exist — see
-[Build](#build) — and a certificate in `cert/` — see [Configuration](#configuration)).
+[Build](#build) — and, if HTTPS is configured, a certificate in `cert/` — see
+[Configuration](#configuration)).
 
 For development, with hot-reload on the client and the Express server running against
 the sources directly:
@@ -77,14 +88,15 @@ the sources directly:
 npm run dev
 ```
 
-This starts the Express server in plain HTTP mode (`dev:http`, no certificate needed)
-and the Vite dev server together (`concurrently`). The Vite dev server proxies
-`/login`, `/user`, and `/quiz` requests to the Express server (see `vite.config.js`),
-so the app behaves the same as in production while the client hot-reloads on change.
+This starts the Express server (`npm run serve`) and the Vite dev server together
+(`concurrently`). With no `cert` section in `data/config.local.yml`, the Express
+server runs in plain HTTP mode. The Vite dev server proxies `/api` requests to the
+Express server (see `vite.config.js`), so the app behaves the same as in production
+while the client hot-reloads on change.
 
-Run `npm run dev:https` instead of `npm run dev:http` (invoked manually, alongside
-`npm run dev:client`) to test against HTTPS during development, if a local certificate
-is available.
+To test against HTTPS during development, add a `cert` section to
+`data/config.local.yml` pointing to a local certificate, then run `npm run dev` as
+usual.
 
 ## TODO List
 

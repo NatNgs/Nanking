@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { hashPassword } from '../../hooks/useAuth.js'
 import { apiDelete } from '../../hooks/useApi.js'
+import { useUserContext } from '../../context/UserContext.jsx'
 import './DeleteAccountModal.css'
 
-function DeleteAccountModal({username, onClose, onDeleted}) {
+function DeleteAccountModal({onClose, onDeleted}) {
+	const {username} = useUserContext()
 	const [password, setPassword] = useState('')
 	const [error, setError] = useState(null)
 

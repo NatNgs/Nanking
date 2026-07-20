@@ -1,11 +1,10 @@
 import { useMemo, useEffect, useState } from 'react'
 import './EntriesPanel.css'
-import { apiGet } from '../../hooks/useApi.js'
-import { useCurrentUser } from '../../hooks/useCurrentUser.js'
+import { useUserContext } from '../../context/UserContext.jsx'
 
 function EntriesPanel({scoreFormatter, isOpen, onToggle}) {
 	// Only show panel when screen is wide enough (desktop mode)
-	const {username, userScores, userVotes, refreshUserData} = useCurrentUser()
+	const {userScores, refreshUserData} = useUserContext()
 	const [isToBeDisplayed, setToBeDisplayed] = useState(window.innerWidth > 1000)
 	const updateMedia = () => setToBeDisplayed(window.innerWidth > 1000)
 	useEffect(() => window.addEventListener('resize', updateMedia), [updateMedia])

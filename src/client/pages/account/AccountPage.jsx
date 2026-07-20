@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react'
-import { useOutletContext, Navigate, Link } from 'react-router'
-import { useCurrentUser } from '../../hooks/useCurrentUser.js'
+import { useState } from 'react'
+import { Navigate, Link } from 'react-router'
+import { useUserContext } from '../../context/UserContext.jsx'
 import DeleteAccountModal from '../../components/account/DeleteAccountModal.jsx'
 import './AccountPage.css'
 
 function AccountPage() {
-	const {isAuthenticated} = useOutletContext()
-	const {username, userScores, userVotes, refreshUserData} = useCurrentUser()
+	const {isAuthenticated, username, userScores, userVotes, logOut} = useUserContext()
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
 	if(!isAuthenticated) return <Navigate to="/" replace />
@@ -21,8 +20,8 @@ function AccountPage() {
 				{userVotes.map((vote, i) => (
 					<li key={i}>
 						{vote.type}: {vote.type === 'default'
-							? `${userScores.find(s => s.id === vote.entry).name} = ${vote.score}`
-							: `${userScores.find(s => s.id === vote.neg).name} ${vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'} ${userScores.find(s => s.id === vote.pos).name}`
+							? `${userScores.find(s => s.id === vote.entry).label} = ${vote.value}`
+							: `${userScores.find(s => s.id === vote.neg).label} ${vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'} ${userScores.find(s => s.id === vote.pos).label}`
 						}
 					</li>
 				))}
@@ -31,9 +30,8 @@ function AccountPage() {
 			<button onClick={() => setIsDeleteModalOpen(true)}>Remove my account</button>
 			{isDeleteModalOpen && (
 				<DeleteAccountModal
-					username={username}
 					onClose={() => setIsDeleteModalOpen(false)}
-					onDeleted={() => { window.localStorage.removeItem('token'); window.location.href = '/' }}
+					onDeleted={logOut}
 				/>
 			)}
 		</div>

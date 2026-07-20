@@ -1,4 +1,5 @@
-import { rateLimit, ipKeyGenerator, MINUTE } from 'express-rate-limit'
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit'
+import CONFIG from '../config/config.js'
 
 /**
  * Sends a 429 response with a `Retry-After` header, so the client can inform
@@ -15,8 +16,8 @@ function handler(req, res) {
  * account passwords. Runs before authentication, so no user is known yet.
  */
 const loginLimiter = rateLimit({
-	windowMs: MINUTE,
-	limit: 6,
+	windowMs: CONFIG.RATE_LIMIT.login.windowMs,
+	limit: CONFIG.RATE_LIMIT.login.limit,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req.ip),
@@ -29,8 +30,8 @@ const loginLimiter = rateLimit({
  * after the `authenticate` middleware, since it relies on `req.user`.
  */
 const apiLimiter = rateLimit({
-	windowMs: MINUTE,
-	limit: 120,
+	windowMs: CONFIG.RATE_LIMIT.api.windowMs,
+	limit: CONFIG.RATE_LIMIT.api.limit,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => req.user?.username || ipKeyGenerator(req.ip),
@@ -43,8 +44,8 @@ const apiLimiter = rateLimit({
  * `loginLimiter` - kept separate rather than reused for that reason.
  */
 const publicProfileLimiter = rateLimit({
-	windowMs: MINUTE,
-	limit: 30,
+	windowMs: CONFIG.RATE_LIMIT.publicProfile.windowMs,
+	limit: CONFIG.RATE_LIMIT.publicProfile.limit,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req.ip),
@@ -55,8 +56,8 @@ const publicProfileLimiter = rateLimit({
  * Limit on all routes outside of API
  */
 const pageLimiter = rateLimit({
-	windowMs: MINUTE,
-	limit: 60,
+	windowMs: CONFIG.RATE_LIMIT.page.windowMs,
+	limit: CONFIG.RATE_LIMIT.page.limit,
 	standardHeaders: true,
 	legacyHeaders: false,
 	keyGenerator: (req) => ipKeyGenerator(req.ip),
