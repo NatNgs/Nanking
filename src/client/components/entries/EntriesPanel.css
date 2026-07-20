@@ -46,44 +46,6 @@
 	right: 0;
 }
 
-.scoreCol {
-	text-align: right;
-	font-family: monospace;
-}
-
-.tableContainer {
-	overflow: auto;
-	padding: 0;
+.entries-panel .score-table-container {
 	max-height: 100%;
-}
-.entries-panel table {
-	width: 100%;
-	border-spacing: 0;
-	margin: 0;
-}
-.entries-panel table th {
-	background-color: #A8D5A8;
-	position: sticky;
-	top: 0;
-}
-.entries-panel table th:nth-child(n+2) {
-	border-left: 1px solid #484;
-}
-.entries-panel table td, .entries-panel table th {
-	padding: .1em .5em;
-}
-.entries-panel table td:nth-child(n+2) {
-	border-left: 1px solid #888;
-}
-
-/* Draw every first row with slightly lighter background and every other row with slighly darker background */
-.entries-panel table > tbody > tr:nth-child(even) {
-	background-color: #E8E8E8;
-}
-.entries-panel table > tbody > tr:nth-child(odd) {
-	background-color: #F8F8F8;
-}
-/* Draw line after thead row */
-.entries-panel table th {
-	border-bottom: 1px solid #5C4033;
 }

@@ -4,13 +4,15 @@ import NewEntryForm from '../../components/quiz/NewEntryForm.jsx'
 import DualQuiz from '../../components/quiz/DualQuiz.jsx'
 import './MainPage.css'
 import GlobalScoresPanel from '../../components/globalScoresPanel/GlobalScoresPanel.jsx'
+import EntriesPanel from '../../components/entries/EntriesPanel.jsx'
 import { useUserContext } from '../../context/UserContext.jsx'
 
 function MainPage() {
 	const {scoreFormatter} = useOutletContext()
-	const {username, userScores} = useUserContext()
+	const {isAuthenticated, username, userScores} = useUserContext()
 
 	const [activeView, setActiveView] = useState(null) // 'newEntry' | 'quiz' | null
+	const [isPanelOpen, setIsPanelOpen] = useState(isAuthenticated)
 
 	function setView(name) {
 		setActiveView(name)
@@ -25,7 +27,7 @@ function MainPage() {
 					{ userScores.length > 2 && (<button onClick={()=>setView('quiz')}>Random Quiz</button>)}
 				</div>
 			)}
-			<div className="main-page-view-content">
+			<div className={'main-page-view-content ' + (isPanelOpen ? 'panel-open ' : 'panel-closed ')}>
 				{activeView === null && (
 					<GlobalScoresPanel scoreFormatter={scoreFormatter}/>
 				)}
@@ -36,6 +38,14 @@ function MainPage() {
 					<DualQuiz />
 				)}
 			</div>
+			{isAuthenticated && (
+				// No panel if viewport is less than 1000px wide
+				<EntriesPanel
+					scoreFormatter={scoreFormatter}
+					isOpen={isPanelOpen}
+					onToggle={() => setIsPanelOpen((v) => !v)}
+				/>
+			)}
 		</div>
 	)
 }

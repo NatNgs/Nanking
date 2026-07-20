@@ -13,6 +13,13 @@
 
 .main-page-view-content {
 	padding: 1em 1em;
-	margin-left: auto;
-  	margin-right: auto;
+	box-sizing: border-box;
+}
+
+.main-page-view-content.panel-open {
+	margin-right: var(--RightPanelWidth);
+}
+
+.main-page-view-content.panel-closed {
+	margin-right: 0;
 }

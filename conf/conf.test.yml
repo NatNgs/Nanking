@@ -1,0 +1,9 @@
+port: 8153
+
+dbPath: ./test/tmp/NankingServerData.test.gz
+
+rateLimit:
+  login: { limit: 50, windowSeconds: 60 }
+  api: { limit: 300, windowSeconds: 60 }
+  publicProfile: { limit: 300, windowSeconds: 60 }
+  page: { limit: 300, windowSeconds: 60 }

@@ -117,7 +117,7 @@ DB.load(CONFIG.DB_PATH)
 // every 15minutes, save the database to disk
 setInterval(() => {
 	DB.save(CONFIG.DB_PATH)
-}, 15 * 60 * 1000)
+}, 15 * 60 * 1000).unref()
 
 export default DB
 export { Manager }

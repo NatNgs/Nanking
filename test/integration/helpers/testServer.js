@@ -6,7 +6,7 @@ const STARTUP_TIMEOUT_MS = 10000
 
 /**
  * Starts the real Express server as a subprocess, configured via
- * `data/config.test.yml` (isolated port/DB, relaxed rate limits). Resolves
+ * `conf/conf.test.yml` (isolated port/DB, relaxed rate limits). Resolves
  * once the server logs its "listening" line, rather than waiting a fixed
  * delay.
  */

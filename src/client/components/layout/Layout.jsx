@@ -4,7 +4,6 @@ import { useUserContext } from '../../context/UserContext.jsx'
 import { FORMATTERS } from '../../lib/scoreFormatter.js'
 import Header from './Header.jsx'
 import LoginModal from '../auth/LoginModal.jsx'
-import EntriesPanel from '../../components/entries/EntriesPanel.jsx'
 
 import './Layout.css'
 
@@ -15,10 +14,8 @@ import './Layout.css'
  * comes from UserContext, not the outlet context.
  */
 function Layout() {
-	const {isAuthenticated, login, register} = useUserContext()
+	const {login, register} = useUserContext()
 	const [loginModalMode, setLoginModalMode] = useState(null) // null | 'login' | 'register'
-
-	const [isPanelOpen, setIsPanelOpen] = useState(isAuthenticated)
 
 	const [scoreFormat, setScoreFormat] = useState('Percent')
 	const scoreFormatter = useMemo(() => FORMATTERS[scoreFormat], [scoreFormat])
@@ -37,18 +34,9 @@ function Layout() {
 				setScoreFormat={setScoreFormat}
 				onOpenLogin={setLoginModalMode}
 			/>
-			<div class={'main-page-content ' + (isPanelOpen ? 'panel-open ' : 'panel-closed ')}>
+			<div className="main-page-content">
 			<Outlet context={{scoreFormatter}}/>
 			</div>
-			{isAuthenticated && (
-				// No panel if viewport is less than 1000px wide
-
-				<EntriesPanel
-					scoreFormatter={scoreFormatter}
-					isOpen={isPanelOpen}
-					onToggle={() => setIsPanelOpen((v) => !v)}
-				/>
-			)}
 
 			{loginModalMode && (
 				<LoginModal

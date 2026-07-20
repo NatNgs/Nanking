@@ -64,8 +64,8 @@ class DualQuiz extends AbstractQuiz {
 		if(neg === pos) {
 			throw new QuizError('Dual: cannot compare between the same entry')
 		}
-		if(value < 0 || value > 1) {
-			throw new QuizError('Dual: value must be between 0 and 1')
+		if(value < -1 || value > 1) {
+			throw new QuizError('Dual: value must be between -1 and 1')
 		}
 		super('dual')
 

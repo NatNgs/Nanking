@@ -1,0 +1,43 @@
+.score-table-container {
+	overflow: auto;
+	max-height: 100%;
+}
+
+.score-table {
+	width: 100%;
+	border-spacing: 0;
+	margin: 0;
+}
+
+.score-table th {
+	background-color: #A8D5A8;
+	position: sticky;
+	top: 0;
+	cursor: pointer;
+	border-bottom: 1px solid #5C4033;
+}
+
+.score-table th:nth-child(n+2) {
+	border-left: 1px solid #484;
+}
+
+.score-table td, .score-table th {
+	padding: .1em .5em;
+}
+
+.score-table td:nth-child(n+2) {
+	border-left: 1px solid #888;
+}
+
+.score-table .scoreCol {
+	text-align: right;
+	font-family: monospace;
+}
+
+/* Draw every first row with slightly lighter background and every other row with slightly darker background */
+.score-table > tbody > tr:nth-child(even) {
+	background-color: #E8E8E8;
+}
+.score-table > tbody > tr:nth-child(odd) {
+	background-color: #F8F8F8;
+}

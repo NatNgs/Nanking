@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import debounce from 'lodash.debounce';
 import AsyncCreatableSelect from 'react-select/async-creatable';
 import { apiGet, apiPut, apiPost } from '../../hooks/useApi.js'
+import { useUserContext } from '../../context/UserContext.jsx'
 import './NewEntryForm.css'
 
 const debounceDellay = 1000;
 function NewEntryForm({scoreFormatter}) {
+	const {refreshUserData} = useUserContext()
 	const [newEntryName, setNewEntryName] = useState('')
 	const [newEntryScore, setNewEntryScore] = useState(10)
 	const [errorMessage, setErrorMessage] = useState('')
@@ -45,7 +47,8 @@ function NewEntryForm({scoreFormatter}) {
 			entry = await apiPut('/entry/new', {name: newEntryName})
 		}
 
-		const data = await apiPost('/quiz/default', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
+		await apiPost('/quiz/default', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
+		await refreshUserData()
 		setNewEntryName('')
 	}
 

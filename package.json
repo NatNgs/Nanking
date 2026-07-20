@@ -11,8 +11,8 @@
 		"dev": "concurrently \"npm:serve\" \"npm:dev:client\"",
 		"dev:client": "vite serve",
 		"build:watch": "vite build --watch",
-		"test": "node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js",
-		"test:integration": "npm run build && node --test --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
+		"test": "node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js -- --env=test",
+		"test:integration": "npm run build && node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
 	},
 	"author": "Nathael Nogues",
 	"license": "MIT",

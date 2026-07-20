@@ -35,7 +35,7 @@ function computeUserScores(user) {
 	}
 
 	// Append globalScore to every enty
-	for(const entryId in currScores) {
+	for(const entryId in entriesLists) {
 		entriesLists[entryId].push(ENTRIES.entries[entryId].globalScore)
 	}
 
@@ -77,12 +77,14 @@ function computeGlobalScores() {
 		averages[entryId] = allScores[entryId].reduce((a, b) => a + b) / allScores[entryId].length
 	}
 
-	// Stretch scores from 0 (worst) to 1 (best)
+	// Stretch scores from 0 (worst) to 1 (best). With no variance to stretch
+	// (a single entry, or every entry tied), fall back to the neutral 0.5
+	// rather than dividing by zero.
 	const min = Math.min(...Object.values(averages))
 	const max = Math.max(...Object.values(averages))
 	for(const entryId in averages) {
-		ENTRIES.entries[entryId].globalScore = (averages[entryId] - min) / (max - min)
+		ENTRIES.entries[entryId].globalScore = max === min ? 0.5 : (averages[entryId] - min) / (max - min)
 	}
 }
 
-export { launchComputation, computeUserScores }
+export { launchComputation, computeUserScores, computeGlobalScores }

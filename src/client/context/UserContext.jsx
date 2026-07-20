@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { apiGet } from '../hooks/useApi.js'
 
 const UserContext = createContext(null)
+const POLL_INTERVAL_MS = 30000
 
 /**
  * Single source of truth for auth + current user data, shared by every
@@ -16,22 +17,39 @@ function UserProvider({children}) {
 	const [username, setUsername] = useState(null)
 	const [userScores, setUserScores] = useState([])
 	const [userVotes, setUserVotes] = useState([])
+	const pollTimeoutRef = useRef(null)
 
+	/**
+	 * Fetches the current user's data. Called on mount/auth change, on a
+	 * timer every 30s, and manually by callers (quiz components, right after
+	 * voting, so the new score shows up immediately). Every call - manual or
+	 * scheduled - cancels and reschedules the poll timer, so a manual refresh
+	 * never gets immediately followed by a redundant scheduled one. Returns
+	 * the freshly fetched scores, so a caller that needs them right away
+	 * (e.g. to pick the next quiz pair) doesn't have to wait for the next
+	 * render to see the updated `userScores`.
+	 */
 	const refreshUserData = useCallback(async () => {
+		if(pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current)
+
 		if(!auth.isAuthenticated) {
 			setUsername(null)
 			setUserScores([])
 			setUserVotes([])
-			return
+			return []
 		}
-		await apiGet('/user/me').then((data) => {
-			setUsername(data.username)
-			setUserScores(data.user_scores || [])
-			setUserVotes(data.votes || [])
-		})
+		const data = await apiGet('/user/me')
+		setUsername(data.username)
+		setUserScores(data.user_scores || [])
+		setUserVotes(data.votes || [])
+		pollTimeoutRef.current = setTimeout(refreshUserData, POLL_INTERVAL_MS)
+		return data.user_scores || []
 	}, [auth.isAuthenticated])
 
-	useEffect(() => { refreshUserData() }, [refreshUserData])
+	useEffect(() => {
+		refreshUserData()
+		return () => { if(pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current) }
+	}, [refreshUserData])
 
 	const value = {
 		isAuthenticated: auth.isAuthenticated,

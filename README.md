@@ -9,14 +9,14 @@ the client is built, into `dist/client/`.
 ## Configuration
 
 The server reads its configuration from a YAML file, selected by environment name:
-`data/config.<env>.yml`. The environment name is resolved from the `--env=<name>`
+`conf/conf.<env>.yml`. The environment name is resolved from the `--env=<name>`
 command-line flag, then the `ENV` environment variable, then defaults to `local`. If
 the resulting file is missing or invalid, the server logs a warning and starts with
 default values instead of failing.
 
 ```sh
-node src/server/server.js --env=local   # reads data/config.local.yml (also the default)
-ENV=test node src/server/server.js      # reads data/config.test.yml
+node src/server/server.js --env=local   # reads conf/conf.local.yml (also the default)
+ENV=test node src/server/server.js      # reads conf/conf.test.yml
 ```
 
 Every value has a default, overridable via the config file:
@@ -42,7 +42,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -keyout cert/server.key -out cert/serv
 ```
 
 ```yaml
-# data/config.local.yml
+# conf/conf.local.yml
 cert:
   keyPath: ./cert/server.key
   certPath: ./cert/server.cert
@@ -89,13 +89,13 @@ npm run dev
 ```
 
 This starts the Express server (`npm run serve`) and the Vite dev server together
-(`concurrently`). With no `cert` section in `data/config.local.yml`, the Express
+(`concurrently`). With no `cert` section in `conf/conf.local.yml`, the Express
 server runs in plain HTTP mode. The Vite dev server proxies `/api` requests to the
 Express server (see `vite.config.js`), so the app behaves the same as in production
 while the client hot-reloads on change.
 
 To test against HTTPS during development, add a `cert` section to
-`data/config.local.yml` pointing to a local certificate, then run `npm run dev` as
+`conf/conf.local.yml` pointing to a local certificate, then run `npm run dev` as
 usual.
 
 ## TODO List

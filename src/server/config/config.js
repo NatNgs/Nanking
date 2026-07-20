@@ -25,7 +25,7 @@ function getArg(name, fallback) {
 const ENV_NAME = getArg('env', null) ?? process.env.ENV ?? 'local'
 
 // Load local config file
-const config_path = p(`./data/config.${ENV_NAME}.yml`)
+const config_path = p(`./conf/conf.${ENV_NAME}.yml`)
 let localConfig = {}
 try {
 	localConfig = loadYaml(fs.readFileSync(config_path, 'utf8'))

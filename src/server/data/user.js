@@ -27,7 +27,10 @@ class User {
 				id: entry.id,
 				label: entry.name,
 				image: entry.image,
-				score: (this.entries[entryId] - minUserScore) / (maxUserScore - minUserScore), // Stretch score between 0 and 1
+				// Stretch score between 0 and 1. With no variance to stretch (a
+				// single entry, or every entry tied), fall back to the neutral
+				// 0.5 rather than dividing by zero.
+				score: maxUserScore === minUserScore ? 0.5 : (this.entries[entryId] - minUserScore) / (maxUserScore - minUserScore),
 				globalScore: entry.globalScore,
 			})
 		}
