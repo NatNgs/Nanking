@@ -1,0 +1,6 @@
+.pagination-controls {
+	display: flex;
+	align-items: center;
+	gap: 0.75em;
+	margin: 0.75em 0;
+}

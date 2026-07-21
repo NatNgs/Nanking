@@ -1,9 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { apiGet } from '../hooks/useApi.js'
 
 const UserContext = createContext(null)
-const POLL_INTERVAL_MS = 30000
 
 /**
  * Single source of truth for auth + current user data, shared by every
@@ -15,40 +14,38 @@ function UserProvider({children}) {
 	const auth = useAuth()
 
 	const [username, setUsername] = useState(null)
-	const [userScores, setUserScores] = useState([])
 	const [userVotes, setUserVotes] = useState([])
-	const pollTimeoutRef = useRef(null)
+	const [scoredEntriesCount, setScoredEntriesCount] = useState(0)
+	// Bumped by every action that changes a user's scores (vote, entry
+	// creation, score removal). Views showing a paginated score table
+	// (usePaginatedList's `dependsOn`) watch this to refetch their current
+	// page immediately, replacing the synchronization the old global 30s
+	// poll used to provide implicitly across views.
+	const [entriesVersion, setEntriesVersion] = useState(0)
+	const bumpEntriesVersion = useCallback(() => setEntriesVersion((v) => v + 1), [])
 
 	/**
-	 * Fetches the current user's data. Called on mount/auth change, on a
-	 * timer every 30s, and manually by callers (quiz components, right after
-	 * voting, so the new score shows up immediately). Every call - manual or
-	 * scheduled - cancels and reschedules the poll timer, so a manual refresh
-	 * never gets immediately followed by a redundant scheduled one. Returns
-	 * the freshly fetched scores, so a caller that needs them right away
-	 * (e.g. to pick the next quiz pair) doesn't have to wait for the next
-	 * render to see the updated `userScores`.
+	 * Fetches the current user's own data (username, votes, scored entries
+	 * count) — never the paginated score list itself, see
+	 * GET /api/user/me/entities for that. Called on mount/auth change, and
+	 * manually by callers (quiz/vote components, right after acting, so
+	 * username/votes/count show up immediately).
 	 */
 	const refreshUserData = useCallback(async () => {
-		if(pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current)
-
 		if(!auth.isAuthenticated) {
 			setUsername(null)
-			setUserScores([])
 			setUserVotes([])
-			return []
+			setScoredEntriesCount(0)
+			return
 		}
 		const data = await apiGet('/user/me')
 		setUsername(data.username)
-		setUserScores(data.user_scores || [])
 		setUserVotes(data.votes || [])
-		pollTimeoutRef.current = setTimeout(refreshUserData, POLL_INTERVAL_MS)
-		return data.user_scores || []
+		setScoredEntriesCount(data.scoredEntriesCount || 0)
 	}, [auth.isAuthenticated])
 
 	useEffect(() => {
 		refreshUserData()
-		return () => { if(pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current) }
 	}, [refreshUserData])
 
 	const value = {
@@ -58,9 +55,10 @@ function UserProvider({children}) {
 		register: auth.register,
 		logOut: auth.logOut,
 		username,
-		userScores,
-		setUserScores,
 		userVotes,
+		scoredEntriesCount,
+		entriesVersion,
+		bumpEntriesVersion,
 		refreshUserData,
 	}
 

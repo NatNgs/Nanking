@@ -1,7 +1,7 @@
 import express from 'express'
 import requireAuthentication from '../middleware/authenticate.js'
 import { apiLimiter, publicProfileLimiter } from '../middleware/rateLimit.js'
-import { returnUserData, setEntryScore, returnPublicUserData as getPublicUserData, deleteAccount } from '../services/userService.js'
+import { returnUserData, setEntryScore, returnPublicUserData as getPublicUserData, getUserEntities, deleteAccount } from '../services/userService.js'
 import ACCOUNTS from '../data/accounts.js'
 import ENTRIES from '../data/entries.js'
 
@@ -9,6 +9,10 @@ const userRouter = express.Router()
 
 userRouter.get('/me', requireAuthentication, apiLimiter, (req, res) => {
 	returnUserData(req, res)
+})
+userRouter.get('/me/entities', requireAuthentication, apiLimiter, (req, res) => {
+	const {sort, order, page, limit} = req.query
+	res.json(getUserEntities(req.user, {sort, order, page, limit}))
 })
 userRouter.delete('/me', requireAuthentication, apiLimiter, (req, res) => {
 	if(!ACCOUNTS.verifyPassword(req.user.username, req.body.pwd)) {
@@ -21,7 +25,8 @@ userRouter.delete('/me', requireAuthentication, apiLimiter, (req, res) => {
 
 // Public route, declared last so its generic :username pattern never shadows /me or /entry
 userRouter.get('/:username', publicProfileLimiter, (req, res) => {
-	const data = getPublicUserData(req.params.username)
+	const {sort, order, page, limit} = req.query
+	const data = getPublicUserData(req.params.username, {sort, order, page, limit})
 	if(!data) {
 		console.warn(req.originalUrl, '=> 404 (Unknown user)')
 		return res.status(404).send('User not found')

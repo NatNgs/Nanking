@@ -35,18 +35,6 @@ function computeUserScores(user) {
 		q.apply(currScores, entriesLists)
 	}
 
-	// Append the average of this entry's direct tags' current user score (a
-	// single extra value), when it has at least one tag with a known user score.
-	for(const entryId in entriesLists) {
-		const entry = ENTRIES.entries[entryId]
-		const tagScores = entry.tags
-			.map((tagId) => user.tags[tagId])
-			.filter((s) => s || s === 0)
-		if(tagScores.length) {
-			entriesLists[entryId].push(tagScores.reduce((a, b) => a + b) / tagScores.length)
-		}
-	}
-
 	// Append globalScore to every enty
 	for(const entryId in entriesLists) {
 		entriesLists[entryId].push(ENTRIES.entries[entryId].globalScore)
@@ -108,19 +96,6 @@ function computeGlobalScores() {
 		for(const entryId in user.entries) {
 			if(!allScores[entryId]) allScores[entryId] = []
 			allScores[entryId].push(user.entries[entryId])
-		}
-	}
-
-	// Append the average of this entry's direct tags' current global score (a
-	// single extra value), when it has at least one tag with a known score.
-	for(const entryId in allScores) {
-		const entry = ENTRIES.entries[entryId]
-		if(!entry) continue
-		const tagScores = entry.tags
-			.map((tagId) => TAGS.tags[tagId]?.score)
-			.filter((s) => s || s === 0)
-		if(tagScores.length) {
-			allScores[entryId].push(tagScores.reduce((a, b) => a + b) / tagScores.length)
 		}
 	}
 

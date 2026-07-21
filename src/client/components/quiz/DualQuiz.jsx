@@ -1,77 +1,34 @@
 import { useState, useEffect } from 'react'
 import { useUserContext } from '../../context/UserContext.jsx'
-import { apiPost } from '../../hooks/useApi.js'
+import { apiGet, apiPost } from '../../hooks/useApi.js'
 import EntrySpan from '../entry/EntrySpan.jsx'
 import './DualQuiz.css'
 
-
 /**
  * Displays two entries side by side with 3 voting buttons (left/tie/right).
- * Posts the vote to /quiz/dual, then calls onVoted() so the caller can pick a
- * new pair — mirrors QUIZ.dual() + clickNewQuiz() from the legacy client.
+ * The pair itself is picked server-side (GET /api/quiz/dual, weighted by
+ * score proximity — see src/server/services/dualQuizService.js), so this
+ * component never needs the full user score list.
  */
 function DualQuiz() {
-	const {userScores, refreshUserData} = useUserContext()
+	const {refreshUserData, bumpEntriesVersion} = useUserContext()
 	const [isVoting, setIsVoting] = useState(true)
 	const [left, setLeft] = useState(null)
 	const [right, setRight] = useState(null)
+	const [error, setError] = useState(null)
 
-
-	function pickPair(options) {
-		/* Pick the first element at random. Assign a weight such as the more score it has, the more chance it has to be picked. */
-		const f1 = (s)=>(s.score+1)
-		let wsum = options.map(f1).reduce((a, b) => a + b, 0)
-		let rnd = Math.random() * wsum
-		let i1 = 0
-		while(rnd > f1(options[i1])) {
-			rnd -= f1(options[i1])
-			i1++
+	async function fetchNewPair() {
+		setIsVoting(true)
+		try {
+			const pair = await apiGet('/quiz/dual')
+			setLeft(pair.left)
+			setRight(pair.right)
+			setError(null)
+		} catch(err) {
+			setError(err)
+		} finally {
+			setIsVoting(false)
 		}
-		const e1 = options[i1]
-
-		/*
-		 * Pick a second element at random. Assign a weight such as the more scores
-		 * are similar with i1, the more chance it has to be picked. Every other
-		 * entry keeps a (small) chance of being picked, so this never runs out of
-		 * candidates even when every score is far apart from e1:
-		 * - abs in [0, 0.25]: weight linearly interpolated from 10 (abs=0) to 1 (abs=0.25)
-		 * - abs in [0.25, 2]: weight linearly interpolated from 0.1 (abs=0.25) to 0.001 (abs=2)
-		 * - abs > 2: weight capped at 0.001
-		 */
-		function weightFor(abs) {
-			if(abs <= 0.25) return 10 - 9*(abs/0.25)
-			if(abs >= 2) return 0.001
-			return 0.1 - 0.099*((abs-0.25)/1.75)
-		}
-
-		const candidates = []
-		const w = []
-		wsum = 0
-		for(const s of options) {
-			if(s.id === e1.id)
-				continue
-			const abs = Math.abs(e1.score - s.score)
-			candidates.push(s)
-			const _w = weightFor(abs)
-			w.push(_w)
-			wsum += _w
-		}
-		rnd = Math.random() * wsum
-		let i2 = 0
-		while(rnd > w[i2]) {
-			rnd -= w[i2]
-			i2++
-		}
-		const e2 = candidates[i2]
-
-		return [e1, e2]
-	}
-
-	function pickNewPair(options) {
-		const [l, r] = pickPair(options)
-		setLeft(l)
-		setRight(r)
-		setIsVoting(false)
 	}
 
 	async function vote(value) {
@@ -79,23 +36,22 @@ function DualQuiz() {
 		setIsVoting(true)
 		try {
 			await apiPost('/quiz/dual', {neg: left.id, value, pos: right.id})
-			// Refresh first, then pick the next pair from the freshly updated scores
-			const freshScores = await refreshUserData()
-			pickNewPair(freshScores)
-		} catch {
-			pickNewPair(userScores)
+			await refreshUserData()
+			bumpEntriesVersion()
+		} finally {
+			await fetchNewPair()
 		}
 	}
 
-	// Call pickNewPair once. Regular userScores refreshes (polling) must NOT
-	// reshuffle the pair shown to the user - it would change the question
-	// mid-thought. Only a vote or an explicit skip picks a new pair.
+	// Fetch a pair once on mount. Only a vote or an explicit skip picks a new
+	// pair afterwards.
 	useEffect(() => {
-		pickNewPair(userScores)
+		fetchNewPair()
 	}, [])
 
 	return (
 		<div className="dual-quiz">
+			{error && <p role="alert">Not enough scored entries yet for a duel.</p>}
 			{ left && right && (
 				<table>
 					<tr>
@@ -117,7 +73,7 @@ function DualQuiz() {
 					</tr>
 					<tr>
 						<td colSpan="2">
-							<button className="dual-quiz-skip" disabled={isVoting} onClick={() => pickNewPair(userScores)}>Skip</button>
+							<button className="dual-quiz-skip" disabled={isVoting} onClick={fetchNewPair}>Skip</button>
 						</td>
 					</tr>
 				</table>

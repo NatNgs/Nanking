@@ -132,9 +132,6 @@ describe('Tags integration flow', {concurrency: false}, () => {
 		await entryLabels.first().waitFor({state: 'visible', timeout: 5000})
 		const entryTexts = (await entryLabels.allInnerTexts()).sort()
 		assert.deepEqual(entryTexts, ['Generic Mammal thing', 'Rex', 'Whiskers'])
-
-		const scoreText = await page.locator('p', {hasText: 'Score'}).innerText()
-		assert.doesNotMatch(scoreText, /NaN/)
 	})
 
 	test('renaming the current tag updates the title', async () => {

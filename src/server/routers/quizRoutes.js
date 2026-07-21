@@ -2,11 +2,18 @@ import express from 'express'
 import requireAuthentication from '../middleware/authenticate.js'
 import { returnUserData } from '../services/userService.js'
 import { computeUserScores } from '../services/scoresComputerService.js'
+import { pickDualPair } from '../services/dualQuizService.js'
 import { DefaultValueQuiz, DualQuiz } from '../data/quiz.js'
 import ENTRIES from '../data/entries.js'
 
 const quizRouter = express.Router()
 quizRouter.use(requireAuthentication)
+
+quizRouter.get('/dual', (req, res) => {
+	const pair = pickDualPair(req.user)
+	if(!pair) return res.status(409).send('Not enough scored entries for a dual quiz')
+	res.json(pair)
+})
 
 quizRouter.post('/default', (req, res, next) => {
 	req.user.didQuiz(new DefaultValueQuiz(ENTRIES.getEntryById(req.body.entry), +req.body.score))

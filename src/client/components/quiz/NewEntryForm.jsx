@@ -7,12 +7,12 @@ import { asyncSelectStyles, ASYNC_SELECT_NO_INDICATORS } from '../../lib/reactSe
 import './NewEntryForm.css'
 
 function NewEntryForm({scoreFormatter}) {
-	const {refreshUserData} = useUserContext()
+	const {refreshUserData, bumpEntriesVersion} = useUserContext()
 	const [newEntryName, setNewEntryName] = useState('')
 	const [newEntryScore, setNewEntryScore] = useState(10)
 	const [errorMessage, setErrorMessage] = useState('')
 
-	const fetchCandidates = useCallback((q) => q ? apiGet(`/entries?q=${q}`) : Promise.resolve([]), [])
+	const fetchCandidates = useCallback((q) => q ? apiGet(`/entries?q=${q}`).then((r) => r.items) : Promise.resolve([]), [])
 	const {suggested: suggestedEntries, loadOptions: onSuggestionsFetchRequested, isNewOption: isNewEntry} = useAsyncSearchOptions(fetchCandidates)
 
 	async function handleNewEntry() {
@@ -34,6 +34,7 @@ function NewEntryForm({scoreFormatter}) {
 
 		await apiPost('/quiz/default', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
 		await refreshUserData()
+		bumpEntriesVersion()
 		setNewEntryName('')
 	}
 

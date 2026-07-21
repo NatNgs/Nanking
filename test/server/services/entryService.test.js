@@ -8,7 +8,7 @@ import { Entry } from '../../../src/server/data/entries.js'
 import { User, ALL_USERS } from '../../../src/server/data/user.js'
 import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 import { Manager } from '../../../src/server/data/db.js'
-import { getEntryData, renameEntry, updateEntryImage, deleteEntry } from '../../../src/server/services/entryService.js'
+import { getEntryData, renameEntry, updateEntryImage, deleteEntry, listEntries } from '../../../src/server/services/entryService.js'
 import TAGS from '../../../src/server/data/tags.js'
 import { Tag } from '../../../src/server/data/tags.js'
 import { addTagToEntry } from '../../../src/server/services/tagService.js'
@@ -112,6 +112,52 @@ describe('entryService', () => {
 
 			assert.equal(renameEntry('n:0', 'Renamed'), 'ok')
 			assert.equal(ENTRIES.entries['n:0'].name, 'Renamed')
+		})
+	})
+
+	describe('listEntries', () => {
+		test('without q, sorts by score desc by default and paginates', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].globalScore = 0.3
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+			ENTRIES.entries['n:1'].globalScore = 0.9
+			ENTRIES.entries['n:2'] = new Entry('n:2', 'C')
+			ENTRIES.entries['n:2'].globalScore = 0.6
+
+			const result = listEntries({page: 1, limit: 2})
+
+			assert.deepEqual(result.items.map((e) => e.id), ['n:1', 'n:2'])
+			assert.equal(result.total, 3)
+			assert.equal(result.hasMore, true)
+		})
+
+		test('sort=label sorts alphabetically ascending by default', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'Zebra')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'Apple')
+
+			const result = listEntries({sort: 'label', page: 1, limit: 10})
+
+			assert.deepEqual(result.items.map((e) => e.label), ['Apple', 'Zebra'])
+		})
+
+		test('with q, delegates to ENTRIES.searchEntry (already capped at 32 by relevance) then paginates', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'Naruto')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'One Piece')
+
+			const result = listEntries({q: 'naruto', page: 1, limit: 10})
+
+			assert.deepEqual(result.items.map((e) => e.id), ['n:0'])
+			assert.equal(result.total, 1)
+		})
+
+		test('page beyond total returns an empty items array with coherent metadata', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+
+			const result = listEntries({page: 5, limit: 10})
+
+			assert.deepEqual(result.items, [])
+			assert.equal(result.total, 1)
+			assert.equal(result.hasMore, false)
 		})
 	})
 

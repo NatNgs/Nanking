@@ -1,17 +1,20 @@
-import { useState, useEffect } from 'react'
-import { apiGet } from '../../hooks/useApi.js'
+import { usePaginatedList } from '../../hooks/usePaginatedList.js'
 import ScoreTable from '../scoreTable/ScoreTable.jsx'
+import PaginationControls from '../pagination/PaginationControls.jsx'
 
-const COLUMNS = [{column: 'Global score', score: (e) => e.score, sortOrder: 1}]
+const COLUMNS = [{column: 'Global score', sortKey: 'score', score: (e) => e.score}]
 
 function GlobalScoresPanel({scoreFormatter}) {
-	const [globalScores, setGlobalScores] = useState([])
+	const {items, sort, order, onSort, page, total, limit, goToPage} = usePaginatedList('/entries', {
+		initialSort: 'score', initialOrder: 'desc', refreshIntervalMs: 30000,
+	})
 
-	useEffect(() => {
-		apiGet('/entries').then((data) => setGlobalScores(data || []))
-	}, [])
-
-	return <ScoreTable entries={globalScores} columns={COLUMNS} scoreFormatter={scoreFormatter}/>
+	return (
+		<>
+			<ScoreTable items={items} columns={COLUMNS} sort={sort} order={order} onSort={onSort} scoreFormatter={scoreFormatter}/>
+			<PaginationControls page={page} total={total} limit={limit} onPageChange={goToPage}/>
+		</>
+	)
 }
 
 export default GlobalScoresPanel

@@ -1,28 +1,54 @@
 import ACCOUNTS from '../data/accounts.js'
 import { getUser, deleteUser } from '../data/user.js'
+import ENTRIES from '../data/entries.js'
 
 /**
- * Serializes the current user's data for the HTTP response.
+ * Enriches a serialized vote (toJson()) with the labels of the entries it
+ * references, so the client no longer needs the full user_scores list to
+ * display them (AccountPage "My inputs"). Mirrors resolveEntryTags in
+ * tagService.js.
+ */
+function enrichVoteWithLabels(voteJson) {
+	const label = (entryId) => ENTRIES.getEntryById(entryId)?.name ?? null
+	if(voteJson.type === 'default') {
+		return {...voteJson, entryLabel: label(voteJson.entry)}
+	}
+	if(voteJson.type === 'dual') {
+		return {...voteJson, negLabel: label(voteJson.neg), posLabel: label(voteJson.pos)}
+	}
+	return voteJson
+}
+
+/**
+ * Serializes the current user's data for the HTTP response. No longer
+ * includes user_scores (see GET /api/user/me/entities for paginated scores).
  */
 function returnUserData(req, res) {
 	res.json({
 		username: req.user.displayLogin || req.user.username,
-		user_scores: req.user.getUserList(),
-		votes: req.user.quiz.map(q=>q.toJson()),
+		votes: req.user.quiz.map((q) => enrichVoteWithLabels(q.toJson())),
+		scoredEntriesCount: Object.keys(req.user.entries).length,
 	})
 }
 
 /**
- * Public profile data for `username`: computed scores only (never manual
- * scores). Returns null if the account does not exist.
+ * Paginated scores for the current user, backing GET /api/user/me/entities.
  */
-function getPublicUserData(username) {
+function getUserEntities(user, {sort, order, page, limit} = {}) {
+	return user.getUserListPaginated({sort, order, page, limit})
+}
+
+/**
+ * Public profile data for `username`: paginated computed scores only (never
+ * manual scores). Returns null if the account does not exist.
+ */
+function getPublicUserData(username, {sort, order, page, limit} = {}) {
 	const lookupKey = username.trim().toLowerCase()
 	if(!ACCOUNTS.accounts[lookupKey]) return null
 
 	const user = getUser(lookupKey)
-	const scores = user.getUserList()
-	return {username: ACCOUNTS.getDisplayLogin(lookupKey), user_scores: scores}
+	const paginatedEntities = user.getUserListPaginated({sort, order, page, limit})
+	return {username: ACCOUNTS.getDisplayLogin(lookupKey), ...paginatedEntities}
 }
 
 /**
@@ -44,4 +70,4 @@ function setEntryScore(user, entryName, score) {
 	return true
 }
 
-export { returnUserData, setEntryScore, getPublicUserData as returnPublicUserData, deleteAccount }
+export { returnUserData, setEntryScore, getPublicUserData as returnPublicUserData, getUserEntities, deleteAccount }

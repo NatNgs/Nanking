@@ -154,8 +154,8 @@ describe('scoresComputerService', () => {
 		})
 	})
 
-	describe('computeUserScores with entry tags', () => {
-		test('includes the average of the entry\'s direct tags\' current user score', () => {
+	describe('computeUserScores no longer factors in tag scores', () => {
+		test('a user score on an entry is unaffected by its tags\' user scores', () => {
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			ENTRIES.entries['n:0'].globalScore = 0.5
 			ENTRIES.entries['n:0'].tags.push('t:0')
@@ -166,22 +166,8 @@ describe('scoresComputerService', () => {
 
 			computeUserScores(user)
 
-			// quiz vote (1) + tag average (0.9) + globalScore (0.5), averaged
+			// quiz vote (1) + globalScore (0.5) only, averaged — tag score ignored
 			assertFinite(user.entries['n:0'])
-			assert.equal(user.entries['n:0'], (1 + 0.9 + 0.5) / 3)
-		})
-
-		test('does not add a tag value when the entry\'s tag has no known user score yet', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].globalScore = 0.5
-			ENTRIES.entries['n:0'].tags.push('t:0')
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
-
-			computeUserScores(user)
-
-			// no user.tags['t:0'] yet: behaves exactly like the no-tags case
 			assert.equal(user.entries['n:0'], (1 + 0.5) / 2)
 		})
 	})
@@ -249,8 +235,8 @@ describe('scoresComputerService', () => {
 		})
 	})
 
-	describe('computeGlobalScores with entry tags', () => {
-		test('includes the average of the entry\'s direct tags\' current global score', () => {
+	describe('computeGlobalScores no longer factors in tag scores', () => {
+		test('an entry\'s globalScore is unaffected by its tags\' global score', () => {
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			ENTRIES.entries['n:0'].tags.push('t:0')
 			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
@@ -262,7 +248,8 @@ describe('scoresComputerService', () => {
 
 			computeGlobalScores()
 
-			assertFinite(ENTRIES.entries['n:0'].globalScore)
+			// Single user score -> single-entry fallback (no variance to stretch)
+			assert.equal(ENTRIES.entries['n:0'].globalScore, 0.5)
 		})
 
 		test('without any tag defined, behaves exactly like before (non-regression)', () => {

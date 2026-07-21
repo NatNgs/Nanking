@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLoaderData, useOutletContext, useParams } from 'react-router'
+import { useLoaderData, useParams } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { apiGet, apiPatch, apiPost, apiDelete, loadOr404 } from '../../hooks/useApi.js'
 import { useRenamePrompt } from '../../hooks/useRenamePrompt.js'
@@ -22,7 +22,6 @@ async function tagLoader({params, request}) {
 function TagPage() {
 	const {tag: initialTag, tree: initialTree, entriesData: initialEntriesData} = useLoaderData()
 	const {tagId} = useParams()
-	const {scoreFormatter} = useOutletContext()
 	const {isAuthenticated} = useUserContext()
 
 	const [tag, setTag] = useState(initialTag)
@@ -87,8 +86,6 @@ function TagPage() {
 
 			{error && <p role="alert" className="tag-page-error">{error}</p>}
 
-			<p>Score: {scoreFormatter.pretty(tag.score)}</p>
-
 			<TagTree
 				title="Parents"
 				nodes={tree.parents}
@@ -107,9 +104,9 @@ function TagPage() {
 
 			<TagTree title="Children" nodes={tree.children} childKey="children" />
 
-			<h2>Linked entries ({entriesData.count})</h2>
+			<h2>Linked entries ({entriesData.total})</h2>
 			<div className="tag-page-entries-list">
-				{entriesData.entries.map((e) => (
+				{entriesData.items.map((e) => (
 					<EntrySpan key={e.id} id={e.id} label={e.label} />
 				))}
 			</div>

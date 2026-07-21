@@ -14,7 +14,7 @@ function TagPicker({searchFilter, onAdd, disabled, placeholder, className}) {
 	const [selected, setSelected] = useState(null)
 
 	const fetchCandidates = useCallback(
-		(q) => apiPost('/tags/search', {q, ...searchFilter}),
+		(q) => apiPost('/tags/search', {q, ...searchFilter}).then((r) => r.items),
 		[JSON.stringify(searchFilter)],
 	)
 	const {suggested, loadOptions, isNewOption} = useAsyncSearchOptions(fetchCandidates)

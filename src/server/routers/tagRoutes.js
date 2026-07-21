@@ -5,6 +5,7 @@ import {
 	getParentTree, getChildTree, getEntriesForTag,
 } from '../services/tagService.js'
 import { respondWithData, sendByResult } from './routeHelpers.js'
+import { paginate } from '../lib/pagination.js'
 
 const tagRoutes = express.Router()
 
@@ -52,11 +53,11 @@ tagRoutes.get('/:id/entries', (req, res) => {
 	const data = getTagData(req.params.id)
 	if(!data) return res.status(404).send('Tag not found')
 
-	const entries = getEntriesForTag(req.params.id)
-	res.json({
-		count: entries.length,
-		entries: entries.map((e) => ({id: e.id, label: e.name, image: e.image})),
-	})
+	const {order, page, limit} = req.query
+	const entries = getEntriesForTag(req.params.id) // already sorted by name (localeCompare)
+	const mapped = entries.map((e) => ({id: e.id, label: e.name, image: e.image}))
+	const sorted = order === 'desc' ? [...mapped].reverse() : mapped
+	res.json(paginate(sorted, {page, limit}))
 })
 
 tagRoutes.get('/:id/tree', (req, res) => {

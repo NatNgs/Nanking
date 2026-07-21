@@ -99,6 +99,83 @@ describe('User.getUserList', () => {
 	})
 })
 
+describe('User.getUserListPaginated', () => {
+	beforeEach(() => {
+		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]
+	})
+
+	test('sorts on the raw score (preserved order under stretching, a monotonic transform) then stretches only the page', () => {
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+		ENTRIES.entries['n:2'] = new Entry('n:2', 'C')
+		const user = makeUser()
+		user.entries['n:0'] = 0.9
+		user.entries['n:1'] = 0.5
+		user.entries['n:2'] = 0.1
+
+		const result = user.getUserListPaginated({sort: 'score', order: 'desc', page: 1, limit: 2})
+
+		// Order preserved: n:0 (0.9) then n:1 (0.5), n:2 (0.1) excluded from this page
+		assert.deepEqual(result.items.map((i) => i.id), ['n:0', 'n:1'])
+		// Scores returned are STRETCHED (min=0.1, max=0.9, range=0.8), not raw
+		assert.equal(result.items[0].score, 1) // (0.9-0.1)/0.8
+		assert.equal(result.items[1].score, 0.5) // (0.5-0.1)/0.8
+	})
+
+	test('falls back to 0.5 for every item when min===max (no variance to stretch)', () => {
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+		const user = makeUser()
+		user.entries['n:0'] = 0.4
+		user.entries['n:1'] = 0.4
+
+		const result = user.getUserListPaginated({page: 1, limit: 10})
+
+		for(const item of result.items) assert.equal(item.score, 0.5)
+	})
+
+	test('total reflects the full scored entries count, not just the page size', () => {
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+		ENTRIES.entries['n:2'] = new Entry('n:2', 'C')
+		const user = makeUser()
+		user.entries['n:0'] = 0.1
+		user.entries['n:1'] = 0.5
+		user.entries['n:2'] = 0.9
+
+		const result = user.getUserListPaginated({page: 1, limit: 2})
+
+		assert.equal(result.total, 3)
+		assert.equal(result.items.length, 2)
+		assert.equal(result.hasMore, true)
+	})
+
+	test('sort=label sorts by entry name instead of score', () => {
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'Zebra')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'Apple')
+		const user = makeUser()
+		user.entries['n:0'] = 0.1
+		user.entries['n:1'] = 0.9
+
+		const result = user.getUserListPaginated({sort: 'label', order: 'asc', page: 1, limit: 10})
+
+		assert.deepEqual(result.items.map((i) => i.label), ['Apple', 'Zebra'])
+	})
+
+	test('getUserList() (non-paginated) remains unchanged, still returning the full stretched list', () => {
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+		const user = makeUser()
+		user.entries['n:0'] = 0.2
+		user.entries['n:1'] = 0.8
+
+		const fullList = user.getUserList()
+
+		assert.equal(fullList.length, 2)
+		assert.ok(fullList.every((e) => Number.isFinite(e.score)))
+	})
+})
+
 describe('User.removeAllReferencesToEntry', () => {
 	beforeEach(() => {
 		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]

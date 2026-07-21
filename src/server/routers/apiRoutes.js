@@ -6,8 +6,9 @@ import quizRouter from './quizRoutes.js'
 import entryRouter from './entryRoutes.js'
 import tagRouter from './tagRoutes.js'
 import ACCOUNTS from '../data/accounts.js'
-import ENTRIES from '../data/entries.js'
+import { listEntries } from '../services/entryService.js'
 import { searchTags } from '../services/tagService.js'
+import { paginate, compareBy } from '../lib/pagination.js'
 
 const apiRouter = express.Router()
 
@@ -36,39 +37,16 @@ apiRouter.post('/login', loginLimiter, (req, res) => {
 	}
 })
 apiRouter.get('/entries', (req, res) => {
-	// if contains query param "?q=<query>", filter entries by name
-	if(req.query?.q) {
-		const entries = ENTRIES.searchEntry(req.query.q)
-		const content = [] // [{id, name, image}]
-		for(const entry of entries) {
-			content.push({
-				id: entry.id,
-				label: entry.name,
-				image: entry.image,
-			})
-		}
-		res.json(content)
-		return
-	}
-
-	// Does not contains query param, return all
-	const scores = ENTRIES.getGlobalScores()
-	const content = [] // [{id, name, score, image}]
-	for(const [id, score] of Object.entries(scores)) {
-		const entry = ENTRIES.getEntryById(id)
-		content.push({
-			id: entry.id,
-			label: entry.name,
-			score: score,
-			image: entry.image,
-		})
-	}
-	res.json(content)
+	const {q, sort, order, page, limit} = req.query
+	res.json(listEntries({q, sort, order, page, limit}))
 })
 apiRouter.post('/tags/search', (req, res) => {
-	const {q, notOnEntity, notHavingAsParent, notHavingAsChild} = req.body || {}
+	const {q, notOnEntity, notHavingAsParent, notHavingAsChild, sort, order, page, limit} = req.body || {}
 	const tags = searchTags({q, notOnEntity, notHavingAsParent, notHavingAsChild})
-	res.json(tags.map((tag) => ({id: tag.id, label: tag.label})))
+	const mapped = tags.map((tag) => ({id: tag.id, label: tag.label}))
+	// If q is given, TAGS.searchTag already sorted by relevance (name length): don't re-sort.
+	const sorted = q ? mapped : [...mapped].sort(compareBy((t) => t.label, order || 'asc'))
+	res.json(paginate(sorted, {page, limit}))
 })
 
 // Authenticated

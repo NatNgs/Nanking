@@ -2,6 +2,7 @@ import ENTRIES from '../data/entries.js'
 import { anyUserReferencesEntry } from '../data/user.js'
 import { processImageUpload, saveEntryImage, deleteEntryImage } from './entryImageService.js'
 import { resolveEntryTags } from './tagService.js'
+import { paginate, compareBy } from '../lib/pagination.js'
 
 /**
  * Serializes an entry for the HTTP response. Includes the current user's
@@ -81,4 +82,28 @@ function deleteEntry(id, user) {
 	return 'ok'
 }
 
-export { getEntryData, renameEntry, updateEntryImage, deleteEntry }
+/**
+ * Paginated entry listing, backing GET /api/entries. With `q`, delegates to
+ * ENTRIES.searchEntry (fuzzy match, already sorted by name-length relevance
+ * and capped to 32 results — a relevance cap distinct from pagination, left
+ * untouched) and paginates that result. Without `q`, lists every entry's
+ * global score, sorted by `sort` ('score' desc by default, or 'label' asc),
+ * then paginated.
+ */
+function listEntries({q, sort, order, page, limit} = {}) {
+	if(q) {
+		const candidates = ENTRIES.searchEntry(q).map((e) => ({id: e.id, label: e.name, image: e.image}))
+		return paginate(candidates, {page, limit})
+	}
+
+	const scores = ENTRIES.getGlobalScores()
+	const list = Object.entries(scores).map(([id, score]) => {
+		const entry = ENTRIES.getEntryById(id)
+		return {id: entry.id, label: entry.name, score, image: entry.image}
+	})
+	const cmp = sort === 'label' ? compareBy((e) => e.label, order || 'asc') : compareBy((e) => e.score, order || 'desc')
+	list.sort(cmp)
+	return paginate(list, {page, limit})
+}
+
+export { getEntryData, renameEntry, updateEntryImage, deleteEntry, listEntries }

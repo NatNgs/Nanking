@@ -1,88 +1,42 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import './ScoreTable.css'
 import { scoreToColor } from '../../lib/scoreToColor.js'
 import EntrySpan from '../entry/EntrySpan.jsx'
 
-/**
- * Builds the initial sort rules from `columns[].sortOrder`, ordered by
- * ascending `abs(sortOrder)`. Positive sortOrder sorts descending, negative
- * sorts ascending.
- */
-function initialSortRules(columns) {
-	return columns
-		.filter((c) => c.sortOrder != null)
-		.sort((a, b) => Math.abs(a.sortOrder) - Math.abs(b.sortOrder))
-		.map((c) => ({column: c.column, order: c.sortOrder < 0 ? 'asc' : 'desc'}))
-}
+const LABEL_SORT_KEY = 'label'
 
 /**
- * Reorders `sortRules` after a click on `column`: flips its order if it is
- * already the leading rule, otherwise moves it to the front (dropping any
- * previous rule on the same column) ahead of the existing rules.
- */
-function applySortClick(sortRules, column) {
-	if(sortRules[0]?.column === column) {
-		const [head, ...rest] = sortRules
-		return [{column, order: head.order === 'desc' ? 'asc' : 'desc'}, ...rest]
-	}
-	const rest = sortRules.filter((r) => r.column !== column)
-	return [{column, order: column === 'Entry' ? 'asc' : 'desc'}, ...rest]
-}
-
-function compareEntries(a, b, sortRules, columnScores) {
-	for(const rule of sortRules) {
-		const va = rule.column === 'Entry' ? a.label : columnScores.get(a.id)?.[rule.column]
-		const vb = rule.column === 'Entry' ? b.label : columnScores.get(b.id)?.[rule.column]
-
-		// Null/undefined scores always sort last, regardless of order
-		if(va == null && vb == null) continue
-		if(va == null) return 1
-		if(vb == null) return -1
-
-		let cmp
-		if(rule.column === 'Entry') cmp = String(va).localeCompare(String(vb))
-		else cmp = va - vb
-
-		if(cmp !== 0) return rule.order === 'desc' ? -cmp : cmp
-	}
-	return 0
-}
-
-/**
- * Generic score table: renders one row per entry and one column per entry in
+ * Generic score table: renders one row per item and one column per entry in
  * `columns`, plus a fixed "Entry" (label) column. Column headers are
- * clickable to sort. Rows whose every column score is null are dropped.
+ * clickable, delegating the actual sort to the parent (server-side sort via
+ * usePaginatedList) instead of sorting in memory — `items` is expected to
+ * already be sorted/paginated by the caller. Rows whose every column score
+ * is null are dropped (a display-only refinement on the current page, it
+ * does not affect the server-reported `total`).
+ *
+ * Each entry of `columns` needs a `sortKey` (server-side sort name, stable
+ * across views) distinct from `column` (the displayed label, which can vary
+ * per view for the same underlying field).
  */
-function ScoreTable({entries, columns, scoreFormatter}) {
-	const [sortRules, setSortRules] = useState(() => initialSortRules(columns))
-
+function ScoreTable({items, columns, scoreFormatter, sort, order, onSort}) {
 	const columnScores = useMemo(() => {
 		const map = new Map()
-		for(const entry of entries) {
+		for(const item of items) {
 			const scores = {}
-			for(const col of columns) scores[col.column] = col.score(entry) ?? null
-			map.set(entry.id, scores)
+			for(const col of columns) scores[col.column] = col.score(item) ?? null
+			map.set(item.id, scores)
 		}
 		return map
-	}, [entries, columns])
+	}, [items, columns])
 
-	const visibleEntries = useMemo(
-		() => entries.filter((entry) => Object.values(columnScores.get(entry.id)).some((v) => v != null)),
-		[entries, columnScores],
+	const visibleItems = useMemo(
+		() => items.filter((item) => Object.values(columnScores.get(item.id)).some((v) => v != null)),
+		[items, columnScores],
 	)
 
-	const sortedEntries = useMemo(
-		() => [...visibleEntries].sort((a, b) => compareEntries(a, b, sortRules, columnScores)),
-		[visibleEntries, sortRules, columnScores],
-	)
-
-	function sortIndicator(column) {
-		if(sortRules[0]?.column !== column) return null
-		return sortRules[0].order === 'desc' ? ' ▼' : ' ▲'
-	}
-
-	function onHeaderClick(column) {
-		setSortRules((rules) => applySortClick(rules, column))
+	function sortIndicator(sortKey) {
+		if(sort !== sortKey) return null
+		return order === 'desc' ? ' ▼' : ' ▲'
 	}
 
 	return (
@@ -90,18 +44,18 @@ function ScoreTable({entries, columns, scoreFormatter}) {
 			<table className="score-table">
 				<thead>
 					<tr>
-						<th onClick={() => onHeaderClick('Entry')} class="sortable">Entry<span class="sortIndicator">{sortIndicator('Entry')}</span></th>
+						<th onClick={() => onSort(LABEL_SORT_KEY)} class="sortable">Entry<span class="sortIndicator">{sortIndicator(LABEL_SORT_KEY)}</span></th>
 						{columns.map((col) => (
-							<th key={col.column} onClick={() => onHeaderClick(col.column)} class="sortable">{col.column}<span class="sortIndicator">{sortIndicator(col.column)}</span></th>
+							<th key={col.column} onClick={() => onSort(col.sortKey)} class="sortable">{col.column}<span class="sortIndicator">{sortIndicator(col.sortKey)}</span></th>
 						))}
 					</tr>
 				</thead>
 				<tbody>
-					{sortedEntries.map((entry) => (
-						<tr key={entry.id}>
-							<td className="entryCol"><EntrySpan id={entry.id} label={entry.label} /></td>
+					{visibleItems.map((item) => (
+						<tr key={item.id}>
+							<td className="entryCol"><EntrySpan id={item.id} label={item.label} /></td>
 							{columns.map((col) => {
-								const value = columnScores.get(entry.id)[col.column]
+								const value = columnScores.get(item.id)[col.column]
 								return (
 									<td key={col.column} className="scoreCol">
 										{value != null && (

@@ -7,7 +7,7 @@ import { apiDelete } from '../../hooks/useApi.js'
 import './AccountPage.css'
 
 function AccountPage() {
-	const {isAuthenticated, username, userScores, userVotes, logOut, refreshUserData} = useUserContext()
+	const {isAuthenticated, username, userVotes, logOut, refreshUserData, bumpEntriesVersion} = useUserContext()
 	const {scoreFormatter} = useOutletContext()
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
@@ -24,6 +24,7 @@ function AccountPage() {
 
 		/* if success, call userContext to refresh userData to trigger redisplay of the table */
 		await refreshUserData()
+		bumpEntriesVersion()
 	}
 
 	// Prepare vote list to be diaplayed
@@ -56,9 +57,9 @@ function AccountPage() {
 						<td>{vote.type}</td>
 						<td>
 							<div class="voteDetail">{vote.type === 'default'
-								? (<><EntrySpan id={vote.entry} label={userScores.find(s => s.id === vote.entry).label} title={userScores.find(s => s.id === vote.entry).label} /> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
+								? (<><EntrySpan id={vote.entry} label={vote.entryLabel} title={vote.entryLabel} /> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
 								: (<>
-								<EntrySpan id={vote.neg} label={userScores.find(s => s.id === vote.neg).label} title={userScores.find(s => s.id === vote.neg).label} /> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <EntrySpan id={vote.pos} label={userScores.find(s => s.id === vote.pos).label} title={userScores.find(s => s.id === vote.pos).label} />
+								<EntrySpan id={vote.neg} label={vote.negLabel} title={vote.negLabel} /> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <EntrySpan id={vote.pos} label={vote.posLabel} title={vote.posLabel} />
 								</>)
 							}</div>
 						</td>

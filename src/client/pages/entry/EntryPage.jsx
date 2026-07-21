@@ -18,7 +18,7 @@ function EntryPage() {
 	const initialEntry = useLoaderData()
 	const {entryId} = useParams()
 	const {scoreFormatter} = useOutletContext()
-	const {isAuthenticated, username, refreshUserData} = useUserContext()
+	const {isAuthenticated, username, refreshUserData, bumpEntriesVersion} = useUserContext()
 	const navigate = useNavigate()
 
 	const [entry, setEntry] = useState(initialEntry)
@@ -113,6 +113,7 @@ function EntryPage() {
 		try {
 			await apiDelete('/entry/' + entry.id)
 			await refreshUserData()
+			bumpEntriesVersion()
 			navigate('/')
 		} catch {
 			setError('Échec de la suppression')
@@ -124,11 +125,11 @@ function EntryPage() {
 		<div className="entry-page">
 			<div className="entry-page-title">
 				<h1>{entry.name}</h1>
-				{isAuthenticated && entry.userScore && (<button disabled={isBusy} onClick={onRename}>Rename</button>)}
+				{isAuthenticated && entry.userScore != null && (<button disabled={isBusy} onClick={onRename}>Rename</button>)}
 			</div>
 			<div className="entry-page-image-container">
 				<img className="entry-page-image" src={"/api/entry/" + entry.id + "/image.png?v=" + imageVersion} alt={entry.name} />
-				<div>{isAuthenticated && entry.userScore && (<>
+				<div>{isAuthenticated && entry.userScore != null && (<>
 					<label className={"entry-page-image-upload" + (isBusy ? ' disabled' : '')} for={isBusy ? undefined : "entry-page-image-uploader"}>Upload a new picture</label>
 					<input type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} disabled={isBusy} hidden />
 					<p className="entry-page-help">Accepts : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)<br/>Preffered dimensions: 200x200px (other will be resized)</p>

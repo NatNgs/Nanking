@@ -1,6 +1,7 @@
 import DB from './db.js'
 import ENTRIES from './entries.js'
 import { loadQuiz } from './quiz.js'
+import { paginate, compareBy } from '../lib/pagination.js'
 
 const ALL_USERS = {}
 class User {
@@ -36,6 +37,46 @@ class User {
 			})
 		}
 		return list
+	}
+
+	/**
+	 * Paginated version of getUserList(): sorts on the RAW user score (min-max
+	 * stretching is a monotonic function of the raw score, so sorting before or
+	 * after stretching gives the same order), slices the requested page, and
+	 * only THEN stretches the page's items — using the min/max computed over
+	 * the full entries set, never materializing the whole stretched list.
+	 */
+	getUserListPaginated({sort, order, page, limit} = {}) {
+		const rawEntries = Object.entries(this.entries) // [[entryId, rawScore], ...]
+		const minUserScore = Math.min(...Object.values(this.entries))
+		const maxUserScore = Math.max(...Object.values(this.entries))
+		const range = maxUserScore - minUserScore
+
+		let sortKey
+		if(sort === 'label') {
+			sortKey = ([id]) => ENTRIES.entries[id]?.name
+		} else if(sort === 'globalScore') {
+			sortKey = ([id]) => ENTRIES.entries[id]?.globalScore
+		} else {
+			sortKey = ([, rawScore]) => rawScore // raw user score, before stretching
+		}
+		const defaultOrder = sort === 'label' ? 'asc' : 'desc'
+		rawEntries.sort(compareBy(sortKey, order || defaultOrder))
+
+		const {items, page: p, limit: l, total, hasMore} = paginate(rawEntries, {page, limit})
+
+		const stretchedItems = items.map(([entryId, rawScore]) => {
+			const entry = ENTRIES.entries[entryId]
+			return {
+				id: entry.id,
+				label: entry.name,
+				image: entry.image,
+				score: range === 0 ? 0.5 : (rawScore - minUserScore) / range,
+				globalScore: entry.globalScore,
+			}
+		})
+
+		return {items: stretchedItems, page: p, limit: l, total, hasMore}
 	}
 
 	didQuiz(quiz) {

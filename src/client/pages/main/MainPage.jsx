@@ -9,7 +9,7 @@ import { useUserContext } from '../../context/UserContext.jsx'
 
 function MainPage() {
 	const {scoreFormatter} = useOutletContext()
-	const {isAuthenticated, username, userScores} = useUserContext()
+	const {isAuthenticated, username, scoredEntriesCount} = useUserContext()
 
 	const [activeView, setActiveView] = useState(null) // 'newEntry' | 'quiz' | null
 	const [isPanelOpen, setIsPanelOpen] = useState(isAuthenticated)
@@ -32,7 +32,7 @@ function MainPage() {
 				<div className="main-page-view-buttons" >
 					<button onClick={()=>setView(null)}>Global scores</button>
 					<button onClick={()=>setView('newEntry')}>New entry</button>
-					{ userScores.length > 2 && (<button onClick={()=>setView('quiz')}>Random Quiz</button>)}
+					{ scoredEntriesCount > 2 && (<button onClick={()=>setView('quiz')}>Random Quiz</button>)}
 				</div>
 			)}
 			<div className={'main-page-view-content ' + (isPanelOpen ? 'panel-open ' : 'panel-closed ')}>
