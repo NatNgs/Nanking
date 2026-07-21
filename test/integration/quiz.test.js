@@ -52,11 +52,9 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		await page.locator('.new-entry-form input[type=text]').waitFor({state: 'visible', timeout: 5000})
 	}
 
-	// The score cell renders "<pretty> <colored dot>" (e.g. "1 ●" or "0% ●"):
-	// only the leading token before the space is the formatted score value.
-	async function scoreCellText(row, column) {
-		const text = await row.locator(`td:nth-child(${column})`).innerText()
-		return text.split(' ')[0]
+	async function scoreCellValue(row, column) {
+		const text = await row.locator(`td:nth-child(${column}) .scoreValue`).innerText()
+		return text.trim()
 	}
 
 	// The entries score table (columns: Score/Global) lives in the EntriesPanel
@@ -82,13 +80,14 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 	})
 
 	test('entries panel shows both entries at 1/10 and 10/10', async () => {
-		const firstRow = entriesPanelRow('First entry')
-		await firstRow.waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await scoreCellText(firstRow, 2), '1')
-
+		// Wait until the second entry appears in the table, then test
 		const secondRow = entriesPanelRow('Second entry')
 		await secondRow.waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await scoreCellText(secondRow, 2), '10')
+		assert.equal(await scoreCellValue(secondRow, 2), '10/10')
+
+		const firstRow = entriesPanelRow('First entry')
+		await firstRow.waitFor({state: 'visible', timeout: 5000})
+		assert.equal(await scoreCellValue(firstRow, 2), '1/10')
 	})
 
 	test('switching back to Percent immediately shows 0% and 100%, without reloading the page', async () => {
@@ -96,12 +95,12 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		// update the table in place, with no navigation/reload involved.
 		await page.locator('select[name=format]').selectOption('Percent')
 
+		const secondRow = entriesPanelRow('Second entry')
+		assert.equal(await scoreCellValue(secondRow, 2), '100%')
+
 		const firstRow = entriesPanelRow('First entry')
 		await firstRow.waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await scoreCellText(firstRow, 2), '0%')
-
-		const secondRow = entriesPanelRow('Second entry')
-		assert.equal(await scoreCellText(secondRow, 2), '100%')
+		assert.equal(await scoreCellValue(firstRow, 2), '0%')
 	})
 
 	test('creating a third entry makes the Random Quiz (Dual) mode appear', async () => {

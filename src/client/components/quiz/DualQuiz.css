@@ -9,8 +9,8 @@
 	text-align: center;
 }
 .dual-quiz img {
-	width: 100px;
-	height: 100px;
+	max-width: 200px;
+	max-height: 200px;
 }
 .dual-quiz-left, .dual-quiz-right {
 	width: 50%;

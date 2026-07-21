@@ -1,7 +1,7 @@
 /* Create Variable RightPanelWidth */
 :root {
 	--RightPanelWidth: 0;
-	--RightPanelBackground: #C8E5C8;
+	--RightPanelBackground: #C8C5C8;
 }
 @media (min-width: 1000px) {
 	:root {
@@ -17,10 +17,12 @@
 	width: var(--RightPanelWidth);
 	overflow: none;
 	background-color: var(--RightPanelBackground);
-	border-left: 2px solid #5C4033;
+	border-left: 1px solid #5C4033;
 	box-sizing: border-box;
 	padding: 1em;
 	z-index: 50;
+	box-shadow: 0 0 0.5em black;
+	font-size: 90%;
 }
 
 .entries-panel-toggle {

@@ -100,11 +100,11 @@ function DualQuiz() {
 				<table>
 					<tr>
 						<td className="dual-quiz-left">
-							<img src={left.image}/><br/>
+							<img src={'/api/entry/' + left.id + '/image.png'}/><br/>
 							<Link className="entryLabel" to={'/entry/' + left.id}>{left.label}</Link>
 						</td>
 						<td className="dual-quiz-right">
-							<img src={right.image}/><br/>
+							<img src={'/api/entry/' + right.id + '/image.png'}/><br/>
 							<Link className="entryLabel" to={'/entry/' + right.id}>{right.label}</Link>
 						</td>
 					</tr>

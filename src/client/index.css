@@ -10,9 +10,11 @@ button, select {
 	border: 1px solid black;
 	border-radius: 3px;
 	padding: 0.33em 0.5em;
+	font-size: 90%;
 }
 button, select {
 	cursor: pointer;
+	font-family: system-ui, sans-serif;
 }
 input {
 	background-color: #FFF;
@@ -56,13 +58,14 @@ h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, 
 	flex: 0 1 auto;
 	display: inline-block;
 	max-width: 100%;
+	border: 1px solid transparent;
 }
 a.entryLabel {
 	text-decoration: none;
 	color: inherit;
 }
 a.entryLabel:hover {
-	text-decoration: underline;
+	background-color: #B0F0A8; /* Lighter green */
 }
 .entryScore {
 	border-radius: 3px;

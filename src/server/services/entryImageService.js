@@ -42,8 +42,17 @@ async function processImageUpload(buffer) {
  */
 async function saveEntryImage(entryId, pngBuffer) {
 	mkdirSync(imagesDir(), {recursive: true})
-	const filename = entryId + '.png'
-	await writeFile(imagesDir() + '/' + filename, pngBuffer)
+	const filename = entryId.replace(':', '/') + '.png'
+	const splitFilename = filename.split('/')
+	const onlyFilename = splitFilename.pop()
+	const dir = imagesDir() + (splitFilename.length > 0 ? '/' + splitFilename.join('/') : '')
+
+	// Create dir if not exists
+	if(!existsSync(dir)) {
+		mkdirSync(dir, {recursive: true})
+	}
+
+	await writeFile(dir + '/' + onlyFilename, pngBuffer)
 	return '/entryImages/' + filename
 }
 

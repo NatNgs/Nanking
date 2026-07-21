@@ -26,7 +26,7 @@ function applySortClick(sortRules, column) {
 		return [{column, order: head.order === 'desc' ? 'asc' : 'desc'}, ...rest]
 	}
 	const rest = sortRules.filter((r) => r.column !== column)
-	return [{column, order: 'desc'}, ...rest]
+	return [{column, order: column === 'Entry' ? 'asc' : 'desc'}, ...rest]
 }
 
 function compareEntries(a, b, sortRules, columnScores) {
@@ -90,22 +90,22 @@ function ScoreTable({entries, columns, scoreFormatter}) {
 			<table className="score-table">
 				<thead>
 					<tr>
-						<th onClick={() => onHeaderClick('Entry')}>Entry{sortIndicator('Entry')}</th>
+						<th onClick={() => onHeaderClick('Entry')} class="sortable">Entry<span class="sortIndicator">{sortIndicator('Entry')}</span></th>
 						{columns.map((col) => (
-							<th key={col.column} onClick={() => onHeaderClick(col.column)}>{col.column}{sortIndicator(col.column)}</th>
+							<th key={col.column} onClick={() => onHeaderClick(col.column)} class="sortable">{col.column}<span class="sortIndicator">{sortIndicator(col.column)}</span></th>
 						))}
 					</tr>
 				</thead>
 				<tbody>
 					{sortedEntries.map((entry) => (
 						<tr key={entry.id}>
-							<td><Link className="entryLabel" to={'/entry/' + entry.id}>{entry.label}</Link></td>
+							<td className="entryCol"><Link className="entryLabel" to={'/entry/' + entry.id}>{entry.label}</Link></td>
 							{columns.map((col) => {
 								const value = columnScores.get(entry.id)[col.column]
 								return (
 									<td key={col.column} className="scoreCol">
 										{value != null && (
-											<>{scoreFormatter.pretty(value)} <span style={{color: scoreToColor(value)}}>●</span></>
+											<><span class="scoreValue">{scoreFormatter.pretty(value)}</span>&nbsp;<span style={{color: scoreToColor(value)}}>●</span></>
 										)}
 									</td>
 								)

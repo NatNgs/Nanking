@@ -42,12 +42,11 @@ app.get('/', pageLimiter, (req, res) => {
 	res.sendFile(file)
 })
 
-// Files
-app.use(express_static(CONFIG.CLIENT_DIST_PATH), pageLimiter);
-app.use('/entryImages', express_static(CONFIG.DATA_DIR + '/entryImages'));
-
 // API
 app.use('/api', apiRouter)
+
+// Files
+app.use(express_static(CONFIG.CLIENT_DIST_PATH), pageLimiter);
 
 // ERRORS
 app.all('{*path}', (req, res) => {

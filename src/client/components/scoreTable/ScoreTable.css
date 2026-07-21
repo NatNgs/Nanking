@@ -10,15 +10,28 @@
 }
 
 .score-table th {
-	background-color: #A8D5A8;
+	background-color: #A8A8A8;
 	position: sticky;
 	top: 0;
-	cursor: pointer;
-	border-bottom: 1px solid #5C4033;
+	border-bottom: 2px solid #5C4033;
 }
 
 .score-table th:nth-child(n+2) {
-	border-left: 1px solid #484;
+	border-left: 1px solid #666;
+}
+.score-table th.sortable:hover {
+	text-decoration: underline;
+	cursor: pointer;
+}
+.score-table th.sortable .sortIndicator {
+	position: absolute;
+	/* Aligned to the right */
+	right: 0.5em;
+	/* Aligned to the middle */
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 0.75em;
+	color: #555;
 }
 
 .score-table td, .score-table th {
@@ -29,6 +42,12 @@
 	border-left: 1px solid #888;
 }
 
+/* Align content of entryCol to vertical middle */
+.score-table .entryCol {
+	display: flex;
+	align-items: center;
+	padding: .2em .5em;
+}
 .score-table .scoreCol {
 	text-align: right;
 	font-family: monospace;

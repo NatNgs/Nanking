@@ -4,7 +4,6 @@ class Entry {
 	constructor(id, name) {
 		this.id = id
 		this.name = name
-		this.image = 'assets/unknown.svg'
 		this.globalScore = 0.5 // All-users-combined computed score
 	}
 }
@@ -17,7 +16,6 @@ class EntriesManager {
 		for(const entryId of this.db.keys()) {
 			const data = this.db.get(entryId)
 			const entry = new Entry(entryId, data.name)
-			if(data.image) entry.image = data.image
 			this.entries[entryId] = entry
 		}
 	}
@@ -34,8 +32,8 @@ class EntriesManager {
 
 		// Not found: Create a new entry
 		let key = Object.keys(this.entries).length
-		while(this.entries[key]) key++
-		const entry = new Entry(key, name)
+		while(this.entries['n:' + key]) key++
+		const entry = new Entry('n:' + key, name)
 		this.entries[entry.id] = entry
 
 		return entry

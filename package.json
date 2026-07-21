@@ -12,7 +12,7 @@
 		"dev:client": "vite serve",
 		"build:watch": "vite build --watch",
 		"test": "node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js -- --env=test",
-		"test:integration": "npm run build && node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
+		"test:integration": "npm run build && node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js -- --env=test"
 	},
 	"author": "Nathael Nogues",
 	"license": "MIT",

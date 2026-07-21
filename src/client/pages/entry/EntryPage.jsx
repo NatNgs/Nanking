@@ -70,26 +70,28 @@ function EntryPage() {
 
 	return (
 		<div className="entry-page">
-			<h1>{entry.name}</h1>
-			<img className="entry-page-image" src={entry.image} alt={entry.name} />
-			{isAuthenticated && (
-				<>
-					<div className="entry-page-actions">
-						<label className="entry-page-image-upload">
-							Modifier l'image
-							<input type="file" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} hidden />
-						</label>
-						<button onClick={onRename}>Renommer</button>
-						<button onClick={onDelete}>Supprimer</button>
-					</div>
-					<p className="entry-page-help">Formats acceptés : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)</p>
-				</>
-			)}
+			<div className="entry-page-title">
+				<h1>{entry.name}</h1>
+				{isAuthenticated && entry.userScore && (<button onClick={onRename}>Rename</button>)}
+			</div>
+			<div className="entry-page-image-container">
+				<img className="entry-page-image" src={"/api/entry/" + entry.id + "/image.png"} alt={entry.name} />
+				<div>{isAuthenticated && entry.userScore && (<>
+					<label className="entry-page-image-upload" for="entry-page-image-uploader">Upload a new picture</label>
+					<input type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} hidden />
+					<p className="entry-page-help">Accepts : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)<br/>Preffered dimensions: 200x200px (other will be resized)</p>
+				</>)}
+				</div>
+			</div>
 			{error && <p role="alert" className="entry-page-error">{error}</p>}
 
-			<p>Score global : {scoreFormatter.pretty(entry.globalScore)}</p>
+			<p>Global score : {scoreFormatter.pretty(entry.globalScore)}</p>
 			{isAuthenticated && entry.userScore != null && (
-				<p>{username} : {scoreFormatter.pretty(entry.userScore)}</p>
+				<p>
+					<span>{username} : {scoreFormatter.pretty(entry.userScore)}</span>
+					&nbsp;
+					<button onClick={onDelete}>Remove it from my scores</button>
+				</p>
 			)}
 		</div>
 	)

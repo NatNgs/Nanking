@@ -11,7 +11,7 @@ const FORMATTERS = {
 	MAL: { // Mal score: [1, 10] (integer)
 		toNorm: (formattedScore) => ((formattedScore - 1) / 9),
 		toFormat: (normScore) => (1 + (+normScore * 9)),
-		pretty: (normScore) => (1 + (normScore * 9)).toFixed(0),
+		pretty: (normScore) => (1 + (normScore * 9)).toFixed(0) + '/10',
 		min: 1,
 		max: 10,
 		step: 1,
