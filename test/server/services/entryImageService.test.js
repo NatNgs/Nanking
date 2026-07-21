@@ -59,32 +59,39 @@ describe('saveEntryImage / deleteEntryImage', () => {
 		rmSync(IMAGES_DIR, {recursive: true, force: true})
 	})
 
-	test('saveEntryImage writes the file and returns its public URL', async () => {
+	test('saveEntryImage writes the file under a per-prefix subdirectory and returns its public URL', async () => {
 		const buffer = await makePngBuffer(10, 10)
-		const url = await saveEntryImage('42', buffer)
-		assert.equal(url, '/entryImages/42.png')
-		assert.ok(existsSync(IMAGES_DIR + '/42.png'))
+		const url = await saveEntryImage('n:42', buffer)
+		assert.equal(url, '/entryImages/n/42.png')
+		assert.ok(existsSync(IMAGES_DIR + '/n/42.png'))
+	})
+
+	test('saveEntryImage isolates entries imported from another source in its own subdirectory', async () => {
+		const buffer = await makePngBuffer(10, 10)
+		const url = await saveEntryImage('mal:42', buffer)
+		assert.equal(url, '/entryImages/mal/42.png')
+		assert.ok(existsSync(IMAGES_DIR + '/mal/42.png'))
 	})
 
 	test('deleteEntryImage removes the file referenced by entry.image', async () => {
 		const buffer = await makePngBuffer(10, 10)
-		await saveEntryImage('42', buffer)
-		const entry = new Entry('42', 'Test')
-		entry.image = '/entryImages/42.png'
+		await saveEntryImage('n:42', buffer)
+		const entry = new Entry('n:42', 'Test')
+		entry.image = '/entryImages/n/42.png'
 
 		deleteEntryImage(entry)
 
-		assert.equal(existsSync(IMAGES_DIR + '/42.png'), false)
+		assert.equal(existsSync(IMAGES_DIR + '/n/42.png'), false)
 	})
 
 	test('deleteEntryImage does nothing when the entry still has the default placeholder image', () => {
-		const entry = new Entry('42', 'Test')
+		const entry = new Entry('n:42', 'Test')
 		assert.doesNotThrow(() => deleteEntryImage(entry))
 	})
 
 	test('deleteEntryImage does nothing when the file does not exist on disk', () => {
-		const entry = new Entry('42', 'Test')
-		entry.image = '/entryImages/missing.png'
+		const entry = new Entry('n:42', 'Test')
+		entry.image = '/entryImages/n/missing.png'
 		assert.doesNotThrow(() => deleteEntryImage(entry))
 	})
 
@@ -92,7 +99,7 @@ describe('saveEntryImage / deleteEntryImage', () => {
 		mkdirSync(CONFIG.DATA_DIR, {recursive: true})
 		const outsidePath = CONFIG.DATA_DIR + '/outside.txt'
 		writeFileSync(outsidePath, 'do not delete me')
-		const entry = new Entry('42', 'Test')
+		const entry = new Entry('n:42', 'Test')
 		entry.image = '/outside.txt'
 
 		deleteEntryImage(entry)

@@ -1,29 +1,57 @@
-import { useState } from 'react'
-import { useLoaderData, useOutletContext, useNavigate } from 'react-router'
+import { useState, useEffect, useRef } from 'react'
+import { useLoaderData, useOutletContext, useNavigate, useParams } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
-import { apiGet, apiPatch, apiDelete } from '../../hooks/useApi.js'
+import { apiGet, apiPatch, apiDelete, apiPost, loadOr404 } from '../../hooks/useApi.js'
+import { useRenamePrompt } from '../../hooks/useRenamePrompt.js'
+import TagPicker from '../../components/tag/TagPicker.jsx'
+import TagSpan from '../../components/tag/TagSpan.jsx'
 import './EntryPage.css'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/bmp,image/gif,image/tiff'
 
 async function entryLoader({params, request}) {
-	try {
-		return await apiGet('/entry/' + params.entryId, null, {signal: request.signal})
-	} catch(err) {
-		if(err.status === 404) throw new Response('entry', {status: 404})
-		throw err
-	}
+	return loadOr404(() => apiGet('/entry/' + params.entryId, null, {signal: request.signal}), 'entry')
 }
 
 function EntryPage() {
 	const initialEntry = useLoaderData()
+	const {entryId} = useParams()
 	const {scoreFormatter} = useOutletContext()
 	const {isAuthenticated, username, refreshUserData} = useUserContext()
 	const navigate = useNavigate()
 
 	const [entry, setEntry] = useState(initialEntry)
 	const [error, setError] = useState(null)
+	const [imageVersion, setImageVersion] = useState(0)
+	const [isUploadingImage, setIsUploadingImage] = useState(false)
+	const [isRemovingScore, setIsRemovingScore] = useState(false)
+	const [isEditingTags, setIsEditingTags] = useState(false)
+
+	const {isRenaming, rename: onRename} = useRenamePrompt({
+		currentValue: entry.name,
+		promptMessage: 'Nouveau nom pour',
+		patch: (name) => apiPatch('/entry/' + entry.id + '/name', {name}).then(setEntry),
+		conflictMessage: 'Une entry avec ce nom existe déjà',
+		failMessage: 'Échec du renommage',
+	})
+
+	// Re-fetches this entry whenever the user logs in/out (userScore is only
+	// present for an authenticated user, and login state can change from the
+	// header without this page re-mounting). Skips the very first render:
+	// the loader already fetched a fresh copy for the initial isAuthenticated state.
+	const isFirstRender = useRef(true)
+	useEffect(() => {
+		if(isFirstRender.current) {
+			isFirstRender.current = false
+			return
+		}
+		apiGet('/entry/' + entryId).then(setEntry).catch(() => {
+			// Ignored: a transient failure here just keeps showing the last known state.
+		})
+	}, [entryId, isAuthenticated])
+
+	const isBusy = isRenaming || isUploadingImage || isRemovingScore || isEditingTags
 
 	async function onImageFileSelected(e) {
 		const file = e.target.files?.[0]
@@ -35,62 +63,104 @@ function EntryPage() {
 			return
 		}
 
+		setIsUploadingImage(true)
 		try {
 			setError(null)
 			const formData = new FormData()
 			formData.append('image', file)
 			const updated = await apiPatch('/entry/' + entry.id + '/image', formData)
-			if(updated) setEntry(updated)
+			if(updated) {
+				setEntry(updated)
+				setImageVersion((v) => v + 1)
+			}
 		} catch {
 			setError('Échec de l\'envoi de l\'image')
+		} finally {
+			setIsUploadingImage(false)
 		}
 	}
 
-	async function onRename() {
-		const newName = window.prompt('Nouveau nom pour "' + entry.name + '"', entry.name)
-		if(newName == null) return
-		const trimmed = newName.trim()
-		if(!trimmed || trimmed === entry.name) return
-
+	async function onAddTag(tagId) {
+		setIsEditingTags(true)
 		try {
-			const updated = await apiPatch('/entry/' + entry.id + '/name', {name: trimmed})
+			setError(null)
+			const updated = await apiPost('/entry/' + entry.id + '/tags', {tagId})
 			setEntry(updated)
-		} catch(err) {
-			if(err.response?.status === 409) alert('Une entry avec ce nom existe déjà')
-			else alert('Échec du renommage')
+		} catch {
+			setError('Failed to add tag')
+		} finally {
+			setIsEditingTags(false)
 		}
 	}
 
-	async function onDelete() {
+	async function onRemoveTag(tagId) {
+		setIsEditingTags(true)
+		try {
+			setError(null)
+			const updated = await apiDelete('/entry/' + entry.id + '/tags/' + tagId)
+			setEntry(updated)
+		} catch {
+			setError('Failed to remove tag')
+		} finally {
+			setIsEditingTags(false)
+		}
+	}
+
+	async function onRemoveScore() {
 		if(!window.confirm('Supprimer "' + entry.name + '" ? Cette action est irréversible.')) return
-		await apiDelete('/entry/' + entry.id)
-		await refreshUserData()
-		navigate('/')
+
+		setIsRemovingScore(true)
+		try {
+			await apiDelete('/entry/' + entry.id)
+			await refreshUserData()
+			navigate('/')
+		} catch {
+			setError('Échec de la suppression')
+			setIsRemovingScore(false)
+		}
 	}
 
 	return (
 		<div className="entry-page">
 			<div className="entry-page-title">
 				<h1>{entry.name}</h1>
-				{isAuthenticated && entry.userScore && (<button onClick={onRename}>Rename</button>)}
+				{isAuthenticated && entry.userScore && (<button disabled={isBusy} onClick={onRename}>Rename</button>)}
 			</div>
 			<div className="entry-page-image-container">
-				<img className="entry-page-image" src={"/api/entry/" + entry.id + "/image.png"} alt={entry.name} />
+				<img className="entry-page-image" src={"/api/entry/" + entry.id + "/image.png?v=" + imageVersion} alt={entry.name} />
 				<div>{isAuthenticated && entry.userScore && (<>
-					<label className="entry-page-image-upload" for="entry-page-image-uploader">Upload a new picture</label>
-					<input type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} hidden />
+					<label className={"entry-page-image-upload" + (isBusy ? ' disabled' : '')} for={isBusy ? undefined : "entry-page-image-uploader"}>Upload a new picture</label>
+					<input type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} disabled={isBusy} hidden />
 					<p className="entry-page-help">Accepts : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)<br/>Preffered dimensions: 200x200px (other will be resized)</p>
 				</>)}
 				</div>
 			</div>
 			{error && <p role="alert" className="entry-page-error">{error}</p>}
 
+			<div className="entry-page-tags">
+				{entry.tags.map((tag) => (
+					<span key={tag.id} className="entry-page-tag">
+						<TagSpan id={tag.id} label={tag.label} />
+						{isAuthenticated && <button disabled={isBusy} onClick={() => onRemoveTag(tag.id)}>x</button>}
+					</span>
+				))}
+				{isAuthenticated && (
+					<TagPicker
+						searchFilter={{notOnEntity: entry.id}}
+						onAdd={onAddTag}
+						disabled={isBusy}
+						placeholder="Add a tag..."
+						className="entry-tag-picker"
+					/>
+				)}
+			</div>
+
 			<p>Global score : {scoreFormatter.pretty(entry.globalScore)}</p>
 			{isAuthenticated && entry.userScore != null && (
 				<p>
 					<span>{username} : {scoreFormatter.pretty(entry.userScore)}</span>
 					&nbsp;
-					<button onClick={onDelete}>Remove it from my scores</button>
+					<button disabled={isBusy} onClick={onRemoveScore}>Remove it from my scores</button>
 				</p>
 			)}
 		</div>

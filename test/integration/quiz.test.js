@@ -1,7 +1,17 @@
 import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { Jimp } from 'jimp'
 import { startServer, stopServer, BASE_URL } from './helpers/testServer.js'
+
+/**
+ * Builds a minimal in-memory PNG buffer, usable with page.setInputFiles()
+ * without ever touching disk.
+ */
+async function makePngBuffer(width, height, color) {
+	const image = new Jimp({width, height, color})
+	return image.getBuffer('image/png')
+}
 
 const LOGIN = 'quizIntegration'
 const PASSWORD = 'testtest'
@@ -12,7 +22,8 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 	before(async () => {
 		serverProc = await startServer()
 		browser = await chromium.launch()
-		page = await browser.newPage()
+		// Wider than the 1000px breakpoint so the EntriesPanel sidebar renders (desktop-only).
+		page = await browser.newPage({viewport: {width: 1280, height: 900}})
 	})
 
 	after(async () => {
@@ -147,5 +158,70 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 
 	test('Dual mode: voting "^ Choose" (left preferred) records the vote', async () => {
 		await voteAndCheck('^ Choose', '>')
+	})
+
+	test('create "Temporary test element" at 69% on the quiz page', async () => {
+		await page.locator('.app-header-title').click()
+		await createEntry('Temporary test element', 69)
+	})
+
+	test('clicking the entry name in the EntriesPanel sidebar navigates to its entry page', async () => {
+		const row = entriesPanelRow('Temporary test element')
+		await row.waitFor({state: 'visible', timeout: 5000})
+		await row.locator('.entryLabel').click()
+		await page.waitForURL(/\/entry\/.+/)
+	})
+
+	test('entry page shows the correct name, and the image redirects to the unknown placeholder', async () => {
+		await page.locator('.entry-page h1', {hasText: 'Temporary test element'}).waitFor({state: 'visible', timeout: 5000})
+
+		const img = page.locator('.entry-page-image')
+		const src = await img.getAttribute('src')
+		const response = await page.request.get(new URL(src, BASE_URL).toString())
+		assert.equal(new URL(response.url()).pathname, '/assets/unknown.svg')
+	})
+
+	test('changing the name and picture updates the page: new name shown, image no longer redirects to the placeholder', async () => {
+		await page.once('dialog', (dialog) => dialog.accept('Renamed test element'))
+		await page.locator('button:has-text("Rename")').click()
+		await page.locator('.entry-page h1', {hasText: 'Renamed test element'}).waitFor({state: 'visible', timeout: 5000})
+
+		const pngBuffer = await makePngBuffer(10, 10, 0xff0000ff)
+		await page.locator('#entry-page-image-uploader').setInputFiles({
+			name: 'test-image.png',
+			mimeType: 'image/png',
+			buffer: pngBuffer,
+		})
+		// Wait for the upload to complete (button re-enabled) as the submit signal
+		await page.locator('button:has-text("Rename")').waitFor({state: 'attached', timeout: 5000})
+		await page.locator('button:has-text("Rename"):not([disabled])').waitFor({state: 'visible', timeout: 5000})
+
+		const img = page.locator('.entry-page-image')
+		const src = await img.getAttribute('src')
+		const response = await page.request.get(new URL(src, BASE_URL).toString())
+		assert.equal(new URL(response.url()).pathname, src.split('?')[0])
+		assert.equal(response.status(), 200)
+	})
+
+	test('removing the vote deletes the entry: it disappears from the rankings, from /user/me, and its page no longer shows edit controls', async () => {
+		const entryUrl = page.url()
+
+		page.once('dialog', (dialog) => dialog.accept())
+		await page.locator('button:has-text("Remove it from my scores")').click()
+		// The action navigates back to the home page once done
+		await page.waitForURL(BASE_URL + '/')
+
+		await entriesPanelRow('Renamed test element').waitFor({state: 'hidden', timeout: 5000})
+
+		await page.locator('.app-header-username').click()
+		await page.locator('.account-page').waitFor({state: 'visible', timeout: 5000})
+		const remainingRows = page.locator('.account-page tbody tr', {hasText: 'Renamed test element'})
+		assert.equal(await remainingRows.count(), 0)
+
+		await page.goto(entryUrl)
+		await page.locator('.error-page', {hasText: 'Entry not found'}).waitFor({state: 'visible', timeout: 5000})
+		assert.equal(await page.locator('button:has-text("Rename")').count(), 0)
+		assert.equal(await page.locator('button:has-text("Remove it from my scores")').count(), 0)
+		assert.equal(await page.locator('#entry-page-image-uploader').count(), 0)
 	})
 })

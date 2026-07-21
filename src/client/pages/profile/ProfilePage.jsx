@@ -1,17 +1,12 @@
 import { useLoaderData, useOutletContext } from 'react-router'
-import { apiGet } from '../../hooks/useApi.js'
+import { apiGet, loadOr404 } from '../../hooks/useApi.js'
 import ScoreTable from '../../components/scoreTable/ScoreTable.jsx'
 import './ProfilePage.css'
 
 const COLUMNS = [{column: 'Score', score: (e) => e.score, sortOrder: 1}]
 
 async function profileLoader({params, request}) {
-	try {
-		return await apiGet('/user/' + params.username, null, {signal: request.signal})
-	} catch(err) {
-		if(err.status === 404) throw new Response('user', {status: 404})
-		throw err
-	}
+	return loadOr404(() => apiGet('/user/' + params.username, null, {signal: request.signal}), 'user')
 }
 
 function ProfilePage() {

@@ -1,0 +1,19 @@
+/* Tag display: pastille bleu pastel, miroir de .entryLabel */
+.tagLabel {
+	border-radius: 3px;
+	background-color: #A8C5E8; /* Light blue */
+	padding: 0 0.5em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	flex: 0 1 auto;
+	display: inline-block;
+	max-width: 100%;
+	border: 1px solid transparent;
+}
+a.tagLabel {
+	text-decoration: none;
+	color: inherit;
+}
+a.tagLabel:hover {
+	background-color: #B8D5F0; /* Lighter blue */
+}

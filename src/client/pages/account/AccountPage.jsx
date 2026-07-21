@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, Link, useOutletContext } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
 import DeleteAccountModal from '../../components/account/DeleteAccountModal.jsx'
+import EntrySpan from '../../components/entry/EntrySpan.jsx'
 import { apiDelete } from '../../hooks/useApi.js'
 import './AccountPage.css'
 
@@ -55,9 +56,9 @@ function AccountPage() {
 						<td>{vote.type}</td>
 						<td>
 							<div class="voteDetail">{vote.type === 'default'
-								? (<><Link className="entryLabel" to={'/entry/' + vote.entry} title={userScores.find(s => s.id === vote.entry).label}>{userScores.find(s => s.id === vote.entry).label}</Link> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
+								? (<><EntrySpan id={vote.entry} label={userScores.find(s => s.id === vote.entry).label} title={userScores.find(s => s.id === vote.entry).label} /> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
 								: (<>
-								<Link className="entryLabel" to={'/entry/' + vote.neg} title={userScores.find(s => s.id === vote.neg).label}>{userScores.find(s => s.id === vote.neg).label}</Link> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <Link className="entryLabel" to={'/entry/' + vote.pos} title={userScores.find(s => s.id === vote.pos).label}>{userScores.find(s => s.id === vote.pos).label}</Link>
+								<EntrySpan id={vote.neg} label={userScores.find(s => s.id === vote.neg).label} title={userScores.find(s => s.id === vote.neg).label} /> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <EntrySpan id={vote.pos} label={userScores.find(s => s.id === vote.pos).label} title={userScores.find(s => s.id === vote.pos).label} />
 								</>)
 							}</div>
 						</td>

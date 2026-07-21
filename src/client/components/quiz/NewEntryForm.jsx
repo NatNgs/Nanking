@@ -1,34 +1,19 @@
-import { useEffect, useState } from 'react'
-import debounce from 'lodash.debounce';
+import { useCallback, useEffect, useState } from 'react'
 import AsyncCreatableSelect from 'react-select/async-creatable';
 import { apiGet, apiPut, apiPost } from '../../hooks/useApi.js'
 import { useUserContext } from '../../context/UserContext.jsx'
+import { useAsyncSearchOptions } from '../../hooks/useAsyncSearchOptions.js'
+import { asyncSelectStyles, ASYNC_SELECT_NO_INDICATORS } from '../../lib/reactSelectStyles.js'
 import './NewEntryForm.css'
 
-const debounceDellay = 1000;
 function NewEntryForm({scoreFormatter}) {
 	const {refreshUserData} = useUserContext()
 	const [newEntryName, setNewEntryName] = useState('')
 	const [newEntryScore, setNewEntryScore] = useState(10)
 	const [errorMessage, setErrorMessage] = useState('')
-	const [suggestedEntries, setSuggestedEntries] = useState([])
 
-	async function _onSuggestionsFetchRequested(value, cb) {
-		const newEntryName = value.toLowerCase().trim().replace(/\s+/g, ' ')
-		if(!newEntryName)
-			return cb([])
-
-		const entries = await apiGet(`/entries?q=${newEntryName}`)
-		setSuggestedEntries(entries)
-		cb(entries.map(e=>({label: e.label, value: e.id})))
-	}
-	const onSuggestionsFetchRequested = debounce(_onSuggestionsFetchRequested, debounceDellay)
-
-	function isNewEntry(newEntryName) {
-		if(!newEntryName) return false
-		newEntryName = newEntryName.toLowerCase().trim().replace(/\s+/g, ' ')
-		return newEntryName && !suggestedEntries.find((entry) => entry.label.toLowerCase() === newEntryName)
-	}
+	const fetchCandidates = useCallback((q) => q ? apiGet(`/entries?q=${q}`) : Promise.resolve([]), [])
+	const {suggested: suggestedEntries, loadOptions: onSuggestionsFetchRequested, isNewOption: isNewEntry} = useAsyncSearchOptions(fetchCandidates)
 
 	async function handleNewEntry() {
 		if(!newEntryName) {
@@ -75,13 +60,8 @@ function NewEntryForm({scoreFormatter}) {
 						isValidNewOption={isNewEntry}
 						noOptionsMessage={() => null}
 						placeholder="Search for an entry..."
-						components={{ DropdownIndicator:() => null, IndicatorSeparator:() => null }}
-						styles={{
-							menu: (base) => ({...base, marginTop: 0}),
-							option: (base) => ({...base, cursor: 'pointer'}),
-							control: (base) => ({...base, cursor: 'text', borderColor: 'gray'}),
-							indicatorsContainer: (base) => ({...base, cursor: 'pointer'}),
-						}}
+						components={ASYNC_SELECT_NO_INDICATORS}
+						styles={asyncSelectStyles()}
 					/>
 				</div>
 				<div className="labelled">

@@ -35,6 +35,11 @@
 	background-color: #F5E9A9;
 	box-shadow: 0 0 0.1em black;
 }
+.entry-page-image-upload.disabled {
+	color: gray;
+	cursor: default;
+	pointer-events: none;
+}
 
 .entry-page-help {
 	color: gray;
@@ -43,6 +48,18 @@
 
 .entry-page-error {
 	color: #A83232;
+}
+.entry-page-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+	align-items: center;
+	margin: 1em 0;
+}
+.entry-page-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25em;
 }
 .entry-page-title {
 	display: flex;

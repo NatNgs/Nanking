@@ -48,25 +48,6 @@ h1:first-child, h2:first-child, h3:first-child, h4:first-child, h5:first-child, 
 	margin-top: 0;
 }
 
-/* Entry display: shared across AccountPage, ScoreTable, DualQuiz, EntryPage links, etc. */
-.entryLabel {
-	border-radius: 3px;
-	background-color: #A8D5A8; /* Light green */
-	padding: 0 0.5em;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	flex: 0 1 auto;
-	display: inline-block;
-	max-width: 100%;
-	border: 1px solid transparent;
-}
-a.entryLabel {
-	text-decoration: none;
-	color: inherit;
-}
-a.entryLabel:hover {
-	background-color: #B0F0A8; /* Lighter green */
-}
 .entryScore {
 	border-radius: 3px;
 	background-color: #FED186; /* Light yellow */

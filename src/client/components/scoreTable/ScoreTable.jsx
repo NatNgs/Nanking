@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
 import './ScoreTable.css'
 import { scoreToColor } from '../../lib/scoreToColor.js'
+import EntrySpan from '../entry/EntrySpan.jsx'
 
 /**
  * Builds the initial sort rules from `columns[].sortOrder`, ordered by
@@ -99,7 +99,7 @@ function ScoreTable({entries, columns, scoreFormatter}) {
 				<tbody>
 					{sortedEntries.map((entry) => (
 						<tr key={entry.id}>
-							<td className="entryCol"><Link className="entryLabel" to={'/entry/' + entry.id}>{entry.label}</Link></td>
+							<td className="entryCol"><EntrySpan id={entry.id} label={entry.label} /></td>
 							{columns.map((col) => {
 								const value = columnScores.get(entry.id)[col.column]
 								return (

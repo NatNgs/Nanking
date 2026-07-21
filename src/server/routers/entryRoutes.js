@@ -2,8 +2,10 @@ import express from 'express'
 import multer from 'multer'
 import requireAuthentication, { attachUserIfAuthenticated } from '../middleware/authenticate.js'
 import { getEntryData, renameEntry, updateEntryImage, deleteEntry } from '../services/entryService.js'
+import { getEntryImageFilePath } from '../services/entryImageService.js'
+import { addTagToEntry, removeTagFromEntry } from '../services/tagService.js'
+import { respondWithData, sendByResult } from './routeHelpers.js'
 import ENTRIES from '../data/entries.js'
-import CONFIG from '../config/config.js'
 import fs from 'fs'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -11,11 +13,7 @@ const upload = multer({storage: multer.memoryStorage(), limits: {fileSize: MAX_I
 
 const entryRoutes = express.Router()
 
-const respondWithEntryData = (id, res, user=null) => {
-	const data = getEntryData(id, user)
-	if(!data) return res.status(404).send('Entry not found')
-	res.json(data)
-}
+const respondWithEntryData = respondWithData(getEntryData, 'Entry not found')
 
 // Authenticated
 
@@ -30,18 +28,20 @@ entryRoutes.put('/new', requireAuthentication, (req, res) => {
 
 entryRoutes.patch('/:id/name', requireAuthentication, (req, res) => {
 	const result = renameEntry(req.params.id, req.body.name)
-	if(result === 'not_found') return res.status(404).send('Entry not found')
-	if(result === 'invalid') return res.status(400).send('Invalid name')
-	if(result === 'conflict') return res.status(409).send('An entry with this name already exists')
+	if(sendByResult(res, result, {
+		not_found: {status: 404, message: 'Entry not found'},
+		invalid: {status: 400, message: 'Invalid name'},
+		conflict: {status: 409, message: 'An entry with this name already exists'},
+	})) return
 	return respondWithEntryData(req.params.id, res, req.user)
 })
 
 entryRoutes.get('/:id/image.png', (req, res) => {
 	// Find image related to this entry
 	const entry = ENTRIES.getEntryById(req.params.id)
-	if(!entry) return next()
+	if(!entry) return res.status(404).send('Entry not found')
 
-	const entryImagePath = CONFIG.DATA_DIR + '/entryImages/' + entry.id.replace(':', '/') + '.png'
+	const entryImagePath = getEntryImageFilePath(entry.id)
 	// Check if file exists
 	if(!fs.existsSync(entryImagePath)) {
 		// Return default image (assets/unknown.svg)
@@ -59,15 +59,32 @@ entryRoutes.patch('/:id/image', requireAuthentication, (req, res, next) => {
 	if(!req.file) return res.status(400).send('Missing image')
 
 	const result = await updateEntryImage(req.params.id, req.file.buffer)
-	if(result === 'not_found') return res.status(404).send('Entry not found')
-	if(result === 'invalid') return res.status(400).send('Invalid or too large image')
+	if(sendByResult(res, result, {
+		not_found: {status: 404, message: 'Entry not found'},
+		invalid: {status: 400, message: 'Invalid or too large image'},
+	})) return
 	return respondWithEntryData(req.params.id, res, req.user)
 })
 
 entryRoutes.delete('/:id', requireAuthentication, (req, res) => {
 	const result = deleteEntry(req.params.id, req.user)
-	if(result === 'not_found') return res.status(404).send('Entry not found')
+	if(sendByResult(res, result, {not_found: {status: 404, message: 'Entry not found'}})) return
 	res.status(200).send('ok')
+})
+
+entryRoutes.post('/:id/tags', requireAuthentication, (req, res) => {
+	const result = addTagToEntry(req.params.id, req.body.tagId)
+	if(sendByResult(res, result, {
+		not_found: {status: 404, message: 'Entry or tag not found'},
+		already_covered: {status: 409, message: 'Entry is already covered by this tag'},
+	})) return
+	return respondWithEntryData(req.params.id, res, req.user)
+})
+
+entryRoutes.delete('/:id/tags/:tagId', requireAuthentication, (req, res) => {
+	const result = removeTagFromEntry(req.params.id, req.params.tagId)
+	if(sendByResult(res, result, {not_found: {status: 404, message: 'Entry not found'}})) return
+	return respondWithEntryData(req.params.id, res, req.user)
 })
 
 // Public, declared last: attaches req.user only if a valid token is present

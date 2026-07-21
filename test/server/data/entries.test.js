@@ -2,7 +2,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { unlinkSync, existsSync } from 'fs'
 import { Manager } from '../../../src/server/data/db.js'
-import { EntriesManager } from '../../../src/server/data/entries.js'
+import { EntriesManager, Entry } from '../../../src/server/data/entries.js'
 
 const TEST_DB_PATH = 'test/tmp/entries.test.json'
 
@@ -22,12 +22,13 @@ describe('EntriesManager', () => {
 		assert.equal(entries.getEntryByName('Naruto'), null)
 	})
 
-	test('getEntryByName creates an entry with an incremental id', () => {
+	test('getEntryByName creates an entry with an incremental id, prefixed to identify its source (Nanking-created)', () => {
 		const entries = new EntriesManager(db)
 		const entry = entries.getEntryByName('Naruto', true)
 		assert.equal(entry.name, 'Naruto')
-		assert.equal(entry.id, 0)
+		assert.equal(entry.id, 'n:0')
 		assert.equal(entry.image, 'assets/unknown.svg')
+		assert.deepEqual(entry.tags, [])
 	})
 
 	test('getEntryByName finds an existing entry by name (no duplicate)', () => {
@@ -40,13 +41,13 @@ describe('EntriesManager', () => {
 
 	test('getEntryByName reuses the id based on the remaining entry count if free', () => {
 		const entries = new EntriesManager(db)
-		entries.getEntryByName('A', true) // id 0
-		entries.getEntryByName('B', true) // id 1
-		entries.getEntryByName('C', true) // id 2
-		delete entries.entries[1]
-		// 2 entries remain (A, C): the next starting id is 2 (already taken by C), so 3
+		entries.getEntryByName('A', true) // id n:0
+		entries.getEntryByName('B', true) // id n:1
+		entries.getEntryByName('C', true) // id n:2
+		delete entries.entries['n:1']
+		// 2 entries remain (A, C): the next starting id is n:2 (already taken by C), so n:3
 		const entry = entries.getEntryByName('D', true)
-		assert.equal(entry.id, 3)
+		assert.equal(entry.id, 'n:3')
 	})
 
 	test('getEntryById finds an entry by id', () => {
@@ -90,11 +91,37 @@ describe('EntriesManager', () => {
 	test('save() then reload also round-trips a custom image', () => {
 		const entries = new EntriesManager(db)
 		const entry = entries.getEntryByName('Naruto', true)
-		entry.image = '/entryImages/0.png'
+		entry.image = '/entryImages/n/0.png'
 		entries.save()
 
 		const reloaded = new EntriesManager(db)
-		assert.equal(reloaded.getEntryById(entry.id).image, '/entryImages/0.png')
+		assert.equal(reloaded.getEntryById(entry.id).image, '/entryImages/n/0.png')
+	})
+
+	test('save() then reload round-trips the entry\'s tags', () => {
+		const entries = new EntriesManager(db)
+		const entry = entries.getEntryByName('Naruto', true)
+		entry.tags.push('t:0', 't:1')
+		entries.save()
+
+		const reloaded = new EntriesManager(db)
+		assert.deepEqual(reloaded.getEntryById(entry.id).tags, ['t:0', 't:1'])
+	})
+
+	test('loading an entry with no tags field in storage defaults to an empty array (backward compatibility)', () => {
+		const db = new Manager({})
+		db.set('entries', {'n:0': {name: 'Naruto'}})
+
+		const entries = new EntriesManager(db)
+		assert.deepEqual(entries.getEntryById('n:0').tags, [])
+	})
+
+	test('loading an entry with a corrupted (non-array) tags field defaults to an empty array', () => {
+		const db = new Manager({})
+		db.set('entries', {'n:0': {name: 'Naruto', tags: 'not-an-array'}})
+
+		const entries = new EntriesManager(db)
+		assert.deepEqual(entries.getEntryById('n:0').tags, [])
 	})
 
 	test('getEntryByNameIgnoreCase finds an entry regardless of case', () => {
@@ -121,5 +148,47 @@ describe('EntriesManager', () => {
 		const entry = entries.getEntryByName('Naruto', true)
 		entries.deleteEntry(entry.id)
 		assert.equal(entries.getEntryById(entry.id), undefined)
+	})
+})
+
+describe('Entry id format validation', () => {
+	test('accepts a source-prefixed id', () => {
+		assert.doesNotThrow(() => new Entry('n:0', 'A'))
+	})
+
+	test('accepts an id with a longer source prefix and non-numeric suffix', () => {
+		assert.doesNotThrow(() => new Entry('mal:12345', 'A'))
+	})
+
+	test('rejects an id with no source prefix', () => {
+		assert.throws(() => new Entry('0', 'A'))
+	})
+
+	test('rejects an id with an empty prefix or suffix', () => {
+		assert.throws(() => new Entry(':0', 'A'))
+		assert.throws(() => new Entry('n:', 'A'))
+	})
+
+	test('rejects an id containing characters outside [a-z0-9_.-]', () => {
+		assert.throws(() => new Entry('n:foo bar', 'A'))
+		assert.throws(() => new Entry('N:0', 'A'))
+	})
+})
+
+describe('EntriesManager loading with invalid stored ids', () => {
+	test('skips an entry whose id fails validation, and still loads the others', () => {
+		const db = new Manager({})
+		db.set('entries', {
+			'n:0': {name: 'Valid entry'},
+			'invalid id': {name: 'Broken entry'},
+			'n:1': {name: 'Another valid entry'},
+		})
+
+		const entries = new EntriesManager(db)
+
+		assert.equal(Object.keys(entries.entries).length, 2)
+		assert.equal(entries.getEntryById('n:0').name, 'Valid entry')
+		assert.equal(entries.getEntryById('n:1').name, 'Another valid entry')
+		assert.equal(entries.getEntryById('invalid id'), undefined)
 	})
 })

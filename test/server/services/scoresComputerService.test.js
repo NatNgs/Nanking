@@ -4,6 +4,8 @@ import { Manager } from '../../../src/server/data/db.js'
 import { User, ALL_USERS } from '../../../src/server/data/user.js'
 import { EntriesManager, Entry } from '../../../src/server/data/entries.js'
 import ENTRIES from '../../../src/server/data/entries.js'
+import TAGS from '../../../src/server/data/tags.js'
+import { Tag } from '../../../src/server/data/tags.js'
 import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 import { computeUserScores, computeGlobalScores } from '../../../src/server/services/scoresComputerService.js'
 
@@ -28,126 +30,325 @@ describe('scoresComputerService', () => {
 		// used for db.js/accounts.js singletons elsewhere in this test suite.
 		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]
 		for(const key in ALL_USERS) delete ALL_USERS[key]
+		for(const key in TAGS.tags) delete TAGS.tags[key]
 	})
 
 	describe('computeUserScores', () => {
 		test('averages a single default vote with the entry\'s global score', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			ENTRIES.entries[0].globalScore = 0.5
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries[0], 1)])
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].globalScore = 0.5
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
 
 			computeUserScores(user)
 
-			assertFinite(user.entries[0])
-			assert.equal(user.entries[0], (1 + 0.5) / 2)
+			assertFinite(user.entries['n:0'])
+			assert.equal(user.entries['n:0'], (1 + 0.5) / 2)
 		})
 
 		test('never produces NaN/undefined/null even with a single entry', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries[0], 0)])
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 0)])
 
 			computeUserScores(user)
 
-			assertFinite(user.entries[0])
+			assertFinite(user.entries['n:0'])
 		})
 
 		test('averages a dual vote against both entries\' global scores', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			ENTRIES.entries[1] = new Entry(1, 'B')
-			const user = makeUser('bobby', [new DualQuiz(ENTRIES.entries[0], ENTRIES.entries[1], 1)])
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+			const user = makeUser('bobby', [new DualQuiz(ENTRIES.entries['n:0'], ENTRIES.entries['n:1'], 1)])
 
 			computeUserScores(user)
 
-			assertFinite(user.entries[0])
-			assertFinite(user.entries[1])
+			assertFinite(user.entries['n:0'])
+			assertFinite(user.entries['n:1'])
 		})
 
 		test('re-running with an already-computed score keeps averaging with the global score, no NaN', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries[0], 0)])
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 0)])
 
 			computeUserScores(user)
 			computeUserScores(user)
 			computeUserScores(user)
 
-			assertFinite(user.entries[0])
+			assertFinite(user.entries['n:0'])
 		})
 	})
 
 	describe('computeGlobalScores', () => {
 		test('falls back to 0.5 when there is a single entry (no variance to stretch)', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			const user = makeUser('bobby', [])
-			user.entries[0] = 0.3
+			user.entries['n:0'] = 0.3
 			ALL_USERS.bobby = user
 
 			computeGlobalScores()
 
-			assert.equal(ENTRIES.entries[0].globalScore, 0.5)
+			assert.equal(ENTRIES.entries['n:0'].globalScore, 0.5)
 		})
 
 		test('falls back to 0.5 when every entry\'s score is tied', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			ENTRIES.entries[1] = new Entry(1, 'B')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
 			const user = makeUser('bobby', [])
-			user.entries[0] = 0.4
-			user.entries[1] = 0.4
+			user.entries['n:0'] = 0.4
+			user.entries['n:1'] = 0.4
 			ALL_USERS.bobby = user
 
 			computeGlobalScores()
 
-			assert.equal(ENTRIES.entries[0].globalScore, 0.5)
-			assert.equal(ENTRIES.entries[1].globalScore, 0.5)
+			assert.equal(ENTRIES.entries['n:0'].globalScore, 0.5)
+			assert.equal(ENTRIES.entries['n:1'].globalScore, 0.5)
 		})
 
 		test('stretches distinct scores to the full 0-1 range', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			ENTRIES.entries[1] = new Entry(1, 'B')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
 			const user = makeUser('bobby', [])
-			user.entries[0] = 0
-			user.entries[1] = 1
+			user.entries['n:0'] = 0
+			user.entries['n:1'] = 1
 			ALL_USERS.bobby = user
 
 			computeGlobalScores()
 
-			assertFinite(ENTRIES.entries[0].globalScore)
-			assertFinite(ENTRIES.entries[1].globalScore)
-			assert.equal(ENTRIES.entries[0].globalScore, 0)
-			assert.equal(ENTRIES.entries[1].globalScore, 1)
+			assertFinite(ENTRIES.entries['n:0'].globalScore)
+			assertFinite(ENTRIES.entries['n:1'].globalScore)
+			assert.equal(ENTRIES.entries['n:0'].globalScore, 0)
+			assert.equal(ENTRIES.entries['n:1'].globalScore, 1)
 		})
 
 		test('never leaves a NaN globalScore after repeated cycles, even starting from a single entry', () => {
 			// Reproduces the real-world sequence: an entry is created and voted
 			// on alone first (triggering the single-entry fallback), then a
 			// second entry is added and voted on in a later cycle.
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries[0], 0)])
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 0)])
 			ALL_USERS.bobby = user
 
 			computeUserScores(user)
 			computeGlobalScores()
-			assertFinite(ENTRIES.entries[0].globalScore)
+			assertFinite(ENTRIES.entries['n:0'].globalScore)
 
-			ENTRIES.entries[1] = new Entry(1, 'B')
-			user.quiz.push(new DefaultValueQuiz(ENTRIES.entries[1], 1))
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+			user.quiz.push(new DefaultValueQuiz(ENTRIES.entries['n:1'], 1))
 
 			for(let i = 0; i < 3; i++) {
 				computeUserScores(user)
 				computeGlobalScores()
 			}
 
-			assertFinite(ENTRIES.entries[0].globalScore)
-			assertFinite(ENTRIES.entries[1].globalScore)
-			assertFinite(user.entries[0])
-			assertFinite(user.entries[1])
+			assertFinite(ENTRIES.entries['n:0'].globalScore)
+			assertFinite(ENTRIES.entries['n:1'].globalScore)
+			assertFinite(user.entries['n:0'])
+			assertFinite(user.entries['n:1'])
 		})
 
 		test('removes an entry that only the initial global score accounts for (no real user score)', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 
 			computeGlobalScores()
 
-			assert.equal(ENTRIES.entries[0], undefined)
+			assert.equal(ENTRIES.entries['n:0'], undefined)
+		})
+	})
+
+	describe('computeUserScores with entry tags', () => {
+		test('includes the average of the entry\'s direct tags\' current user score', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].globalScore = 0.5
+			ENTRIES.entries['n:0'].tags.push('t:0')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			user.tags['t:0'] = 0.9
+
+			computeUserScores(user)
+
+			// quiz vote (1) + tag average (0.9) + globalScore (0.5), averaged
+			assertFinite(user.entries['n:0'])
+			assert.equal(user.entries['n:0'], (1 + 0.9 + 0.5) / 3)
+		})
+
+		test('does not add a tag value when the entry\'s tag has no known user score yet', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].globalScore = 0.5
+			ENTRIES.entries['n:0'].tags.push('t:0')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+
+			computeUserScores(user)
+
+			// no user.tags['t:0'] yet: behaves exactly like the no-tags case
+			assert.equal(user.entries['n:0'], (1 + 0.5) / 2)
+		})
+	})
+
+	describe('computeUserTagScores (via computeUserScores)', () => {
+		test('a tag\'s user score averages the user scores of entries directly tagged with it', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].tags.push('t:0')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			computeUserScores(user)
+
+			assertFinite(user.tags['t:0'])
+			assert.equal(user.tags['t:0'], user.entries['n:0'])
+		})
+
+		test('a tag\'s user score also averages in its already-computed direct children\'s user scores', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
+			ENTRIES.entries['n:0'].tags.push('t:1') // Cat
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'Animal entry')
+			ENTRIES.entries['n:1'].tags.push('t:0') // Animal
+
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+			TAGS.tags['t:1'] = new Tag('t:1', 'Cat')
+			TAGS.tags['t:1'].parents.push('t:0') // Cat -> Animal
+
+			const user = makeUser('bobby', [
+				new DefaultValueQuiz(ENTRIES.entries['n:0'], 1),
+				new DefaultValueQuiz(ENTRIES.entries['n:1'], 0),
+			])
+			computeUserScores(user)
+
+			assertFinite(user.tags['t:1']) // Cat: only from n:0 (Cat entry)
+			assertFinite(user.tags['t:0']) // Animal: n:1 (Animal entry) + Cat's already-computed score
+			assert.equal(user.tags['t:1'], user.entries['n:0'])
+			assert.equal(user.tags['t:0'], (user.entries['n:1'] + user.tags['t:1']) / 2)
+		})
+
+		test('a tag with no scorable entry or child is left untouched (stays absent, no 0.5 fallback)', () => {
+			TAGS.tags['t:0'] = new Tag('t:0', 'Unused')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+
+			computeUserScores(user)
+
+			assert.equal('t:0' in user.tags, false)
+		})
+
+		test('computes correctly regardless of the order tags were declared/voted in', () => {
+			// Declare the parent before the child, and vote on the child's entry
+			// last: topologicalOrder must still process the child before the parent.
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+			TAGS.tags['t:1'] = new Tag('t:1', 'Cat')
+			TAGS.tags['t:1'].parents.push('t:0')
+
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
+			ENTRIES.entries['n:0'].tags.push('t:1')
+
+			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			computeUserScores(user)
+
+			assertFinite(user.tags['t:1'])
+			assertFinite(user.tags['t:0'])
+		})
+	})
+
+	describe('computeGlobalScores with entry tags', () => {
+		test('includes the average of the entry\'s direct tags\' current global score', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].tags.push('t:0')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+			TAGS.tags['t:0'].score = 0.9
+
+			const user = makeUser('bobby', [])
+			user.entries['n:0'] = 0.3
+			ALL_USERS.bobby = user
+
+			computeGlobalScores()
+
+			assertFinite(ENTRIES.entries['n:0'].globalScore)
+		})
+
+		test('without any tag defined, behaves exactly like before (non-regression)', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+			const user = makeUser('bobby', [])
+			user.entries['n:0'] = 0
+			user.entries['n:1'] = 1
+			ALL_USERS.bobby = user
+
+			computeGlobalScores()
+
+			assert.equal(ENTRIES.entries['n:0'].globalScore, 0)
+			assert.equal(ENTRIES.entries['n:1'].globalScore, 1)
+		})
+	})
+
+	describe('computeGlobalTagScores (via computeGlobalScores)', () => {
+		test('a tag\'s global score averages the globalScore of entries directly tagged with it', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].globalScore = 0.5
+			ENTRIES.entries['n:0'].tags.push('t:0')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+
+			const user = makeUser('bobby', [])
+			user.entries['n:0'] = 0.5
+			ALL_USERS.bobby = user
+
+			computeGlobalScores()
+
+			assertFinite(TAGS.tags['t:0'].score)
+		})
+
+		test('a tag\'s global score also averages in its direct children\'s already-computed global scores', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
+			ENTRIES.entries['n:0'].tags.push('t:1') // Cat
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'Animal entry')
+			ENTRIES.entries['n:1'].tags.push('t:0') // Animal
+
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+			TAGS.tags['t:1'] = new Tag('t:1', 'Cat')
+			TAGS.tags['t:1'].parents.push('t:0') // Cat -> Animal
+
+			const user = makeUser('bobby', [])
+			user.entries['n:0'] = 0.2
+			user.entries['n:1'] = 0.8
+			ALL_USERS.bobby = user
+
+			computeGlobalScores()
+
+			assertFinite(TAGS.tags['t:1'].score)
+			assertFinite(TAGS.tags['t:0'].score)
+		})
+
+		test('a tag with no scorable entry or child keeps its previous score unchanged (no reset, no NaN)', () => {
+			TAGS.tags['t:0'] = new Tag('t:0', 'Unused')
+			TAGS.tags['t:0'].score = 0.42
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby', [])
+			user.entries['n:0'] = 0.3
+			ALL_USERS.bobby = user
+
+			computeGlobalScores()
+
+			assert.equal(TAGS.tags['t:0'].score, 0.42)
+		})
+
+		test('tag scores are never stretched min-max, unlike entry globalScore', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].tags.push('t:0')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+			ENTRIES.entries['n:1'].tags.push('t:0')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
+
+			const user = makeUser('bobby', [])
+			user.entries['n:0'] = 0
+			user.entries['n:1'] = 1
+			ALL_USERS.bobby = user
+
+			computeGlobalScores()
+
+			// Entry scores are stretched to 0/1, but the tag score is a plain
+			// average of its entries' (already stretched) globalScore, not
+			// itself re-stretched against other tags.
+			const expected = (ENTRIES.entries['n:0'].globalScore + ENTRIES.entries['n:1'].globalScore) / 2
+			assert.equal(TAGS.tags['t:0'].score, expected)
 		})
 	})
 })

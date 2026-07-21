@@ -1,6 +1,7 @@
 import { Jimp } from 'jimp'
 import { mkdirSync, unlinkSync, existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import CONFIG from '../config/config.js'
 
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
@@ -10,6 +11,14 @@ class EntryImageError extends Error {}
 
 function imagesDir() {
 	return CONFIG.DATA_DIR + '/entryImages'
+}
+
+/**
+ * Resolves the on-disk path of `entryId`'s image file, one subdirectory per
+ * source prefix (e.g. `n:0` -> `<dataDir>/entryImages/n/0.png`).
+ */
+function getEntryImageFilePath(entryId) {
+	return imagesDir() + '/' + String(entryId).replace(':', '/') + '.png'
 }
 
 /**
@@ -38,22 +47,17 @@ async function processImageUpload(buffer) {
 
 /**
  * Persists the given PNG buffer as the image for `entryId`, overwriting any
- * previous file of the same name. Returns the public URL to store on the entry.
+ * previous file of the same name. Entries are stored one subdirectory per
+ * source prefix (e.g. `n:0` -> `n/0.png`, `mal:12345` -> `mal/12345.png`),
+ * so imports from different sources never collide. Returns the public URL
+ * to store on the entry.
  */
 async function saveEntryImage(entryId, pngBuffer) {
-	mkdirSync(imagesDir(), {recursive: true})
-	const filename = entryId.replace(':', '/') + '.png'
-	const splitFilename = filename.split('/')
-	const onlyFilename = splitFilename.pop()
-	const dir = imagesDir() + (splitFilename.length > 0 ? '/' + splitFilename.join('/') : '')
+	const filePath = getEntryImageFilePath(entryId)
+	mkdirSync(dirname(filePath), {recursive: true})
 
-	// Create dir if not exists
-	if(!existsSync(dir)) {
-		mkdirSync(dir, {recursive: true})
-	}
-
-	await writeFile(dir + '/' + onlyFilename, pngBuffer)
-	return '/entryImages/' + filename
+	await writeFile(filePath, pngBuffer)
+	return filePath.slice(CONFIG.DATA_DIR.length)
 }
 
 /**
@@ -68,4 +72,4 @@ function deleteEntryImage(entry) {
 	if(existsSync(path)) unlinkSync(path)
 }
 
-export { processImageUpload, saveEntryImage, deleteEntryImage, EntryImageError }
+export { processImageUpload, saveEntryImage, deleteEntryImage, getEntryImageFilePath, EntryImageError }

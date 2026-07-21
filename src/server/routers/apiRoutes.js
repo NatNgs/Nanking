@@ -4,8 +4,10 @@ import { apiLimiter, loginLimiter } from '../middleware/rateLimit.js'
 import userRouter from './userRoutes.js'
 import quizRouter from './quizRoutes.js'
 import entryRouter from './entryRoutes.js'
+import tagRouter from './tagRoutes.js'
 import ACCOUNTS from '../data/accounts.js'
 import ENTRIES from '../data/entries.js'
+import { searchTags } from '../services/tagService.js'
 
 const apiRouter = express.Router()
 
@@ -63,12 +65,18 @@ apiRouter.get('/entries', (req, res) => {
 	}
 	res.json(content)
 })
+apiRouter.post('/tags/search', (req, res) => {
+	const {q, notOnEntity, notHavingAsParent, notHavingAsChild} = req.body || {}
+	const tags = searchTags({q, notOnEntity, notHavingAsParent, notHavingAsChild})
+	res.json(tags.map((tag) => ({id: tag.id, label: tag.label})))
+})
 
 // Authenticated
 
 apiRouter.use('/user', userRouter)
 apiRouter.use('/quiz', quizRouter)
 apiRouter.use('/entry', entryRouter)
+apiRouter.use('/tag', tagRouter)
 
 
 export default apiRouter

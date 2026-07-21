@@ -4,6 +4,7 @@ import MainPage from './pages/main/MainPage.jsx'
 import ProfilePage, { profileLoader } from './pages/profile/ProfilePage.jsx'
 import AccountPage from './pages/account/AccountPage.jsx'
 import EntryPage, { entryLoader } from './pages/entry/EntryPage.jsx'
+import TagPage, { tagLoader } from './pages/tag/TagPage.jsx'
 import ErrorPage from './pages/error/ErrorPage.jsx'
 
 const router = createBrowserRouter([
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
 			{ path: '/user/me', element: <AccountPage />, errorElement: <ErrorPage /> },
 			{ path: '/user/:username', element: <ProfilePage />, loader: profileLoader, errorElement: <ErrorPage /> },
 			{ path: '/entry/:entryId', element: <EntryPage />, loader: entryLoader, errorElement: <ErrorPage /> },
+			{ path: '/tag/:tagId', element: <TagPage />, loader: tagLoader, errorElement: <ErrorPage /> },
 			{ path: '/error', element: <ErrorPage /> },
 			{ path: '*', element: <ErrorPage /> },
 		],

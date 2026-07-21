@@ -10,6 +10,13 @@ function makeUser() {
 	return new User(new Manager({}), 'bobby')
 }
 
+describe('User construction', () => {
+	test('starts with an empty tags score map', () => {
+		const user = makeUser()
+		assert.deepEqual(user.tags, {})
+	})
+})
+
 describe('User.getUserList', () => {
 	beforeEach(() => {
 		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]
@@ -21,10 +28,10 @@ describe('User.getUserList', () => {
 	})
 
 	test('falls back to 0.5 when the user has a single entry (no variance to stretch)', () => {
-		ENTRIES.entries[0] = new Entry(0, 'A')
-		ENTRIES.entries[0].globalScore = 0.7
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:0'].globalScore = 0.7
 		const user = makeUser()
-		user.entries[0] = 0.3
+		user.entries['n:0'] = 0.3
 
 		const list = user.getUserList()
 
@@ -34,11 +41,11 @@ describe('User.getUserList', () => {
 	})
 
 	test('falls back to 0.5 when every entry has the same score (no variance to stretch)', () => {
-		ENTRIES.entries[0] = new Entry(0, 'A')
-		ENTRIES.entries[1] = new Entry(1, 'B')
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
 		const user = makeUser()
-		user.entries[0] = 0.4
-		user.entries[1] = 0.4
+		user.entries['n:0'] = 0.4
+		user.entries['n:1'] = 0.4
 
 		const list = user.getUserList()
 
@@ -49,26 +56,26 @@ describe('User.getUserList', () => {
 	})
 
 	test('stretches distinct scores to the full 0-1 range', () => {
-		ENTRIES.entries[0] = new Entry(0, 'A')
-		ENTRIES.entries[1] = new Entry(1, 'B')
-		ENTRIES.entries[2] = new Entry(2, 'C')
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
+		ENTRIES.entries['n:2'] = new Entry('n:2', 'C')
 		const user = makeUser()
-		user.entries[0] = 0
-		user.entries[1] = 5
-		user.entries[2] = 10
+		user.entries['n:0'] = 0
+		user.entries['n:1'] = 5
+		user.entries['n:2'] = 10
 
 		const list = user.getUserList()
 
 		const byId = Object.fromEntries(list.map((e) => [e.id, e]))
-		assert.equal(byId[0].score, 0)
-		assert.equal(byId[1].score, 0.5)
-		assert.equal(byId[2].score, 1)
+		assert.equal(byId['n:0'].score, 0)
+		assert.equal(byId['n:1'].score, 0.5)
+		assert.equal(byId['n:2'].score, 1)
 	})
 
 	test('every returned score is a finite number, never NaN/undefined/null', () => {
-		ENTRIES.entries[0] = new Entry(0, 'A')
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 		const user = makeUser()
-		user.entries[0] = 0
+		user.entries['n:0'] = 0
 
 		const list = user.getUserList()
 
@@ -79,10 +86,10 @@ describe('User.getUserList', () => {
 	})
 
 	test('carries over the entry\'s label, image, and globalScore unchanged', () => {
-		ENTRIES.entries[0] = new Entry(0, 'A')
-		ENTRIES.entries[0].globalScore = 0.42
+		ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+		ENTRIES.entries['n:0'].globalScore = 0.42
 		const user = makeUser()
-		user.entries[0] = 0.1
+		user.entries['n:0'] = 0.1
 
 		const [entry] = user.getUserList()
 
@@ -98,7 +105,7 @@ describe('User.removeAllReferencesToEntry', () => {
 	})
 
 	test('removes a default quiz referencing the entry', () => {
-		const entryA = new Entry(0, 'A')
+		const entryA = new Entry('n:0', 'A')
 		const user = makeUser()
 		user.quiz.push(new DefaultValueQuiz(entryA, 1))
 
@@ -108,8 +115,8 @@ describe('User.removeAllReferencesToEntry', () => {
 	})
 
 	test('removes a dual quiz referencing the entry (either side)', () => {
-		const entryA = new Entry(0, 'A')
-		const entryB = new Entry(1, 'B')
+		const entryA = new Entry('n:0', 'A')
+		const entryB = new Entry('n:1', 'B')
 		const user = makeUser()
 		user.quiz.push(new DualQuiz(entryA, entryB, 1))
 
@@ -119,8 +126,8 @@ describe('User.removeAllReferencesToEntry', () => {
 	})
 
 	test('leaves quiz referencing other entries untouched', () => {
-		const entryA = new Entry(0, 'A')
-		const entryB = new Entry(1, 'B')
+		const entryA = new Entry('n:0', 'A')
+		const entryB = new Entry('n:1', 'B')
 		const user = makeUser()
 		const untouched = new DefaultValueQuiz(entryB, 1)
 		user.quiz.push(new DefaultValueQuiz(entryA, 1))
@@ -132,7 +139,7 @@ describe('User.removeAllReferencesToEntry', () => {
 	})
 
 	test('removes the computed score for the entry', () => {
-		const entryA = new Entry(0, 'A')
+		const entryA = new Entry('n:0', 'A')
 		const user = makeUser()
 		user.entries[entryA.id] = 0.7
 
@@ -149,7 +156,7 @@ describe('anyUserReferencesEntry', () => {
 	})
 
 	test('returns true when a user still has a vote referencing the entry', () => {
-		const entryA = new Entry(0, 'A')
+		const entryA = new Entry('n:0', 'A')
 		const alice = makeUser()
 		alice.quiz.push(new DefaultValueQuiz(entryA, 1))
 		ALL_USERS.alice = alice
@@ -158,8 +165,8 @@ describe('anyUserReferencesEntry', () => {
 	})
 
 	test('returns false when no user has a vote referencing the entry', () => {
-		const entryA = new Entry(0, 'A')
-		const entryB = new Entry(1, 'B')
+		const entryA = new Entry('n:0', 'A')
+		const entryB = new Entry('n:1', 'B')
 		const alice = makeUser()
 		alice.quiz.push(new DefaultValueQuiz(entryB, 1))
 		ALL_USERS.alice = alice
@@ -168,7 +175,7 @@ describe('anyUserReferencesEntry', () => {
 	})
 
 	test('returns false when there are no known users at all', () => {
-		const entryA = new Entry(0, 'A')
+		const entryA = new Entry('n:0', 'A')
 		assert.equal(anyUserReferencesEntry(entryA), false)
 	})
 })

@@ -86,4 +86,18 @@ function apiDelete(path, data, options) {
 	return apiFetch(path, 'DELETE', data, options)
 }
 
-export { apiGet, apiPost, apiPut, apiPatch, apiDelete, setUnauthorizedHandler }
+/**
+ * Runs a react-router loader's fetch, turning a 404 API response into the
+ * `throw new Response(resourceName, {status: 404})` react-router expects to
+ * render its errorElement, while letting any other error propagate as-is.
+ */
+async function loadOr404(fetchResource, resourceName) {
+	try {
+		return await fetchResource()
+	} catch(err) {
+		if(err.status === 404) throw new Response(resourceName, {status: 404})
+		throw err
+	}
+}
+
+export { apiGet, apiPost, apiPut, apiPatch, apiDelete, setUnauthorizedHandler, loadOr404 }

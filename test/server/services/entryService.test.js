@@ -9,6 +9,9 @@ import { User, ALL_USERS } from '../../../src/server/data/user.js'
 import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 import { Manager } from '../../../src/server/data/db.js'
 import { getEntryData, renameEntry, updateEntryImage, deleteEntry } from '../../../src/server/services/entryService.js'
+import TAGS from '../../../src/server/data/tags.js'
+import { Tag } from '../../../src/server/data/tags.js'
+import { addTagToEntry } from '../../../src/server/services/tagService.js'
 
 // Isolate from the real ./data directory (and from other test files sharing the
 // same CONFIG singleton) with a directory of this file's own: entryImageService
@@ -30,6 +33,7 @@ describe('entryService', () => {
 	beforeEach(() => {
 		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]
 		for(const key in ALL_USERS) delete ALL_USERS[key]
+		for(const key in TAGS.tags) delete TAGS.tags[key]
 	})
 	afterEach(() => {
 		rmSync(IMAGES_DIR, {recursive: true, force: true})
@@ -41,33 +45,44 @@ describe('entryService', () => {
 		})
 
 		test('returns the entry fields without userScore when no user given', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			ENTRIES.entries[0].globalScore = 0.6
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'].globalScore = 0.6
 
-			const data = getEntryData(0)
+			const data = getEntryData('n:0')
 
-			assert.equal(data.id, 0)
+			assert.equal(data.id, 'n:0')
 			assert.equal(data.name, 'A')
 			assert.equal(data.image, 'assets/unknown.svg')
 			assert.equal(data.globalScore, 0.6)
+			assert.deepEqual(data.tags, [])
 			assert.equal('userScore' in data, false)
 		})
 
-		test('includes userScore when the given user has a score on this entry', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			const user = makeUser('bobby')
-			user.entries[0] = 0.42
+		test('includes resolved tags ({id, label}) once tags are added to the entry', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
 
-			const data = getEntryData(0, user)
+			assert.equal(addTagToEntry('n:0', 't:0'), 'ok')
+			const data = getEntryData('n:0')
+
+			assert.deepEqual(data.tags, [{id: 't:0', label: 'Animal'}])
+		})
+
+		test('includes userScore when the given user has a score on this entry', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby')
+			user.entries['n:0'] = 0.42
+
+			const data = getEntryData('n:0', user)
 
 			assert.equal(data.userScore, 0.42)
 		})
 
 		test('omits userScore when the given user has no score on this entry', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			const user = makeUser('bobby')
 
-			const data = getEntryData(0, user)
+			const data = getEntryData('n:0', user)
 
 			assert.equal('userScore' in data, false)
 		})
@@ -79,24 +94,24 @@ describe('entryService', () => {
 		})
 
 		test('returns invalid for an empty name', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			assert.equal(renameEntry(0, '   '), 'invalid')
-			assert.equal(ENTRIES.entries[0].name, 'A')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			assert.equal(renameEntry('n:0', '   '), 'invalid')
+			assert.equal(ENTRIES.entries['n:0'].name, 'A')
 		})
 
 		test('returns conflict when another entry already has this name (case-insensitive), without applying it', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			ENTRIES.entries[1] = new Entry(1, 'B')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
 
-			assert.equal(renameEntry(1, 'a'), 'conflict')
-			assert.equal(ENTRIES.entries[1].name, 'B')
+			assert.equal(renameEntry('n:1', 'a'), 'conflict')
+			assert.equal(ENTRIES.entries['n:1'].name, 'B')
 		})
 
 		test('renames and persists when there is no conflict', () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 
-			assert.equal(renameEntry(0, 'Renamed'), 'ok')
-			assert.equal(ENTRIES.entries[0].name, 'Renamed')
+			assert.equal(renameEntry('n:0', 'Renamed'), 'ok')
+			assert.equal(ENTRIES.entries['n:0'].name, 'Renamed')
 		})
 	})
 
@@ -107,18 +122,18 @@ describe('entryService', () => {
 		})
 
 		test('returns invalid for an unreadable buffer', async () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
-			assert.equal(await updateEntryImage(0, Buffer.from('not an image')), 'invalid')
-			assert.equal(ENTRIES.entries[0].image, 'assets/unknown.svg')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			assert.equal(await updateEntryImage('n:0', Buffer.from('not an image')), 'invalid')
+			assert.equal(ENTRIES.entries['n:0'].image, 'assets/unknown.svg')
 		})
 
-		test('stores the converted image and updates entry.image', async () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
+		test('stores the converted image under a per-prefix subdirectory and updates entry.image', async () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			const buffer = await makePngBuffer(10, 10)
 
-			assert.equal(await updateEntryImage(0, buffer), 'ok')
-			assert.equal(ENTRIES.entries[0].image, '/entryImages/0.png')
-			assert.ok(existsSync(IMAGES_DIR + '/0.png'))
+			assert.equal(await updateEntryImage('n:0', buffer), 'ok')
+			assert.equal(ENTRIES.entries['n:0'].image, '/entryImages/n/0.png')
+			assert.ok(existsSync(IMAGES_DIR + '/n/0.png'))
 		})
 	})
 
@@ -129,42 +144,42 @@ describe('entryService', () => {
 		})
 
 		test('removes only the calling user\'s votes and score, keeping the entry alive when another user still references it', () => {
-			const entryA = new Entry(0, 'A')
-			ENTRIES.entries[0] = entryA
+			const entryA = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'] = entryA
 
 			const alice = makeUser('alice')
 			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
 			const bob = makeUser('bob')
 			bob.quiz.push(new DefaultValueQuiz(entryA, 0.3))
-			bob.entries[0] = 0.3
+			bob.entries['n:0'] = 0.3
 			ALL_USERS.alice = alice
 			ALL_USERS.bob = bob
 
-			assert.equal(deleteEntry(0, alice), 'ok')
+			assert.equal(deleteEntry('n:0', alice), 'ok')
 
 			assert.equal(alice.quiz.length, 0)
-			assert.ok(ENTRIES.getEntryById(0), 'entry should still exist: bob still has a vote on it')
+			assert.ok(ENTRIES.getEntryById('n:0'), 'entry should still exist: bob still has a vote on it')
 			assert.equal(bob.quiz.length, 1)
 		})
 
 		test('permanently deletes the entry once no user has a vote left on it', () => {
-			const entryA = new Entry(0, 'A')
-			ENTRIES.entries[0] = entryA
+			const entryA = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'] = entryA
 
 			const alice = makeUser('alice')
 			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
 			ALL_USERS.alice = alice
 
-			assert.equal(deleteEntry(0, alice), 'ok')
+			assert.equal(deleteEntry('n:0', alice), 'ok')
 
-			assert.equal(ENTRIES.getEntryById(0), undefined)
+			assert.equal(ENTRIES.getEntryById('n:0'), undefined)
 		})
 
 		test('a dual vote (either as neg or pos) also counts as still referencing the entry', () => {
-			const entryA = new Entry(0, 'A')
-			const entryB = new Entry(1, 'B')
-			ENTRIES.entries[0] = entryA
-			ENTRIES.entries[1] = entryB
+			const entryA = new Entry('n:0', 'A')
+			const entryB = new Entry('n:1', 'B')
+			ENTRIES.entries['n:0'] = entryA
+			ENTRIES.entries['n:1'] = entryB
 
 			const alice = makeUser('alice')
 			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
@@ -173,31 +188,31 @@ describe('entryService', () => {
 			ALL_USERS.alice = alice
 			ALL_USERS.bob = bob
 
-			assert.equal(deleteEntry(0, alice), 'ok')
+			assert.equal(deleteEntry('n:0', alice), 'ok')
 
-			assert.ok(ENTRIES.getEntryById(0), 'entry should still exist: bob\'s dual vote still references it')
+			assert.ok(ENTRIES.getEntryById('n:0'), 'entry should still exist: bob\'s dual vote still references it')
 		})
 
 		test('also deletes the entry\'s custom image file once the entry itself is deleted', async () => {
-			ENTRIES.entries[0] = new Entry(0, 'A')
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			const buffer = await makePngBuffer(10, 10)
-			await updateEntryImage(0, buffer)
-			assert.ok(existsSync(IMAGES_DIR + '/0.png'))
+			await updateEntryImage('n:0', buffer)
+			assert.ok(existsSync(IMAGES_DIR + '/n/0.png'))
 
 			const alice = makeUser('alice')
-			alice.quiz.push(new DefaultValueQuiz(ENTRIES.entries[0], 1))
+			alice.quiz.push(new DefaultValueQuiz(ENTRIES.entries['n:0'], 1))
 			ALL_USERS.alice = alice
 
-			deleteEntry(0, alice)
+			deleteEntry('n:0', alice)
 
-			assert.equal(existsSync(IMAGES_DIR + '/0.png'), false)
+			assert.equal(existsSync(IMAGES_DIR + '/n/0.png'), false)
 		})
 
 		test('keeps the entry\'s image file when another user still references the entry', async () => {
-			const entryA = new Entry(0, 'A')
-			ENTRIES.entries[0] = entryA
+			const entryA = new Entry('n:0', 'A')
+			ENTRIES.entries['n:0'] = entryA
 			const buffer = await makePngBuffer(10, 10)
-			await updateEntryImage(0, buffer)
+			await updateEntryImage('n:0', buffer)
 
 			const alice = makeUser('alice')
 			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
@@ -206,9 +221,9 @@ describe('entryService', () => {
 			ALL_USERS.alice = alice
 			ALL_USERS.bob = bob
 
-			deleteEntry(0, alice)
+			deleteEntry('n:0', alice)
 
-			assert.ok(existsSync(IMAGES_DIR + '/0.png'))
+			assert.ok(existsSync(IMAGES_DIR + '/n/0.png'))
 		})
 	})
 })

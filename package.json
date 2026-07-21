@@ -11,8 +11,8 @@
 		"dev": "concurrently \"npm:serve\" \"npm:dev:client\"",
 		"dev:client": "vite serve",
 		"build:watch": "vite build --watch",
-		"test": "node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js -- --env=test",
-		"test:integration": "npm run build && node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js -- --env=test"
+		"test": "cross-env ENV=test node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js",
+		"test:integration": "npm run build && cross-env ENV=test node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
 	},
 	"author": "Nathael Nogues",
 	"license": "MIT",
@@ -41,6 +41,7 @@
 	"devDependencies": {
 		"@vitejs/plugin-react": "^6.0.3",
 		"concurrently": "^10.0.3",
+		"cross-env": "^10.1.0",
 		"eslint": "^10.7.0",
 		"eslint-plugin-react-hooks": "^7.1.1",
 		"playwright": "^1.56.0",

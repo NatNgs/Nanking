@@ -1,10 +1,18 @@
 import DB from './db.js'
 
+// Matches a source-prefixed id, e.g. 'n:0' or 'mal:12345'
+const ENTRY_ID_FORMAT = /^[a-z0-9_.-]+(:[a-z0-9_.-]+)+$/
+
 class Entry {
 	constructor(id, name) {
+		if(!ENTRY_ID_FORMAT.test(id)) {
+			throw new Error(`Identifiant d'entry invalide : ${id}`)
+		}
 		this.id = id
 		this.name = name
+		this.image = 'assets/unknown.svg'
 		this.globalScore = 0.5 // All-users-combined computed score
+		this.tags = [] // array of tag ids, possibly empty
 	}
 }
 class EntriesManager {
@@ -14,9 +22,15 @@ class EntriesManager {
 
 		// Load entries from db
 		for(const entryId of this.db.keys()) {
-			const data = this.db.get(entryId)
-			const entry = new Entry(entryId, data.name)
-			this.entries[entryId] = entry
+			try {
+				const data = this.db.get(entryId)
+				const entry = new Entry(entryId, data.name)
+				if(data.image) entry.image = data.image
+				if(Array.isArray(data.tags)) entry.tags = data.tags.slice()
+				this.entries[entryId] = entry
+			} catch(err) {
+				console.error(`Impossible de charger l'entry '${entryId}' :`, err.message)
+			}
 		}
 	}
 
@@ -32,7 +46,7 @@ class EntriesManager {
 
 		// Not found: Create a new entry
 		let key = Object.keys(this.entries).length
-		while(this.entries['n:' + key]) key++
+		while(this.entries['n:' + key] !== undefined) key++
 		const entry = new Entry('n:' + key, name)
 		this.entries[entry.id] = entry
 
@@ -86,7 +100,7 @@ class EntriesManager {
 		const json = {}
 		for(const entryId in this.entries) {
 			const entry = this.entries[entryId]
-			json[entry.id] = {name: entry.name, image: entry.image}
+			json[entry.id] = {name: entry.name, image: entry.image, tags: entry.tags}
 		}
 		this.db.set(null, json)
 	}

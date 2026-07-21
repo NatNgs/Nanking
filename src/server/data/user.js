@@ -8,6 +8,7 @@ class User {
 		this.db = db.sub('users.' + username)
 		this.username = username
 		this.entries = {} // {entryId: computedScore}
+		this.tags = {} // {tagId: computedScore}
 
 		this.quiz = []
 		for(const quizData of this.db.get('quiz') || []) {

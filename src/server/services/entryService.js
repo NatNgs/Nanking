@@ -1,6 +1,7 @@
 import ENTRIES from '../data/entries.js'
 import { anyUserReferencesEntry } from '../data/user.js'
 import { processImageUpload, saveEntryImage, deleteEntryImage } from './entryImageService.js'
+import { resolveEntryTags } from './tagService.js'
 
 /**
  * Serializes an entry for the HTTP response. Includes the current user's
@@ -15,6 +16,7 @@ function getEntryData(id, user=null) {
 		name: entry.name,
 		image: entry.image,
 		globalScore: entry.globalScore,
+		tags: resolveEntryTags(entry),
 	}
 	if(user && user.entries.hasOwnProperty(entry.id)) {
 		data.userScore = user.entries[entry.id]
