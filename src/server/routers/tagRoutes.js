@@ -1,5 +1,5 @@
 import express from 'express'
-import requireAuthentication from '../middleware/authenticate.js'
+import requireAuthentication, { attachUserIfAuthenticated } from '../middleware/authenticate.js'
 import {
 	getTagData, renameTag, getOrCreateTag, addTagParent, removeTagParent,
 	getParentTree, getChildTree, getEntriesForTag,
@@ -49,15 +49,13 @@ tagRoutes.delete('/:id/parents/:parentId', requireAuthentication, (req, res) => 
 
 // Public, declared last
 
-tagRoutes.get('/:id/entries', (req, res) => {
+tagRoutes.get('/:id/entries', attachUserIfAuthenticated, (req, res) => {
 	const data = getTagData(req.params.id)
 	if(!data) return res.status(404).send('Tag not found')
 
-	const {order, page, limit} = req.query
-	const entries = getEntriesForTag(req.params.id) // already sorted by name (localeCompare)
-	const mapped = entries.map((e) => ({id: e.id, label: e.name, image: e.image}))
-	const sorted = order === 'desc' ? [...mapped].reverse() : mapped
-	res.json(paginate(sorted, {page, limit}))
+	const {sort, order, page, limit} = req.query
+	const entries = getEntriesForTag(req.params.id, {user: req.user, sort, order}) // already sorted (globalScore desc by default)
+	res.json(paginate(entries, {page, limit}))
 })
 
 tagRoutes.get('/:id/tree', (req, res) => {

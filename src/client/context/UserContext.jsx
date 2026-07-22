@@ -14,7 +14,6 @@ function UserProvider({children}) {
 	const auth = useAuth()
 
 	const [username, setUsername] = useState(null)
-	const [userVotes, setUserVotes] = useState([])
 	const [scoredEntriesCount, setScoredEntriesCount] = useState(0)
 	// Bumped by every action that changes a user's scores (vote, entry
 	// creation, score removal). Views showing a paginated score table
@@ -25,22 +24,20 @@ function UserProvider({children}) {
 	const bumpEntriesVersion = useCallback(() => setEntriesVersion((v) => v + 1), [])
 
 	/**
-	 * Fetches the current user's own data (username, votes, scored entries
-	 * count) — never the paginated score list itself, see
-	 * GET /api/user/me/entities for that. Called on mount/auth change, and
-	 * manually by callers (quiz/vote components, right after acting, so
-	 * username/votes/count show up immediately).
+	 * Fetches the current user's own data (username, scored entries count) —
+	 * never the paginated lists themselves, see GET /api/user/me/entities
+	 * (scores) and GET /api/user/me/quiz (vote history) for those. Called on
+	 * mount/auth change, and manually by callers (quiz/vote components, right
+	 * after acting, so username/count show up immediately).
 	 */
 	const refreshUserData = useCallback(async () => {
 		if(!auth.isAuthenticated) {
 			setUsername(null)
-			setUserVotes([])
 			setScoredEntriesCount(0)
 			return
 		}
 		const data = await apiGet('/user/me')
 		setUsername(data.username)
-		setUserVotes(data.votes || [])
 		setScoredEntriesCount(data.scoredEntriesCount || 0)
 	}, [auth.isAuthenticated])
 
@@ -55,7 +52,6 @@ function UserProvider({children}) {
 		register: auth.register,
 		logOut: auth.logOut,
 		username,
-		userVotes,
 		scoredEntriesCount,
 		entriesVersion,
 		bumpEntriesVersion,

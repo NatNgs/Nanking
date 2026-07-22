@@ -3,23 +3,3 @@
 	padding: 0 1em;
 	width: fit-content;
 }
-
-/* Alternate row background color, white and gray */
-.account-page tr:nth-child(even) {
-	background-color: #FFFFFF;
-}
-.account-page tr:nth-child(odd) {
-	background-color: #EEEEEE;
-}
-
-.actionsCol {
-	text-align: center;
-}
-/* When hover on "tr .deleteButton", set all tr background to red */
-tr:has(.deleteButton:hover) {
-	background-color: #FFA8A8;
-}
-tr.beingDeleted {
-	background-color: #FFA8A8;
-	opacity: 0.5
-}

@@ -40,12 +40,17 @@ function computeUserScores(user) {
 		entriesLists[entryId].push(ENTRIES.entries[entryId].globalScore)
 	}
 
-	// Compute average for each entry, and set it to the user
+	// Rebuild user.entries from scratch (rather than only updating/adding into
+	// the existing object): an entry with no more quiz referencing it (e.g.
+	// its last vote was just removed) has no entry in entriesLists, and must
+	// disappear from user.entries too, instead of keeping its last computed
+	// score around forever as a stale, orphaned value.
+	const newEntries = {}
 	for(const entryId in entriesLists) {
 		const entriesList = entriesLists[entryId]
-		const average = entriesList.reduce((a, b) => a + b) / entriesList.length
-		user.entries[entryId] = average
+		newEntries[entryId] = entriesList.reduce((a, b) => a + b) / entriesList.length
 	}
+	user.entries = newEntries
 
 	computeUserTagScores(user)
 }

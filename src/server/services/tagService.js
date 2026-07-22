@@ -1,5 +1,6 @@
 import TAGS from '../data/tags.js'
 import ENTRIES from '../data/entries.js'
+import { compareBy } from '../lib/pagination.js'
 
 /**
  * Serializes a tag for the HTTP response.
@@ -98,17 +99,32 @@ function getChildTree(tagId) {
 /**
  * Every entry considered linked to `tagId`: tagged directly with tagId, or
  * with any tag more specific than tagId (a descendant, in the inheritance
- * sense: specific tags propagate up to their generic ancestors). Sorted by
- * name for a stable display.
+ * sense: specific tags propagate up to their generic ancestors). Each entry
+ * is enriched with its global score and, when `user` is given, that user's
+ * own score on it (stretched 0-1 the same way EntriesPanel's list is,
+ * omitted entirely if the user never scored this entry). Sorted by
+ * `sort`/`order` (globalScore desc by default), matching listEntries'
+ * conventions for /api/entries.
  */
-function getEntriesForTag(tagId) {
+function getEntriesForTag(tagId, {user, sort, order} = {}) {
 	const relevantTagIds = TAGS.getDescendants(tagId) // includes tagId + every more specific tag
 	const result = []
 	for(const entryId in ENTRIES.entries) {
 		const entry = ENTRIES.entries[entryId]
-		if(entry.tags.some((t) => relevantTagIds.has(t))) result.push(entry)
+		if(!entry.tags.some((t) => relevantTagIds.has(t))) continue
+
+		const item = {id: entry.id, label: entry.name, image: entry.image, globalScore: entry.globalScore}
+		const userScore = user?.getStretchedScore(entry.id)
+		if(userScore != null) item.score = userScore
+		result.push(item)
 	}
-	result.sort((a, b) => a.name.localeCompare(b.name))
+
+	let sortKey
+	if(sort === 'label') sortKey = (e) => e.label
+	else if(sort === 'score') sortKey = (e) => e.score // undefined (no user score) sorts last, see compareBy
+	else sortKey = (e) => e.globalScore
+	const defaultOrder = sort === 'label' ? 'asc' : 'desc'
+	result.sort(compareBy(sortKey, order || defaultOrder))
 	return result
 }
 

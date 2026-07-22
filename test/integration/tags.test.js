@@ -34,7 +34,7 @@ describe('Tags integration flow', {concurrency: false}, () => {
 		await page.locator('.login-modal-box input[type=text]').fill(LOGIN)
 		await page.locator('.login-modal-box input[type=password]').fill(PASSWORD)
 		await page.locator('.login-modal-box button[type=submit]').click()
-		await page.locator('.app-header-username').waitFor({state: 'visible', timeout: 5000})
+		await page.locator('.user-menu-trigger').waitFor({state: 'visible', timeout: 5000})
 	}
 
 	async function gotoEntryNamed(name) {
@@ -127,16 +127,18 @@ describe('Tags integration flow', {concurrency: false}, () => {
 		assert.deepEqual(childTexts, ['Cat', 'Dog'])
 
 		// Linked entries: Whiskers (Cat) and Generic Mammal thing (direct), Dog's
-		// entry (Rex) is included too since Dog is a descendant of Mammal.
-		const entryLabels = page.locator('.tag-page-entries-list .entryLabel')
+		// entry (Rex) is included too since Dog is a descendant of Mammal. Now a
+		// ScoreTable (Global score/Score columns) instead of a plain list.
+		const entryLabels = page.locator('.tag-page .score-table .entryCol .entryLabel')
 		await entryLabels.first().waitFor({state: 'visible', timeout: 5000})
 		const entryTexts = (await entryLabels.allInnerTexts()).sort()
 		assert.deepEqual(entryTexts, ['Generic Mammal thing', 'Rex', 'Whiskers'])
 	})
 
 	test('renaming the current tag updates the title', async () => {
-		page.once('dialog', (dialog) => dialog.accept('Big Mammal'))
 		await page.locator('.tag-page button:has-text("Rename")').click()
+		await page.locator('.modal-input').fill('Big Mammal')
+		await page.locator('.modal-actions button[type=submit]').click()
 		await page.locator('.tag-page h1', {hasText: 'Big Mammal'}).waitFor({state: 'visible', timeout: 5000})
 	})
 
@@ -169,7 +171,7 @@ describe('Tags integration flow', {concurrency: false}, () => {
 			.waitFor({state: 'hidden', timeout: 5000})
 
 		await page.goto(BASE_URL + '/')
-		await page.locator('.app-header-username').waitFor({state: 'visible', timeout: 5000})
+		await page.locator('.user-menu-trigger').waitFor({state: 'visible', timeout: 5000})
 	})
 
 	test('final sanity check: no NaN score anywhere in the entries panel after all edits', async () => {

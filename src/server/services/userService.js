@@ -20,15 +20,25 @@ function enrichVoteWithLabels(voteJson) {
 }
 
 /**
- * Serializes the current user's data for the HTTP response. No longer
- * includes user_scores (see GET /api/user/me/entities for paginated scores).
+ * Serializes the current user's data for the HTTP response. Kept light:
+ * neither user_scores (see GET /api/user/me/entities) nor the vote history
+ * (see GET /api/user/me/quiz) - both are paginated separately.
  */
 function returnUserData(req, res) {
 	res.json({
 		username: req.user.displayLogin || req.user.username,
-		votes: req.user.quiz.map((q) => enrichVoteWithLabels(q.toJson())),
 		scoredEntriesCount: Object.keys(req.user.entries).length,
 	})
+}
+
+/**
+ * Paginated, newest-first vote history for the current user, backing
+ * GET /api/user/me/quiz. `type` ('default' | 'dual') optionally restricts to
+ * one quiz kind, e.g. for the "recent inputs" mini-tables on NewEntryForm/DualQuiz.
+ */
+function getUserQuizPaginated(user, {type, page, limit} = {}) {
+	const paginated = user.getQuizPaginated({type, page, limit})
+	return {...paginated, items: paginated.items.map(enrichVoteWithLabels)}
 }
 
 /**
@@ -70,4 +80,4 @@ function setEntryScore(user, entryName, score) {
 	return true
 }
 
-export { returnUserData, setEntryScore, getPublicUserData as returnPublicUserData, getUserEntities, deleteAccount }
+export { returnUserData, setEntryScore, getPublicUserData as returnPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount }

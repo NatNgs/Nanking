@@ -1,11 +1,11 @@
 .dual-quiz {
 	background-color: #FFFFFF;
 }
-.dual-quiz table {
+.dual-quiz-pair-table {
 	width: 100%;
 	border-collapse: collapse;
 }
-.dual-quiz table td {
+.dual-quiz-pair-table td {
 	text-align: center;
 }
 .dual-quiz img {

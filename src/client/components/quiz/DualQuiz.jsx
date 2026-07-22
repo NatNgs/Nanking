@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useOutletContext } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { apiGet, apiPost } from '../../hooks/useApi.js'
 import EntrySpan from '../entry/EntrySpan.jsx'
+import RecentVotesTable from './RecentVotesTable.jsx'
 import './DualQuiz.css'
 
 /**
@@ -11,6 +13,7 @@ import './DualQuiz.css'
  * component never needs the full user score list.
  */
 function DualQuiz() {
+	const {scoreFormatter} = useOutletContext()
 	const {refreshUserData, bumpEntriesVersion} = useUserContext()
 	const [isVoting, setIsVoting] = useState(true)
 	const [left, setLeft] = useState(null)
@@ -53,7 +56,7 @@ function DualQuiz() {
 		<div className="dual-quiz">
 			{error && <p role="alert">Not enough scored entries yet for a duel.</p>}
 			{ left && right && (
-				<table>
+				<table className="dual-quiz-pair-table">
 					<tr>
 						<td className="dual-quiz-left">
 							<img src={'/api/entry/' + left.id + '/image.png'}/><br/>
@@ -78,6 +81,7 @@ function DualQuiz() {
 					</tr>
 				</table>
 			)}
+			<RecentVotesTable scoreFormatter={scoreFormatter} type="dual" limit={5} />
 		</div>
 	)
 }

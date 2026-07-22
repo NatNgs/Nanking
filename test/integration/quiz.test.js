@@ -37,7 +37,7 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		await page.locator('.login-modal-box input[type=text]').fill(LOGIN)
 		await page.locator('.login-modal-box input[type=password]').fill(PASSWORD)
 		await page.locator('.login-modal-box button[type=submit]').click()
-		await page.locator('.app-header-username').waitFor({state: 'visible', timeout: 5000})
+		await page.locator('.user-menu-trigger').waitFor({state: 'visible', timeout: 5000})
 	}
 
 	/**
@@ -74,12 +74,56 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		return page.locator('.entries-panel .score-table tbody tr', {has: page.locator(`td:has-text("${label}")`)})
 	}
 
+	/**
+	 * A row of the "recent inputs" mini-table (RecentVotesTable, no rank column
+	 * here) matching `detailText` (the vote's normalized .voteDetail text - the
+	 * entities/value it records, NEVER a row index/position: rows shift up as
+	 * older entries fall out of the last-5 window or get deleted, so asserting
+	 * on position would be a false signal). `scope` narrows to the mini-table
+	 * under New Entry or under Random Quiz (both render a .recent-votes-table).
+	 */
+	function recentVoteRow(scope, detailText) {
+		return page.locator(`${scope} .recent-votes-table tbody tr`, {
+			has: page.locator('.voteDetail', {hasText: detailText}),
+		})
+	}
+
 	test('register and log in', async () => {
 		await registerAndLogIn()
 	})
 
 	test('create "First entry" at 0% on the quiz page', async () => {
 		await createEntry('First entry', 0)
+	})
+
+	test('the New Entry recent-inputs table shows the "default" vote just recorded', async () => {
+		const row = recentVoteRow('.new-entry-form', 'First entry')
+		await row.waitFor({state: 'visible', timeout: 5000})
+		assert.equal(await row.locator('td').nth(0).innerText(), 'default')
+		assert.equal((await row.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), 'First entry => 0%')
+	})
+
+	test('clicking the "x" on a default vote in the recent-inputs table removes it from both the vote history AND the personal score list', async () => {
+		// Regression test: DELETE /api/quiz/default used to report success and
+		// correctly drop the vote from the user's quiz history, but never
+		// cleared the now-stale computed score in user.entries (only entries
+		// still referenced by a live quiz get refreshed by computeUserScores),
+		// so the entry kept showing up everywhere a personal score is listed.
+		// Uses its own throwaway entry so the "First entry" used by the format
+		// tests right after this one stays untouched.
+		await createEntry('Deletable entry', 42)
+
+		const row = recentVoteRow('.new-entry-form', 'Deletable entry')
+		await row.waitFor({state: 'visible', timeout: 5000})
+		await row.locator('.deleteButton').click()
+		await row.waitFor({state: 'hidden', timeout: 5000})
+
+		// Gone from the vote history mini-table (proves removeQuiz itself works)
+		assert.equal(await recentVoteRow('.new-entry-form', 'Deletable entry').count(), 0)
+
+		// Gone from the EntriesPanel personal score list too (the actual bug:
+		// this used to still show "Deletable entry" with its old, now-orphaned score)
+		await entriesPanelRow('Deletable entry').waitFor({state: 'hidden', timeout: 5000})
 	})
 
 	test('switch score format to MAL', async () => {
@@ -124,27 +168,24 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 	 * Reads the current pair's labels (the pairing is randomized, so this must
 	 * happen right before voting), clicks the given vote button, waits for the
 	 * next pair to be picked (voting re-enabled) as the submit signal, then
-	 * asserts the LAST vote line on /user/me matches. Earlier lines are not
-	 * checked: a repeated pair could have replaced one instead of adding it.
+	 * asserts a row matching the vote's CONTENT (entities + operator) appears in
+	 * the Random Quiz page's own "recent inputs" mini-table - never by position,
+	 * since a repeated pair replaces (not appends) an existing vote, and the
+	 * mini-table only ever keeps the last 5 anyway.
 	 */
 	async function voteAndCheck(buttonText, expectedOp) {
-		await page.locator('.dual-quiz table').waitFor({state: 'visible', timeout: 5000})
+		await page.locator('.dual-quiz-pair-table').waitFor({state: 'visible', timeout: 5000})
 		const leftLabel = await page.locator('.dual-quiz-left .entryLabel').innerText()
 		const rightLabel = await page.locator('.dual-quiz-right .entryLabel').innerText()
 
 		await page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`).click()
 		await page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`).waitFor({state: 'visible', timeout: 5000})
 
-		await page.locator('.app-header-username').click()
 		const voteText = `${leftLabel} ${expectedOp} ${rightLabel}`
-		await page.locator('.account-page tbody tr', {hasText: voteText}).last().waitFor({state: 'visible', timeout: 5000})
-		const lastRow = page.locator('.account-page tbody tr').last()
-		assert.equal(await lastRow.locator('td').nth(0).innerText(), 'dual')
-		assert.equal((await lastRow.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), voteText)
-
-		// Back to the Dual quiz for the next vote in this scenario
-		await page.locator('.app-header-title').click()
-		await page.locator('.main-page-view-buttons button:has-text("Random Quiz")').click()
+		const row = recentVoteRow('.dual-quiz', voteText)
+		await row.waitFor({state: 'visible', timeout: 5000})
+		assert.equal(await row.locator('td').nth(0).innerText(), 'dual')
+		assert.equal((await row.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), voteText)
 	}
 
 	test('opening Dual mode and voting "<" (right preferred) records the vote', async () => {
@@ -182,8 +223,9 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 	})
 
 	test('changing the name and picture updates the page: new name shown, image no longer redirects to the placeholder', async () => {
-		await page.once('dialog', (dialog) => dialog.accept('Renamed test element'))
 		await page.locator('button:has-text("Rename")').click()
+		await page.locator('.modal-input').fill('Renamed test element')
+		await page.locator('.modal-actions button[type=submit]').click()
 		await page.locator('.entry-page h1', {hasText: 'Renamed test element'}).waitFor({state: 'visible', timeout: 5000})
 
 		const pngBuffer = await makePngBuffer(10, 10, 0xff0000ff)
@@ -203,19 +245,18 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		assert.equal(response.status(), 200)
 	})
 
-	test('removing the vote deletes the entry: it disappears from the rankings, from /user/me, and its page no longer shows edit controls', async () => {
+	test('removing the vote deletes the entry: it disappears from the rankings, from the recent inputs, and its page no longer shows edit controls', async () => {
 		const entryUrl = page.url()
 
-		page.once('dialog', (dialog) => dialog.accept())
 		await page.locator('button:has-text("Remove it from my scores")').click()
+		await page.locator('.modal-actions button', {hasText: 'OK'}).click()
 		// The action navigates back to the home page once done
 		await page.waitForURL(BASE_URL + '/')
 
 		await entriesPanelRow('Renamed test element').waitFor({state: 'hidden', timeout: 5000})
 
-		await page.locator('.app-header-username').click()
-		await page.locator('.account-page').waitFor({state: 'visible', timeout: 5000})
-		const remainingRows = page.locator('.account-page tbody tr', {hasText: 'Renamed test element'})
+		await page.locator('.main-page-view-buttons button:has-text("New entry")').click()
+		const remainingRows = page.locator('.new-entry-form .recent-votes-table tbody tr', {hasText: 'Renamed test element'})
 		assert.equal(await remainingRows.count(), 0)
 
 		await page.goto(entryUrl)

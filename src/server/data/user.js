@@ -79,6 +79,43 @@ class User {
 		return {items: stretchedItems, page: p, limit: l, total, hasMore}
 	}
 
+	/**
+	 * This user's score on a single entry, stretched between 0 and 1 the same
+	 * way getUserListPaginated does (min/max taken over ALL of this user's
+	 * scored entries, not just the one requested, so a single lookup stays
+	 * consistent with the full list). Returns null if the user has no score
+	 * on this entry at all.
+	 */
+	getStretchedScore(entryId) {
+		if(!this.entries.hasOwnProperty(entryId)) return null
+
+		const minUserScore = Math.min(...Object.values(this.entries))
+		const maxUserScore = Math.max(...Object.values(this.entries))
+		if(maxUserScore === minUserScore) return 0.5
+		return (this.entries[entryId] - minUserScore) / (maxUserScore - minUserScore)
+	}
+
+	/**
+	 * Paginated, newest-first view of this user's quiz history, optionally
+	 * filtered by `type` ('default' | 'dual'). Never mutates or reorders
+	 * `this.quiz` itself: the insertion order backs computeUserScores and
+	 * must stay untouched, this only builds a derived, reversed copy for
+	 * display. Each item carries `rank`, the 1-based position in the FULL,
+	 * unfiltered, chronological (oldest-first) history - stable regardless of
+	 * the type filter or which page is requested.
+	 */
+	getQuizPaginated({type, page, limit} = {}) {
+		const ranked = this.quiz.map((quiz, i) => ({quiz, rank: i + 1}))
+		const filtered = type ? ranked.filter((entry) => entry.quiz.type === type) : ranked
+		const newestFirst = filtered.slice().reverse()
+
+		const {items, page: p, limit: l, total, hasMore} = paginate(newestFirst, {page, limit})
+		return {
+			items: items.map(({quiz, rank}) => ({...quiz.toJson(), rank})),
+			page: p, limit: l, total, hasMore,
+		}
+	}
+
 	didQuiz(quiz) {
 		this.quiz.push(quiz)
 	}

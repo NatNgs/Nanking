@@ -4,6 +4,7 @@ import { apiGet, apiPut, apiPost } from '../../hooks/useApi.js'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { useAsyncSearchOptions } from '../../hooks/useAsyncSearchOptions.js'
 import { asyncSelectStyles, ASYNC_SELECT_NO_INDICATORS } from '../../lib/reactSelectStyles.js'
+import RecentVotesTable from './RecentVotesTable.jsx'
 import './NewEntryForm.css'
 
 function NewEntryForm({scoreFormatter}) {
@@ -75,6 +76,7 @@ function NewEntryForm({scoreFormatter}) {
 				</div>
 			</div>
 			<div className="error-message">{errorMessage}</div>
+			<RecentVotesTable scoreFormatter={scoreFormatter} type="default" limit={5} />
 		</div>
 	)
 }

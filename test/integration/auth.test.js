@@ -41,16 +41,20 @@ describe('Auth integration flow', {concurrency: false}, () => {
 	async function assertLoggedOut() {
 		await page.locator('.app-header-actions button:has-text("Login")').waitFor({state: 'visible', timeout: 3000})
 		assert.equal(await page.locator('.app-header-actions button:has-text("Register")').isVisible(), true)
-		assert.equal(await page.locator('.app-header-username').count(), 0)
-		assert.equal(await page.locator('.app-header-actions button:has-text("Log out")').count(), 0)
+		assert.equal(await page.locator('.user-menu-trigger').count(), 0)
 	}
 
 	async function assertLoggedInAs(username) {
-		await page.locator('.app-header-username').waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await page.locator('.app-header-username').innerText(), username)
-		assert.equal(await page.locator('.app-header-actions button:has-text("Log out")').isVisible(), true)
+		await page.locator('.user-menu-trigger').waitFor({state: 'visible', timeout: 5000})
+		assert.equal(await page.locator('.user-menu-trigger').innerText(), username)
 		assert.equal(await page.locator('.app-header-actions button:has-text("Login")').count(), 0)
 		assert.equal(await page.locator('.app-header-actions button:has-text("Register")').count(), 0)
+	}
+
+	/** Opens the username dropdown (closed by default / after any navigation). */
+	async function openUserMenu() {
+		await page.locator('.user-menu-trigger').click()
+		await page.locator('.user-menu-dropdown').waitFor({state: 'visible', timeout: 3000})
 	}
 
 	async function submitLoginModal(login, password) {
@@ -89,7 +93,8 @@ describe('Auth integration flow', {concurrency: false}, () => {
 	})
 
 	test('log out returns to the logged-out state', async () => {
-		await page.locator('.app-header-actions button:has-text("Log out")').click()
+		await openUserMenu()
+		await page.locator('.user-menu-item:has-text("Log out")').click()
 		await assertLoggedOut()
 	})
 
@@ -126,8 +131,9 @@ describe('Auth integration flow', {concurrency: false}, () => {
 		await assertLoggedInAs(LOGIN)
 	})
 
-	test('clicking the username navigates to the account page', async () => {
-		await page.locator('.app-header-username').click()
+	test('clicking the username then "Options" navigates to the account page', async () => {
+		await openUserMenu()
+		await page.locator('.user-menu-item:has-text("Options")').click()
 		await page.waitForURL('**/user/me')
 		await page.locator('.account-page h1').waitFor({state: 'visible'})
 		assert.equal(await page.locator('.account-page h1').innerText(), LOGIN)

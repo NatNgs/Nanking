@@ -88,7 +88,7 @@ function LoginModal({initialMode, onLogin, onRegister, onClose}) {
 						</tr>
 					</table>
 				</form>
-				{error && <p role="login-alert" class="login-modal-error">{error}</p>}
+				{error && <p role="alert" class="login-modal-error">{error}</p>}
 				<hr/>
 				<p className="login-modal-switch">
 					{mode === 'login'

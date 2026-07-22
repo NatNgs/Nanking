@@ -16,12 +16,3 @@
 .tag-page-error {
 	color: #A83232;
 }
-
-.tag-page-entries-list {
-	max-height: 20em; /* ~10 lines */
-	overflow-y: auto;
-	display: flex;
-	flex-direction: column;
-	gap: 0.25em;
-	align-items: flex-start;
-}

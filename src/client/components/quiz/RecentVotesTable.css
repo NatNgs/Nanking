@@ -1,0 +1,29 @@
+.recent-votes-table-container {
+	width: fit-content;
+}
+
+.recent-votes-table tr:nth-child(even) {
+	background-color: #FFFFFF;
+}
+.recent-votes-table tr:nth-child(odd) {
+	background-color: #EEEEEE;
+}
+
+.recent-votes-table .rankCol {
+	text-align: right;
+	color: #666;
+	font-family: monospace;
+}
+
+.recent-votes-table .actionsCol {
+	text-align: center;
+}
+
+/* When hovering the delete button, flag the whole row red */
+.recent-votes-table tr:has(.deleteButton:hover) {
+	background-color: #FFA8A8;
+}
+.recent-votes-table tr.beingDeleted {
+	background-color: #FFA8A8;
+	opacity: 0.5;
+}

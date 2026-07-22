@@ -45,12 +45,14 @@ quizRouter.post('/{*type}', (req, res) => {
 	returnUserData(req, res)
 })
 quizRouter.delete('/{*type}', (req, res) => {
-	// Do computeUserScores until it stabilizes
-	if(req.user.quiz.length > 1) {
-		let totalUpdate = 1;
-		for(let it=0 ; it<100 && totalUpdate > 0.005 ; it++)
-			totalUpdate = computeUserScores(req.user)
-	}
+	// Always run at least once, even with zero or one quiz left: this is what
+	// rebuilds user.entries, purging the score of whichever entry just lost
+	// its last vote (computeUserScores only keeps entries still referenced by
+	// a live quiz - skipping this call here used to leave that entry's old
+	// score behind forever).
+	let totalUpdate = 1;
+	for(let it=0 ; it<100 && totalUpdate > 0.005 ; it++)
+		totalUpdate = computeUserScores(req.user)
 
 	// Return updated user data
 	returnUserData(req, res)
