@@ -1,19 +1,20 @@
 import { Link, useRouteError, isRouteErrorResponse, useLocation } from 'react-router'
 import './ErrorPage.css'
 
-function ErrorPage() {
+function ErrorPage({message: messageProp} = {}) {
 	const error = useRouteError()
 	const location = useLocation()
 	const isUnknownUser = isRouteErrorResponse(error) && error.status === 404 && error.data === 'user'
 	const isUnknownEntry = isRouteErrorResponse(error) && error.status === 404 && error.data === 'entry'
+	const stateMessage = messageProp || location.state?.message
 
 	const title = isUnknownUser ? 'User not found'
 		: isUnknownEntry ? 'Entry not found'
-		: location.state?.message ? 'Error'
+		: stateMessage ? 'Error'
 		: 'Page not found'
 	const message = isUnknownUser ? 'This user does not exist.'
 		: isUnknownEntry ? 'This entry does not exist.'
-		: location.state?.message || 'The page you are looking for does not exist.'
+		: stateMessage || 'The page you are looking for does not exist.'
 
 	return (
 		<div className="error-page">

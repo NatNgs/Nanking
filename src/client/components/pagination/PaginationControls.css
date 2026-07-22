@@ -1,6 +1,56 @@
 .pagination-controls {
+	container-type: inline-size;
 	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	gap: 0.5em;
+	margin: 0.75em 0 0;
+	padding-top: 0.5em;
+}
+
+.pagination-item {
+	display: flex;
+	flex-direction: column;
 	align-items: center;
-	gap: 0.75em;
-	margin: 0.75em 0;
+	color: #000000;
+	text-decoration: none;
+	line-height: 1.2;
+}
+a.pagination-item:hover {
+	text-decoration: underline;
+}
+
+.pagination-item-label {
+	font-size: 70%;
+	color: #555;
+}
+
+.pagination-item-value {
+	font-family: monospace;
+}
+
+.pagination-current .pagination-item-value {
+	font-weight: bold;
+}
+
+.pagination-disabled {
+	opacity: 0;
+	cursor: default;
+	pointer-events: none;
+}
+
+.pagination-ellipsis {
+	align-self: flex-end;
+	color: #555;
+}
+
+/* Crush order on shrinking space: +-10 jumps go first, then +-2, then first/last */
+@container (max-width: 28em) {
+	.pagination-tier-3 { display: none; }
+}
+@container (max-width: 18em) {
+	.pagination-tier-2 { display: none; }
+}
+@container (max-width: 10em) {
+	.pagination-tier-1 { display: none; }
 }

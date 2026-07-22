@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Outlet, useNavigate } from 'react-router'
+import { Outlet, useLocation } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { setUnauthorizedHandler } from '../../hooks/useApi.js'
 import { FORMATTERS } from '../../lib/scoreFormatter.js'
 import Header from './Header.jsx'
 import LoginModal from '../auth/LoginModal.jsx'
+import ErrorPage from '../../pages/error/ErrorPage.jsx'
 
 import './Layout.css'
 
@@ -16,18 +17,26 @@ import './Layout.css'
  */
 function Layout() {
 	const {login, register, logOut} = useUserContext()
-	const navigate = useNavigate()
+	const location = useLocation()
 	const [loginModalMode, setLoginModalMode] = useState(null) // null | 'login' | 'register'
+	const [sessionExpiredMessage, setSessionExpiredMessage] = useState(null)
 
 	// Registered once: replaces useApi's default alert+reload fallback on an
-	// expired/invalid session with a plain logout + navigation to the error
-	// page, preserving in-progress React state instead of a full page reload.
+	// expired/invalid session with a plain logout + local error state,
+	// preserving the current URL and in-progress React state instead of a
+	// full page reload or a navigation to a dedicated /error route.
 	useEffect(() => {
 		setUnauthorizedHandler(() => {
 			logOut()
-			navigate('/error', {state: {message: 'Your session has expired. Please log in again.'}})
+			setSessionExpiredMessage('Your session has expired. Please log in again.')
 		})
-	}, [logOut, navigate])
+	}, [logOut])
+
+	// Clear the error display whenever the user navigates away, so it does
+	// not resurface after a refresh or a route change.
+	useEffect(() => {
+		setSessionExpiredMessage(null)
+	}, [location.pathname])
 
 	const [scoreFormat, setScoreFormat] = useState('Percent')
 	const scoreFormatter = useMemo(() => FORMATTERS[scoreFormat], [scoreFormat])
@@ -43,11 +52,14 @@ function Layout() {
 	return (
 		<>
 			<Header
+				scoreFormat={scoreFormat}
 				setScoreFormat={setScoreFormat}
 				onOpenLogin={setLoginModalMode}
 			/>
 			<div className="main-page-content">
-			<Outlet context={{scoreFormatter}}/>
+			{sessionExpiredMessage
+				? <ErrorPage message={sessionExpiredMessage} />
+				: <Outlet context={{scoreFormatter}}/>}
 			</div>
 
 			{loginModalMode && (

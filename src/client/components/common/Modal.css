@@ -1,0 +1,43 @@
+.modal-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(0, 0, 0, 0.5);
+	z-index: 200;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.modal-box {
+	position: relative;
+	background-color: #FAFAFA;
+	border: 1px solid #5C4033;
+	padding: 2em;
+	width: 320px;
+	box-sizing: border-box;
+}
+
+.modal-message {
+	white-space: pre-wrap;
+	margin-top: 0;
+}
+
+.modal-input {
+	width: 100%;
+	box-sizing: border-box;
+	margin-bottom: 1em;
+}
+
+.modal-error {
+	color: red;
+}
+
+.modal-actions {
+	text-align: right;
+}
+.modal-actions button {
+	margin-left: 0.5em;
+}

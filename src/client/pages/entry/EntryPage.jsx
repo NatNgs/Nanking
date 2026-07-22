@@ -5,6 +5,9 @@ import { apiGet, apiPatch, apiDelete, apiPost, loadOr404 } from '../../hooks/use
 import { useRenamePrompt } from '../../hooks/useRenamePrompt.js'
 import TagPicker from '../../components/tag/TagPicker.jsx'
 import TagSpan from '../../components/tag/TagSpan.jsx'
+import PromptModal from '../../components/common/PromptModal.jsx'
+import AlertModal from '../../components/common/AlertModal.jsx'
+import ConfirmModal from '../../components/common/ConfirmModal.jsx'
 import './EntryPage.css'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -28,13 +31,14 @@ function EntryPage() {
 	const [isRemovingScore, setIsRemovingScore] = useState(false)
 	const [isEditingTags, setIsEditingTags] = useState(false)
 
-	const {isRenaming, rename: onRename} = useRenamePrompt({
+	const {isRenaming, rename: onRename, promptModalProps, alertModalProps} = useRenamePrompt({
 		currentValue: entry.name,
 		promptMessage: 'Nouveau nom pour',
 		patch: (name) => apiPatch('/entry/' + entry.id + '/name', {name}).then(setEntry),
 		conflictMessage: 'Une entry avec ce nom existe déjà',
 		failMessage: 'Échec du renommage',
 	})
+	const [showRemoveScoreConfirm, setShowRemoveScoreConfirm] = useState(false)
 
 	// Re-fetches this entry whenever the user logs in/out (userScore is only
 	// present for an authenticated user, and login state can change from the
@@ -106,9 +110,12 @@ function EntryPage() {
 		}
 	}
 
-	async function onRemoveScore() {
-		if(!window.confirm('Supprimer "' + entry.name + '" ? Cette action est irréversible.')) return
+	function onRemoveScore() {
+		setShowRemoveScoreConfirm(true)
+	}
 
+	async function confirmRemoveScore() {
+		setShowRemoveScoreConfirm(false)
 		setIsRemovingScore(true)
 		try {
 			await apiDelete('/entry/' + entry.id)
@@ -163,6 +170,16 @@ function EntryPage() {
 					&nbsp;
 					<button disabled={isBusy} onClick={onRemoveScore}>Remove it from my scores</button>
 				</p>
+			)}
+
+			{promptModalProps.show && <PromptModal {...promptModalProps} />}
+			{alertModalProps.show && <AlertModal {...alertModalProps} />}
+			{showRemoveScoreConfirm && (
+				<ConfirmModal
+					message={'Supprimer "' + entry.name + '" ? Cette action est irréversible.'}
+					onConfirm={confirmRemoveScore}
+					onCancel={() => setShowRemoveScoreConfirm(false)}
+				/>
 			)}
 		</div>
 	)

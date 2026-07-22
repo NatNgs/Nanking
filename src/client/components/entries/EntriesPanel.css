@@ -15,7 +15,7 @@
 	bottom: 0;
 	right: 0;
 	width: var(--RightPanelWidth);
-	overflow: none;
+	overflow: hidden;
 	background-color: var(--RightPanelBackground);
 	border-left: 1px solid #5C4033;
 	box-sizing: border-box;
@@ -23,6 +23,9 @@
 	z-index: 50;
 	box-shadow: 0 0 0.5em black;
 	font-size: 90%;
+
+	display: flex;
+	flex-direction: column;
 }
 
 .entries-panel-toggle {
@@ -49,5 +52,11 @@
 }
 
 .entries-panel .score-table-container {
-	max-height: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: none;
+}
+
+.entries-panel .pagination-controls {
+	flex: 0 0 auto;
 }

@@ -6,6 +6,8 @@ import { useRenamePrompt } from '../../hooks/useRenamePrompt.js'
 import TagTree from '../../components/tag/TagTree.jsx'
 import TagPicker from '../../components/tag/TagPicker.jsx'
 import EntrySpan from '../../components/entry/EntrySpan.jsx'
+import PromptModal from '../../components/common/PromptModal.jsx'
+import AlertModal from '../../components/common/AlertModal.jsx'
 import './TagPage.css'
 
 async function tagLoader({params, request}) {
@@ -41,7 +43,7 @@ function TagPage() {
 		setEntriesData(ed)
 	}
 
-	const {isRenaming, rename: onRename} = useRenamePrompt({
+	const {isRenaming, rename: onRename, promptModalProps, alertModalProps} = useRenamePrompt({
 		currentValue: tag.label,
 		promptMessage: 'New label for',
 		patch: (label) => apiPatch('/tag/' + tag.id + '/label', {label}).then(setTag),
@@ -110,6 +112,9 @@ function TagPage() {
 					<EntrySpan key={e.id} id={e.id} label={e.label} />
 				))}
 			</div>
+
+			{promptModalProps.show && <PromptModal {...promptModalProps} />}
+			{alertModalProps.show && <AlertModal {...alertModalProps} />}
 		</div>
 	)
 }

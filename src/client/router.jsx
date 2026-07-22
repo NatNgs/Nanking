@@ -17,7 +17,6 @@ const router = createBrowserRouter([
 			{ path: '/user/:username', element: <ProfilePage />, loader: profileLoader, errorElement: <ErrorPage /> },
 			{ path: '/entry/:entryId', element: <EntryPage />, loader: entryLoader, errorElement: <ErrorPage /> },
 			{ path: '/tag/:tagId', element: <TagPage />, loader: tagLoader, errorElement: <ErrorPage /> },
-			{ path: '/error', element: <ErrorPage /> },
 			{ path: '*', element: <ErrorPage /> },
 		],
 	},
