@@ -26,7 +26,8 @@ function DeleteAccountModal({onClose, onDeleted}) {
 			<div className="delete-account-modal-box" onClick={(e) => e.stopPropagation()}>
 				<button type="button" className="delete-account-modal-close" onClick={onClose}>×</button>
 				<h2>Remove my account</h2>
-				<p>This will permanently delete your account and all of your data. Confirm your password to proceed.</p>
+				<p>This will <span style={{color: 'red'}}>permanently</span> delete your account and all of your data.</p>
+				<p>Confirm your password to proceed:</p>
 				<form onSubmit={handleSubmit}>
 					<p>Password: <input type="password" value={password}
 						onChange={(e) => setPassword(e.target.value)}/></p>

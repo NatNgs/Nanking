@@ -36,12 +36,12 @@ function UserMenu({username, logOut}) {
 
 	return (
 		<div className="user-menu" ref={rootRef}>
-			<button type="button" className="user-menu-trigger" onClick={() => setIsOpen((v) => !v)}>
+			<div className="user-menu-trigger" onClick={() => setIsOpen((v) => !v)}>
 				{username}
-			</button>
+			</div>
 			{isOpen && (
 				<div className="user-menu-dropdown">
-					<Link to={'/user/' + username} className="user-menu-item" onClick={closeAnd()}>Ma page</Link>
+					<Link to={'/user/' + username} className="user-menu-item" onClick={closeAnd()}>My public page</Link>
 					<Link to="/user/me" className="user-menu-item" onClick={closeAnd()}>Options</Link>
 					<button type="button" className="user-menu-item" onClick={closeAnd(logOut)}>Log out</button>
 				</div>

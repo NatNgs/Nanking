@@ -3,34 +3,43 @@
 	display: flex;
 	align-items: flex-end;
 	justify-content: center;
-	gap: 0.5em;
-	margin: 0.75em 0 0;
+	gap: 1em;
+	margin: 0;
 	padding-top: 0.5em;
+	width: 100%;
 }
 
 .pagination-item {
+	flex: 1;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	color: #000000;
+	color: #0000FF;
 	text-decoration: none;
 	line-height: 1.2;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }
 a.pagination-item:hover {
-	text-decoration: underline;
+	background-color: #FED18680;
+	border-radius: 0.5em;
+	box-shadow: 0 0 0.25em black;
 }
 
 .pagination-item-label {
-	font-size: 70%;
-	color: #555;
+	font-size: 80%;
+	color: hsl(0, 0%, 33%);
 }
 
 .pagination-item-value {
 	font-family: monospace;
+	font-size: 120%;
 }
 
 .pagination-current .pagination-item-value {
-	font-weight: bold;
+	color: #000000;
 }
 
 .pagination-disabled {
@@ -42,6 +51,10 @@ a.pagination-item:hover {
 .pagination-ellipsis {
 	align-self: flex-end;
 	color: #555;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }
 
 /* Crush order on shrinking space: +-10 jumps go first, then +-2, then first/last */

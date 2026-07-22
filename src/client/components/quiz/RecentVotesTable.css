@@ -1,6 +1,13 @@
 .recent-votes-table-container {
 	width: fit-content;
 }
+.recent-votes-table th {
+	background-color: #A8A8A8;
+}
+
+.recent-votes-table th, .recent-votes-table td {
+	padding: 0.2em 0.5em;
+}
 
 .recent-votes-table tr:nth-child(even) {
 	background-color: #FFFFFF;
@@ -9,7 +16,7 @@
 	background-color: #EEEEEE;
 }
 
-.recent-votes-table .rankCol {
+.recent-votes-table td.rankCol {
 	text-align: right;
 	color: #666;
 	font-family: monospace;

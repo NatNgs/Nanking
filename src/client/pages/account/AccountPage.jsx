@@ -15,12 +15,13 @@ function AccountPage() {
 	return (
 		<div className="account-page">
 			<h1>{username}</h1>
-			<Link to={'/user/' + username}>My public user page</Link>
+			<Link to={'/user/' + username}>My public user page</Link><br/><br/>
+			<button onClick={() => setIsDeleteModalOpen(true)}>Remove my account</button>
 			<br/>
-			<h2>My inputs</h2>
+			<h2>User log</h2>
+			<p>Here are displayed all the scores given to your entries. Removing lines will cancel them, and so modify your scores.</p>
 			<RecentVotesTable scoreFormatter={scoreFormatter} showRank showPagination />
 			<br/>
-			<button onClick={() => setIsDeleteModalOpen(true)}>Remove my account</button>
 			{isDeleteModalOpen && (
 				<DeleteAccountModal
 					onClose={() => setIsDeleteModalOpen(false)}

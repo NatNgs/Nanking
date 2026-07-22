@@ -3,7 +3,7 @@
 Tool for ranking entries using various criterions (user notation, pair comparisons, ...).
 
 Backend: Node.js/Express. Frontend: React, built with Vite. The server runs directly
-from its sources (`src/server/`, plain ES modules — nothing to compile there); only
+from its sources (`src/server/`, plain ES modules - nothing to compile there); only
 the client is built, into `dist/client/`.
 
 ## Configuration
@@ -24,7 +24,7 @@ Every value has a default, overridable via the config file:
 | Key | Default | Purpose |
 |---|---|---|
 | `port` | `8053` | Port the server listens on |
-| `cert.keyPath` / `cert.certPath` | *(none)* | TLS private key/certificate — see below |
+| `cert.keyPath` / `cert.certPath` | *(none)* | TLS private key/certificate - see below |
 | `dbPath` | `data/NankingServerData.gz` | Gzip-compressed database file |
 | `clientDistPath` | `dist/client` | Compiled React app served as static files |
 | `token.validityLimit` | 16 hours (seconds) | Absolute session token expiration |
@@ -53,7 +53,7 @@ cert:
 If `cert.keyPath`/`cert.certPath` point to a missing or unreadable file, the server
 logs an error and exits (exit code 1) rather than starting without transport
 encryption. With no `cert` section at all (the default), the server starts in plain
-HTTP mode — intended for local development only, never for production.
+HTTP mode - intended for local development only, never for production.
 
 ## Installation
 
@@ -71,7 +71,7 @@ npm run build
 ```
 
 Builds the React client with Vite into `dist/client/`. There is nothing to build on
-the server side — `src/server/` is plain ES modules, run as-is.
+the server side - `src/server/` is plain ES modules, run as-is.
 
 ## Running the application
 
@@ -79,8 +79,8 @@ the server side — `src/server/` is plain ES modules, run as-is.
 npm run serve
 ```
 
-Runs `src/server/server.js` directly (requires `dist/client/` to exist — see
-[Build](#build) — and, if HTTPS is configured, a certificate in `cert/` — see
+Runs `src/server/server.js` directly (requires `dist/client/` to exist - see
+[Build](#build) - and, if HTTPS is configured, a certificate in `cert/` - see
 [Configuration](#configuration)).
 
 For development, with hot-reload on the client and the Express server running against
@@ -102,6 +102,21 @@ usual.
 
 ## TODO List
 
+- `vite.config.js` explicitly disables minification and enables sourcemaps for the
+  build (`minify: false`, `sourcemap: true`). Need to find how to set the value to `minify: true` / `sourcemap: 'hidden'` for production, and keep `minify: false`, `sourcemap: true` for dev only.
+- `userService.js`'s `setEntryScore` calls `user.setEntryScore(...)`, a method that
+  does not exist on the `User` class (`data/user.js`) - dead code that would throw if
+  ever wired to a route. It's imported in `userRoutes.js` but not mounted anywhere.
+  Either remove it, or implement it if a "manual direct score" route is actually
+  planned. => To be removed
+- `quizRoutes.js`: `POST`/`DELETE '/default'` and `'/dual'` build a `DefaultValueQuiz`/
+  `DualQuiz` directly from `ENTRIES.getEntryById(req.body.*)` with no existence check;
+  a missing/invalid id throws an uncaught `QuizError` from the constructor, surfacing
+  as an unhandled 500 instead of a clean 400/404 like the rest of the API. Validate
+  the referenced entries exist before constructing the quiz.
+- Pagination: When currently on page 3, display the page 1 in the "-2" slot instead of as "First page" slot. Another example: if on page 2/5, next is 3, "+2" is 4, "+10" is hidden and "Last" is 5 => Change such as "+10" becomes the "+3" if there is no "+10", and remove "Last" if last is the same as "+3". Obviously apply in mirror (same behaviour up and down from the current page)
+- Add pagination to every table (in any case, pagination will not display if there is only one page of results)
+- Fix that React-select (tag picker, new entry picker) behavior (tests show often fails to compute/display the suggestions; clears itself when click on already inputed text; ...), and align the confirm button next to it (even try to make the + button with white background such as it looks like to be part of the picker) => Maybe the solution is to create my own picker with suggestions
 - Consider migrating session handling to `express-session` (see below)
 - Use a real BDD instead of saving/loading json every 15min
 - Improve dual picker (reduce chance to pick already compared entries, or transitively compared ones, increase chance to pick entries with low number of dual aleady done with them, increased chance to pick entries with only winning duals)
@@ -113,12 +128,14 @@ usual.
 - When real database: Allow users to have a personal display name for entries (that only show for them), with a button to reset to default name
 - When real database: Create multiple "Sections". Every section has its own items and tags, with no relation to other sections. For example a music section, a manga section, a TV show section, a book section, a restaurants section... all in one site !! May work as a Meta-Metatag, reflexion to be done...
 - Share filtered user table: Make public link /user/usename filtrable with query params to filter/sort the content (for example ?hasTag=french to only show french items from the username list)
+- Proper mobile dispay mode
+
 
 ### Possible migration to `express-session`
 
 Not decided yet. The current homemade token system (`src/server/data/accounts.js`)
 works, but a cookie-based session via `express-session` would bring `HttpOnly`
-protection against token theft via XSS — the current token is readable by any script
+protection against token theft via XSS - the current token is readable by any script
 through `localStorage`, which a cookie flagged `HttpOnly` is not.
 
 Server-side impact:
@@ -134,12 +151,12 @@ Server-side impact:
   key from `req.user.username` to whatever `express-session` exposes once wired in.
 
 Client-side impact (see `src/client/hooks/useApi.js` and `src/client/hooks/useAuth.js`
-— the only two files that know about the token mechanism; every page/component goes
+- the only two files that know about the token mechanism; every page/component goes
 through `apiGet`/`apiPost`/`apiPut` and would not change):
 
 - `useApi.js`: `apiFetch()` currently attaches the token manually to the
   `Authorization` header and persists the response header back to `localStorage` on
-  every call. With cookie-based sessions, this logic is simply removed — the browser
+  every call. With cookie-based sessions, this logic is simply removed - the browser
   attaches the cookie automatically. The `fetch()` call needs
   `credentials: 'include'` added so it actually sends/accepts the cookie.
 - `useAuth.js`: the mount effect currently checks `localStorage.getItem('token')` to
@@ -147,13 +164,13 @@ through `apiGet`/`apiPost`/`apiPut` and would not change):
   unconditional call to a `/user/me`-style endpoint, since the client can no longer
   inspect the session cookie's presence directly (especially once `HttpOnly` is set).
   `login()`/`register()` no longer need to read the `authorization` response header
-  or write to `localStorage` — the server sets the cookie via `Set-Cookie`. `logOut()`
+  or write to `localStorage` - the server sets the cookie via `Set-Cookie`. `logOut()`
   can no longer clear the cookie itself; it needs a server-side logout endpoint that
   calls `req.session.destroy()`.
-- The client-side SHA-512 password hashing (`useAuth.js`) is unaffected either way —
+- The client-side SHA-512 password hashing (`useAuth.js`) is unaffected either way -
   it is independent of the session transport mechanism.
 
-Net effect on the client: a dozen lines removed across 2 hooks, no new complexity —
+Net effect on the client: a dozen lines removed across 2 hooks, no new complexity -
 the browser takes over cookie lifecycle management instead of the client-side JS
 doing it by hand.
 
@@ -161,11 +178,11 @@ doing it by hand.
 
 Implemented via `express-rate-limit` (`src/server/middleware/rateLimit.js`), with four
 distinct limiters (defaults below, all overridable via `rateLimit.<name>.limit` /
-`.windowSeconds` — see [Configuration](#configuration)):
+`.windowSeconds` - see [Configuration](#configuration)):
 
 | Limiter | Default | Keyed by | Applies to |
 |---|---|---|---|
-| `loginLimiter` | 6 req / 60s | IP | `POST /api/login` — slows down brute-force attempts on account passwords |
+| `loginLimiter` | 6 req / 60s | IP | `POST /api/login` - slows down brute-force attempts on account passwords |
 | `apiLimiter` | 120 req / 60s | authenticated username, falls back to IP | every route under `/api` |
 | `publicProfileLimiter` | 30 req / 60s | IP | `GET /api/user/:username` (public profile), in addition to `apiLimiter` |
 | `pageLimiter` | 60 req / 60s | IP | non-API routes (`/`, static files) |
@@ -181,18 +198,13 @@ header so the client can inform the user rather than silently failing.
 
 ## Suggestions
 
-Improvement ideas for the existing codebase — performance and maintainability only,
+Improvement ideas for the existing codebase - performance and maintainability only,
 no new features. Not prioritized against the [TODO List](#todo-list) above; both are
 candidates for future work.
 
 ### Server (`src/server/`)
 
 **Performance**
-
-- `entries.js`/`tags.js`: name/label lookups (`getEntryByName`, `getTagByLabel`, their
-  `IgnoreCase` variants) scan the full collection linearly on every call (creation,
-  rename-conflict check, ...). Maintaining a `name → entry` / `label → tag` side map
-  would make these O(1) instead of O(n).
 - `scoresComputerService.js`: `computeUserTagScores`/`computeGlobalTagScores` re-scan
   every entry for every tag on every cycle (O(tags × entries)), and `tags.js`'s
   `getDirectChildren` is recomputed from scratch each time it's called in these loops
@@ -202,11 +214,11 @@ candidates for future work.
 - `launchComputation` recomputes every user's scores on every cycle (every
   `scoreComputeInterval`, 3s by default), even users with no new activity since the
   last cycle. A "dirty" flag set by `didQuiz`/`removeQuiz` would let the cycle skip
-  users with nothing to recompute.
-- `db.js`: `save()` does a synchronous `JSON.stringify` + `gzipSync` +
-  `writeFileSync` over the entire in-memory database. Fine at startup (once), but
-  worth moving to async equivalents for the periodic/shutdown save, so it doesn't
-  block the event loop as the database grows.
+  users with nothing to recompute. => Still sometime would need to recompute even non-dirty users (less often though) as user scores depend a little on global score
+- `entries.js`/`tags.js`: name/label lookups (`getEntryByName`, `getTagByLabel`, their
+  `IgnoreCase` variants) scan the full collection linearly on every call (creation,
+  rename-conflict check, ...). Maintaining a `name → entry` / `label → tag` side map
+  would make these O(1) instead of O(n). => Will be improved when going to true DB
 
 **Maintainability**
 
@@ -214,43 +226,25 @@ candidates for future work.
   find-by-name/validate/conflict/save shape for `renameEntry`/`renameTag`. A shared
   helper (e.g. `renameNamedResource(manager, id, newName, {...})`) would remove the
   duplication and keep the `'not_found'|'invalid'|'conflict'|'ok'` contract in one
-  place instead of two.
-- `userService.js`'s `setEntryScore` calls `user.setEntryScore(...)`, a method that
-  does not exist on the `User` class (`data/user.js`) — dead code that would throw if
-  ever wired to a route. It's imported in `userRoutes.js` but not mounted anywhere.
-  Either remove it, or implement it if a "manual direct score" route is actually
-  planned.
-- `quizRoutes.js`: `POST`/`DELETE '/default'` and `'/dual'` build a `DefaultValueQuiz`/
-  `DualQuiz` directly from `ENTRIES.getEntryById(req.body.*)` with no existence check;
-  a missing/invalid id throws an uncaught `QuizError` from the constructor, surfacing
-  as an unhandled 500 instead of a clean 400/404 like the rest of the API. Validate
-  the referenced entries exist before constructing the quiz.
+  place instead of two. => Will be improved by creating common parent class above Entry and Tag
 - `quizRoutes.js` duplicates the same "recompute until stable" loop
   (`for(...) totalUpdate = computeUserScores(user)`) in both the `POST` and `DELETE`
   handlers. Worth extracting into a single `recomputeUntilStable(user)` in
   `scoresComputerService.js`.
 - `tags.js`'s `save()` silently prunes tags no longer referenced by any entry, as a
-  side effect of persistence (`_isUsedByAnyEntry`) — a real, surprising behavior that
-  is not documented anywhere except that one comment. Extracting it into a clearly
+  side effect of persistence (`_isUsedByAnyEntry`): That is expected, but not documented and maybe confusing. Extracting it into a clearly
   named `pruneOrphanTags()` would make it discoverable and testable on its own.
 
 ### Client (`src/client/`)
 
 **Performance**
 
-- `vite.config.js` explicitly disables minification and enables sourcemaps for the
-  build (`minify: false`, `sourcemap: true`), with no comment indicating whether
-  that's an intentional production trade-off or a leftover debug setting. Current
-  build: ~1033 kB JS (223 kB gzip) plus a ~1956 kB sourcemap shipped alongside. Worth
-  confirming intent, and switching to `minify: true` / `sourcemap: 'hidden'` for
-  production if not deliberate.
 - `GlobalScoresPanel` and `EntriesPanel` are both mounted at once on the home page for
   an authenticated user, each running its own independent 30s polling interval via
   `usePaginatedList`'s `refreshIntervalMs`. Two uncoordinated requests fire every 30s
-  with no shared scheduling. A shared "tick" source (single `setInterval` that
-  `usePaginatedList` instances subscribe to) would remove the duplication.
+  with no shared scheduling. Create a shared data collection system to share the refreshes for every component (for example, a component calling a manual refresh, like PUT quiz, may refresh the global refresh timeout such as it does not triggers too soon for nothing)
 - `usePaginatedList`'s `fetchPage` has no `try/catch`: a failed request (including
-  during background polling) becomes an unhandled promise rejection, silently — none
+  during background polling) becomes an unhandled promise rejection, silently - none
   of its consumers (`EntriesPanel`, `GlobalScoresPanel`, `ProfilePage`, `TagPage`'s
   entries list, `RecentVotesTable`) show an error or retry.
 
@@ -259,21 +253,13 @@ candidates for future work.
 - Error handling is inconsistent across views: `TagPage`/`EntryPage`/
   `useRenamePrompt` show a proper error message on failure, while
   `GlobalScoresPanel`/`ProfilePage` have none at all, and `DualQuiz.vote()`/
-  `RecentVotesTable.onDelete()` have no `try/catch` around their API calls — a failed
+  `RecentVotesTable.onDelete()` have no `try/catch` around their API calls - a failed
   vote or delete fails silently. Worth standardizing on one pattern (e.g. an `error`
   state + `<p role="alert">`), starting with `usePaginatedList` itself.
-- User-facing messages mix French and English for the same feature: `EntryPage.jsx`'s
-  rename/tag/delete errors are in French ("Nouveau nom pour", "Échec du renommage",
-  ...) while `TagPage.jsx`'s equivalent messages (same `useRenamePrompt` hook) are in
-  English ("Rename failed", "Failed to add tag", ...). Pick one language for
-  user-facing text (or introduce a light i18n layer if bilingual is actually intended).
-- The `<ScoreTable>` + `<PaginationControls>` + `usePaginatedList` combo is repeated
-  nearly identically in `GlobalScoresPanel`, `ProfilePage`, `EntriesPanel`, and
-  `TagPage`'s entries section — only the endpoint and `columns` differ. A composite
-  `PaginatedScoreTable({endpoint, columns, scoreFormatter, ...})` component would
-  remove that remaining boilerplate.
+- Mix French and English to fix: Remove all french and replace to English. For later, implement
+  transaltion module and create both languages with a settings switch (or in url with ?lang=fr)
 - `EntryPage.jsx` (~190 lines) owns rename, image upload (with its own validation),
-  tag add/remove, score removal with confirmation, and auth-change resync — five
+  tag add/remove, score removal with confirmation, and auth-change resync - five
   separate `isX` booleans combined into one `isBusy`. Extracting at least the image
   upload logic into its own hook (mirroring `useRenamePrompt`) would shrink it.
 - Minor accessibility gaps: `ScoreTable`'s sortable column headers (`<th onClick=...>`)

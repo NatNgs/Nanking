@@ -70,7 +70,7 @@ function RecentVotesTable({scoreFormatter, type, limit = 100, showPagination = f
 										</>)
 									}</div>
 								</td>
-								<td className="actionsCol"><button disabled={deletingKey != null} onClick={() => onDelete(vote)} className="deleteButton">🗙</button></td>
+								<td className="actionsCol"><button disabled={deletingKey != null} onClick={() => onDelete(vote)} className="deleteButton" title="Remove">🗙</button></td>
 							</tr>
 						)
 					})}
