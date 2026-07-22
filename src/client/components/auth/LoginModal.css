@@ -27,3 +27,19 @@
 	border: 1px solid #5C4033;
 	background-color: #FFFFFF;
 }
+.login-hint {
+	font-size: 0.8em;
+	color: #666;
+	text-align: right;
+	margin-bottom: 1em;
+}
+.login-modal-submit {
+	text-align: center;
+}
+.login-modal-submit button {
+	padding-left: 2em;
+	padding-right: 2em;
+}
+.login-modal-error {
+	color: red;
+}
