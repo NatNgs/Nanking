@@ -81,7 +81,7 @@ function DualQuiz() {
 					</tr>
 				</table>
 			)}
-			<RecentVotesTable scoreFormatter={scoreFormatter} type="dual" limit={5} />
+			<RecentVotesTable scoreFormatter={scoreFormatter} type="dual" limit={5} showPagination />
 		</div>
 	)
 }

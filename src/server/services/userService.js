@@ -1,6 +1,7 @@
 import ACCOUNTS from '../data/accounts.js'
 import { getUser, deleteUser } from '../data/user.js'
 import ENTRIES from '../data/entries.js'
+import { deleteAccount as deletePersistedAccount } from './persistenceService.js'
 
 /**
  * Enriches a serialized vote (toJson()) with the labels of the entries it
@@ -10,7 +11,7 @@ import ENTRIES from '../data/entries.js'
  */
 function enrichVoteWithLabels(voteJson) {
 	const label = (entryId) => ENTRIES.getEntryById(entryId)?.name ?? null
-	if(voteJson.type === 'default') {
+	if(voteJson.type === 'direct') {
 		return {...voteJson, entryLabel: label(voteJson.entry)}
 	}
 	if(voteJson.type === 'dual') {
@@ -33,7 +34,7 @@ function returnUserData(req, res) {
 
 /**
  * Paginated, newest-first vote history for the current user, backing
- * GET /api/user/me/quiz. `type` ('default' | 'dual') optionally restricts to
+ * GET /api/user/me/quiz. `type` ('direct' | 'dual') optionally restricts to
  * one quiz kind, e.g. for the "recent inputs" mini-tables on NewEntryForm/DualQuiz.
  */
 function getUserQuizPaginated(user, {type, page, limit} = {}) {
@@ -67,17 +68,8 @@ function getPublicUserData(username, {sort, order, page, limit} = {}) {
 function deleteAccount(username) {
 	ACCOUNTS.remove(username)
 	deleteUser(username.trim().toLowerCase())
+	deletePersistedAccount(username.trim().toLowerCase())
+		.catch((err) => console.error('deleteAccount() persistence failed:', err))
 }
 
-/**
- * Validates then applies a manual score on an entry for the current user.
- * @returns {boolean} true if the score was applied, false if invalid (expected between 0 and 1)
- */
-function setEntryScore(user, entryName, score) {
-	if(score < 0 || score > 1) return false
-
-	user.setEntryScore(entryName, score)
-	return true
-}
-
-export { returnUserData, setEntryScore, getPublicUserData as returnPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount }
+export { returnUserData, getPublicUserData as returnPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount }

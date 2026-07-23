@@ -3,7 +3,7 @@ import requireAuthentication from '../middleware/authenticate.js'
 import { returnUserData } from '../services/userService.js'
 import { computeUserScores } from '../services/scoresComputerService.js'
 import { pickDualPair } from '../services/dualQuizService.js'
-import { DefaultValueQuiz, DualQuiz } from '../data/quiz.js'
+import { DirectQuiz, DualQuiz } from '../data/quiz.js'
 import ENTRIES from '../data/entries.js'
 
 const quizRouter = express.Router()
@@ -15,22 +15,36 @@ quizRouter.get('/dual', (req, res) => {
 	res.json(pair)
 })
 
-quizRouter.post('/default', (req, res, next) => {
-	req.user.didQuiz(new DefaultValueQuiz(ENTRIES.getEntryById(req.body.entry), +req.body.score))
+quizRouter.post('/direct', (req, res, next) => {
+	const entry = ENTRIES.getEntryById(req.body.entry)
+	if(!entry) return res.status(404).send('Entry not found')
+
+	req.user.didQuiz(new DirectQuiz(entry, +req.body.score))
 	next()
 })
-quizRouter.delete('/default', (req, res, next) => {
-	req.user.removeQuiz(new DefaultValueQuiz(ENTRIES.getEntryById(req.body.entry)))
+quizRouter.delete('/direct', (req, res, next) => {
+	const entry = ENTRIES.getEntryById(req.body.entry)
+	if(!entry) return res.status(404).send('Entry not found')
+
+	req.user.removeQuiz(new DirectQuiz(entry))
 	next()
 })
 
 quizRouter.post('/dual', (req, res, next) => {
+	const neg = ENTRIES.getEntryById(req.body.neg)
+	const pos = ENTRIES.getEntryById(req.body.pos)
+	if(!neg || !pos) return res.status(404).send('Entry not found')
+
 	// Add dual data to the user
-	req.user.didQuiz(new DualQuiz(ENTRIES.getEntryById(req.body.neg), ENTRIES.getEntryById(req.body.pos), +req.body.value))
+	req.user.didQuiz(new DualQuiz(neg, pos, +req.body.value))
 	next()
 })
 quizRouter.delete('/dual', (req, res, next) => {
-	req.user.removeQuiz(new DualQuiz(ENTRIES.getEntryById(req.body.neg), ENTRIES.getEntryById(req.body.pos)))
+	const neg = ENTRIES.getEntryById(req.body.neg)
+	const pos = ENTRIES.getEntryById(req.body.pos)
+	if(!neg || !pos) return res.status(404).send('Entry not found')
+
+	req.user.removeQuiz(new DualQuiz(neg, pos))
 	next()
 })
 

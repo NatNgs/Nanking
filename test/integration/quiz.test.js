@@ -96,15 +96,15 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		await createEntry('First entry', 0)
 	})
 
-	test('the New Entry recent-inputs table shows the "default" vote just recorded', async () => {
+	test('the New Entry recent-inputs table shows the "direct" vote just recorded', async () => {
 		const row = recentVoteRow('.new-entry-form', 'First entry')
 		await row.waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await row.locator('td').nth(0).innerText(), 'default')
+		assert.equal(await row.locator('td').nth(0).innerText(), 'direct')
 		assert.equal((await row.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), 'First entry => 0%')
 	})
 
-	test('clicking the "x" on a default vote in the recent-inputs table removes it from both the vote history AND the personal score list', async () => {
-		// Regression test: DELETE /api/quiz/default used to report success and
+	test('clicking the "x" on a direct vote in the recent-inputs table removes it from both the vote history AND the personal score list', async () => {
+		// Regression test: DELETE /api/quiz/direct used to report success and
 		// correctly drop the vote from the user's quiz history, but never
 		// cleared the now-stale computed score in user.entries (only entries
 		// still referenced by a live quiz get refreshed by computeUserScores),

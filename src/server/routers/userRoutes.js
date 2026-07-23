@@ -1,7 +1,7 @@
 import express from 'express'
 import requireAuthentication from '../middleware/authenticate.js'
 import { apiLimiter, publicProfileLimiter } from '../middleware/rateLimit.js'
-import { returnUserData, setEntryScore, returnPublicUserData as getPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount } from '../services/userService.js'
+import { returnUserData, returnPublicUserData as getPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount } from '../services/userService.js'
 import ACCOUNTS from '../data/accounts.js'
 import ENTRIES from '../data/entries.js'
 

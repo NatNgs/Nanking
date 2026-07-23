@@ -3,6 +3,7 @@ import { anyUserReferencesEntry } from '../data/user.js'
 import { processImageUpload, saveEntryImage, deleteEntryImage } from './entryImageService.js'
 import { resolveEntryTags } from './tagService.js'
 import { paginate, compareBy } from '../lib/pagination.js'
+import { saveEntries } from './persistenceService.js'
 
 /**
  * Serializes an entry for the HTTP response. Includes the current user's
@@ -38,7 +39,7 @@ function renameEntry(id, newName) {
 	if(ENTRIES.getEntryByNameIgnoreCase(trimmed, id)) return 'conflict'
 
 	entry.name = trimmed
-	ENTRIES.save()
+	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
 	return 'ok'
 }
 
@@ -59,7 +60,7 @@ async function updateEntryImage(id, fileBuffer) {
 
 	deleteEntryImage(entry)
 	entry.image = await saveEntryImage(entry.id, pngBuffer)
-	ENTRIES.save()
+	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
 	return 'ok'
 }
 
@@ -78,7 +79,7 @@ function deleteEntry(id, user) {
 		deleteEntryImage(entry)
 		ENTRIES.deleteEntry(id)
 	}
-	ENTRIES.save()
+	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
 	return 'ok'
 }
 

@@ -33,7 +33,7 @@ function NewEntryForm({scoreFormatter}) {
 			entry = await apiPut('/entry/new', {name: newEntryName})
 		}
 
-		await apiPost('/quiz/default', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
+		await apiPost('/quiz/direct', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
 		await refreshUserData()
 		bumpEntriesVersion()
 		setNewEntryName('')
@@ -76,7 +76,7 @@ function NewEntryForm({scoreFormatter}) {
 				</div>
 			</div>
 			<div className="error-message">{errorMessage}</div>
-			<RecentVotesTable scoreFormatter={scoreFormatter} type="default" limit={5} />
+			<RecentVotesTable scoreFormatter={scoreFormatter} type="direct" limit={5} showPagination />
 		</div>
 	)
 }

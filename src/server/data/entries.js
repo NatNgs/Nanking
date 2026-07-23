@@ -1,5 +1,3 @@
-import DB from './db.js'
-
 // Matches a source-prefixed id, e.g. 'n:0' or 'mal:12345'
 const ENTRY_ID_FORMAT = /^[a-z0-9_.-]+(:[a-z0-9_.-]+)+$/
 
@@ -16,22 +14,8 @@ class Entry {
 	}
 }
 class EntriesManager {
-	constructor(db) {
-		this.db = db.sub('entries')
+	constructor() {
 		this.entries = {} // id: Entry
-
-		// Load entries from db
-		for(const entryId of this.db.keys()) {
-			try {
-				const data = this.db.get(entryId)
-				const entry = new Entry(entryId, data.name)
-				if(data.image) entry.image = data.image
-				if(Array.isArray(data.tags)) entry.tags = data.tags.slice()
-				this.entries[entryId] = entry
-			} catch(err) {
-				console.error(`Impossible de charger l'entry '${entryId}' :`, err.message)
-			}
-		}
 	}
 
 	getEntryByName(name, createIfNotExists=false) {
@@ -94,18 +78,8 @@ class EntriesManager {
 		}
 		return scores
 	}
-
-	save() {
-		// Convert this.entries to proper DB format
-		const json = {}
-		for(const entryId in this.entries) {
-			const entry = this.entries[entryId]
-			json[entry.id] = {name: entry.name, image: entry.image, tags: entry.tags}
-		}
-		this.db.set(null, json)
-	}
 }
 
-const ENTRIES = new EntriesManager(DB)
+const ENTRIES = new EntriesManager()
 export default ENTRIES
 export { EntriesManager, Entry }

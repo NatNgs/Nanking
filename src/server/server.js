@@ -9,10 +9,8 @@ const app = express()
 import { urlencoded, json } from 'body-parser'
 
 import CONFIG from './config/config.js'
-import DB from './data/db.js'
-import ACCOUNTS from './data/accounts.js'
-import ENTRIES from './data/entries.js'
-import { loadAllUsers, saveAllUsers } from './data/user.js'
+import { openSqlite } from './data/sqliteDb.js'
+import * as persistenceService from './services/persistenceService.js'
 
 import { pageLimiter } from './middleware/rateLimit.js'
 import apiRouter from './routers/apiRoutes.js'
@@ -20,8 +18,16 @@ import apiRouter from './routers/apiRoutes.js'
 import { launchComputation } from './services/scoresComputerService.js'
 
 
-// Init previously saved user data
-loadAllUsers()
+// Explicitly open the one production SQLite connection (running the one-shot
+// legacy JSON import, if any - see sqliteDb.js/migrateFromJson.js), and hand
+// it to persistenceService.js before anything else touches persisted data.
+// Deliberately not done at either module's top level - see sqliteDb.js's own
+// openSqlite() docstring for why.
+const SQLITE = await openSqlite(CONFIG.SQLITE_PATH)
+persistenceService.init(SQLITE)
+
+// Load all persisted data from SQLite into the in-memory singletons.
+await persistenceService.loadAll()
 
 // Init score computation worker
 launchComputation()
@@ -40,6 +46,22 @@ app.all('{*path}', (req, res, next) => {
 app.get('/', pageLimiter, (req, res) => {
 	const file = CONFIG.CLIENT_DIST_PATH + '/index.html'
 	res.sendFile(file)
+})
+
+// Test-only graceful shutdown trigger: on Windows, killing a spawned child
+// process with SIGTERM does not reliably run its `process.on('SIGTERM', ...)`
+// handler (the process exits on the signal directly, before the JS event
+// loop gets to react), which used to just skip a JSON flush but now leaves
+// the SQLite file locked for whatever starts next. Integration tests call
+// this instead of relying on the OS signal - see test/integration/helpers/testServer.js.
+// Restricted to loopback: never reachable from the network.
+app.post('/_shutdown', (req, res) => {
+	if(req.ip !== '127.0.0.1' && req.ip !== '::1' && req.ip !== '::ffff:127.0.0.1') {
+		res.status(403).end()
+		return
+	}
+	res.status(200).end()
+	gracefulShutdown()
 })
 
 // API
@@ -108,15 +130,21 @@ function gracefulShutdown() {
 		process.exit(-1)
 	}, CONFIG.SHUTDOWN_TIMEOUT)
 
-	// Stop server, then persist data and exit once fully closed
-	server.close(() => {
+	// Stop server, then persist data and exit once fully closed. Unlike the
+	// fire-and-forget save calls made during normal operation (see
+	// entryService.js/tagService.js), every save here is awaited: this is
+	// the last chance to flush in-memory changes to SQLite before the
+	// process exits, so none of it can be left in flight.
+	server.close(async () => {
 		clearTimeout(shutting_down)
 
-		// Push in-memory changes from each manager, then flush the database to disk once
-		ACCOUNTS.save()
-		ENTRIES.save()
-		saveAllUsers()
-		DB.save(CONFIG.DB_PATH)
+		await Promise.all([
+			persistenceService.saveAccounts(),
+			persistenceService.saveEntries(),
+			persistenceService.saveTags(),
+			persistenceService.saveAllUsers(),
+		])
+		await SQLITE.close()
 
 		console.log('Shutdown complete')
 		process.exit(0)

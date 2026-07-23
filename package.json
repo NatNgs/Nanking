@@ -10,9 +10,8 @@
 		"serve": "node src/server/server.js",
 		"dev": "concurrently \"npm:serve\" \"npm:dev:client\"",
 		"dev:client": "vite serve",
-		"build:watch": "vite build --watch",
 		"test": "cross-env ENV=test node --test --test-global-setup=test/globalSetup.js test/server/**/*.test.js",
-		"test:integration": "npm run build && cross-env ENV=test node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
+		"test:integration": "vite build --mode development && cross-env ENV=test node --test --test-concurrency=1 --test-global-setup=test/integration/globalSetup.js test/integration/**/*.test.js"
 	},
 	"author": "Nathael Nogues",
 	"license": "MIT",

@@ -6,8 +6,7 @@ import CONFIG from '../../../src/server/config/config.js'
 import ENTRIES from '../../../src/server/data/entries.js'
 import { Entry } from '../../../src/server/data/entries.js'
 import { User, ALL_USERS } from '../../../src/server/data/user.js'
-import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
-import { Manager } from '../../../src/server/data/db.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 import { getEntryData, renameEntry, updateEntryImage, deleteEntry, listEntries } from '../../../src/server/services/entryService.js'
 import TAGS from '../../../src/server/data/tags.js'
 import { Tag } from '../../../src/server/data/tags.js'
@@ -20,8 +19,13 @@ import { addTagToEntry } from '../../../src/server/services/tagService.js'
 CONFIG.DATA_DIR = 'test/tmp/data-entryService'
 const IMAGES_DIR = CONFIG.DATA_DIR + '/entryImages'
 
+// renameEntry()/deleteEntry() call saveEntries() fire-and-forget internally
+// (see entryService.js -> persistenceService.js), which writes to the shared
+// SQLITE singleton (test/tmp/nanking.test.sqlite - see conf/conf.test.yml).
+// These tests only assert on the in-memory ENTRIES/ALL_USERS state, never on
+// that write, so the shared connection is fine to leave un-awaited here.
 function makeUser(username) {
-	return new User(new Manager({}), username)
+	return new User(username)
 }
 
 async function makePngBuffer(width, height) {
@@ -194,9 +198,9 @@ describe('entryService', () => {
 			ENTRIES.entries['n:0'] = entryA
 
 			const alice = makeUser('alice')
-			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
+			alice.quiz.push(new DirectQuiz(entryA, 1))
 			const bob = makeUser('bob')
-			bob.quiz.push(new DefaultValueQuiz(entryA, 0.3))
+			bob.quiz.push(new DirectQuiz(entryA, 0.3))
 			bob.entries['n:0'] = 0.3
 			ALL_USERS.alice = alice
 			ALL_USERS.bob = bob
@@ -213,7 +217,7 @@ describe('entryService', () => {
 			ENTRIES.entries['n:0'] = entryA
 
 			const alice = makeUser('alice')
-			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
+			alice.quiz.push(new DirectQuiz(entryA, 1))
 			ALL_USERS.alice = alice
 
 			assert.equal(deleteEntry('n:0', alice), 'ok')
@@ -228,7 +232,7 @@ describe('entryService', () => {
 			ENTRIES.entries['n:1'] = entryB
 
 			const alice = makeUser('alice')
-			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
+			alice.quiz.push(new DirectQuiz(entryA, 1))
 			const bob = makeUser('bob')
 			bob.quiz.push(new DualQuiz(entryA, entryB, 1))
 			ALL_USERS.alice = alice
@@ -246,7 +250,7 @@ describe('entryService', () => {
 			assert.ok(existsSync(IMAGES_DIR + '/n/0.png'))
 
 			const alice = makeUser('alice')
-			alice.quiz.push(new DefaultValueQuiz(ENTRIES.entries['n:0'], 1))
+			alice.quiz.push(new DirectQuiz(ENTRIES.entries['n:0'], 1))
 			ALL_USERS.alice = alice
 
 			deleteEntry('n:0', alice)
@@ -261,9 +265,9 @@ describe('entryService', () => {
 			await updateEntryImage('n:0', buffer)
 
 			const alice = makeUser('alice')
-			alice.quiz.push(new DefaultValueQuiz(entryA, 1))
+			alice.quiz.push(new DirectQuiz(entryA, 1))
 			const bob = makeUser('bob')
-			bob.quiz.push(new DefaultValueQuiz(entryA, 0.3))
+			bob.quiz.push(new DirectQuiz(entryA, 0.3))
 			ALL_USERS.alice = alice
 			ALL_USERS.bob = bob
 

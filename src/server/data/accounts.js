@@ -1,4 +1,3 @@
-import DB from './db.js'
 import { v4 as uuidv4 } from 'uuid'
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
 import CONFIG from '../config/config.js'
@@ -25,18 +24,20 @@ function hashTokenIp(token, ip) {
 }
 
 class AccountManager {
-	constructor(db) {
-		this.db = db.sub('p#')
+	constructor() {
 		this.accounts = {} // {user: {hash, salt, displayLogin}}
 		this.tokens = {}
 		this.tokens_reverse = {}
-
-		// Load accounts from db
-		for(const user of this.db.keys()) {
-			this.accounts[user] = this.db.get(user)
-		}
 	}
 
+	/**
+	 * Registers `user`, or attaches credentials to an existing ghost account
+	 * (imported quiz data with no credentials yet - see persistenceService.js's
+	 * migration handling). Purely in-memory: callers that need this to land in
+	 * SQLite before proceeding (e.g. before a direct_quiz row referencing this
+	 * username, an FK dependency) must persist it themselves right after - see
+	 * apiRoutes.js's registration flow.
+	 */
 	add(user, pwd) {
 		if(!user || !pwd) return false
 
@@ -45,13 +46,14 @@ class AccountManager {
 		user = displayLogin.toLowerCase()
 		if(!user.match(USER_REGEX)) return false
 
-		// If account already exists, return false
+		// If account already exists (with real credentials), return false
 		if(this.accounts[user]) return false
 
 		const salt = randomBytes(16).toString('hex')
 		this.accounts[user] = {hash: hashWithSalt(pwd, salt), salt, displayLogin}
 		return true
 	}
+
 	/**
 	 * Returns the login as the user originally typed it when creating the account
 	 * (preserving case), falling back to the lookup key itself for accounts stored
@@ -99,11 +101,9 @@ class AccountManager {
 		return timingSafeEqual(Buffer.from(hash), Buffer.from(account.hash))
 	}
 	/**
-	 * Permanently deletes an account and its associated token, if any.
-	 * this.db.delete() is required in addition to delete this.accounts[user]:
-	 * save() only ever performs additive set() calls from this.accounts, so it
-	 * never removes stale entries from the persisted db - the deletion must be
-	 * applied directly on the shared db object to survive a later save().
+	 * Removes the account and its associated token from memory. Purely
+	 * in-memory: the caller (userService.js's deleteAccount()) is responsible
+	 * for also removing the persisted row - see persistenceService.js.
 	 */
 	remove(user) {
 		if(!user) return false
@@ -111,7 +111,6 @@ class AccountManager {
 		if(!this.accounts[user]) return false
 
 		delete this.accounts[user]
-		this.db.delete(user)
 
 		const tokenInfo = this.tokens_reverse[user]
 		if(tokenInfo) {
@@ -121,14 +120,11 @@ class AccountManager {
 
 		return true
 	}
-	save() {
-		for(const user in this.accounts) this.db.set(user, this.accounts[user])
-	}
 	/**
 	 * Validates a token, and checks that it is being used from the same IP address
 	 * it was issued/refreshed on. Neither the raw token nor the IP are ever kept in
 	 * memory: only hash(token, ip) is stored, so a memory dump exposes nothing directly
-	 * reusable. Never persisted to disk: the binding resets on restart.
+	 * reusable.
 	 */
 	check_token(token, ip) {
 		if(!token) return false
@@ -177,6 +173,6 @@ class AccountManager {
 	}
 }
 
-const ACCOUNTS = new AccountManager(DB)
+const ACCOUNTS = new AccountManager()
 export default ACCOUNTS
-export { AccountManager }
+export { AccountManager, hashTokenIp }

@@ -45,12 +45,24 @@ function startServer() {
 }
 
 /**
- * Sends SIGTERM to let the server run its graceful shutdown (saves data,
- * closes the HTTP server), and waits for the process to actually exit.
+ * Triggers the server's graceful shutdown (saves data, closes SQLite, closes
+ * the HTTP server) via its loopback-only /_shutdown endpoint, and waits for
+ * the process to actually exit. Not done via SIGTERM: on Windows, killing a
+ * spawned child process with SIGTERM does not reliably run its
+ * `process.on('SIGTERM', ...)` handler (the process just exits on the signal
+ * directly), which used to just skip a JSON flush but now leaves the SQLite
+ * file locked for the next test file's server to fail to open - see
+ * server.js's own /_shutdown route for the full explanation.
  */
 async function stopServer(proc) {
 	if(!proc || proc.exitCode !== null) return
-	proc.kill('SIGTERM')
+	try {
+		await fetch(BASE_URL + '/_shutdown', {method: 'POST'})
+	} catch {
+		// Server already gone (e.g. crashed earlier in the test): fall through
+		// to killing the process directly instead of hanging on the fetch.
+		proc.kill()
+	}
 	await new Promise((resolvePromise) => proc.once('exit', resolvePromise))
 }
 

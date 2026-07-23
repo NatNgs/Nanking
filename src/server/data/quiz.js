@@ -25,15 +25,15 @@ class AbstractQuiz {
 	}
 }
 
-class DefaultValueQuiz extends AbstractQuiz {
+class DirectQuiz extends AbstractQuiz {
 	constructor(entry, value) {
 		if(!entry) {
-			throw new QuizError('DefaultValue: entry cannot be null')
+			throw new QuizError('Direct: entry cannot be null')
 		}
 		if(value < 0 || value > 1) {
-			throw new QuizError('DefaultValue: value must be between 0 and 1')
+			throw new QuizError('Direct: value must be between 0 and 1')
 		}
-		super('default')
+		super('direct')
 
 		this.entry = entry
 		this.value = value
@@ -127,14 +127,31 @@ class DualQuiz extends AbstractQuiz {
 }
 
 
+/**
+ * Rebuilds a DirectQuiz/DualQuiz from persisted data (SQLite direct_quiz/
+ * dual_quiz row, or the legacy JSON shape during migration). `ts`, when
+ * present, is restored onto the instance so a later save() can round-trip
+ * the original vote time instead of re-stamping it with "now" - see
+ * User.didQuiz()/User.save().
+ */
 function loadQuiz(jsonQuizData) {
 	const type = jsonQuizData.type
+	let quiz
 	switch(type) {
-		case 'default': return new DefaultValueQuiz(ENTRIES.getEntryById(jsonQuizData.entry), +jsonQuizData.value)
-		case 'dual': return new DualQuiz(ENTRIES.getEntryById(jsonQuizData.neg), ENTRIES.getEntryById(jsonQuizData.pos), +jsonQuizData.value)
-		default: console.error('loadQuiz: Unknown quiz type', type)
+		// 'default' is the old, pre-rename type value: still accepted here so quiz
+		// history saved before the direct/default rename keeps loading correctly.
+		case 'direct': case 'default':
+			quiz = new DirectQuiz(ENTRIES.getEntryById(jsonQuizData.entry), +jsonQuizData.value)
+			break
+		case 'dual':
+			quiz = new DualQuiz(ENTRIES.getEntryById(jsonQuizData.neg), ENTRIES.getEntryById(jsonQuizData.pos), +jsonQuizData.value)
+			break
+		default:
+			console.error('loadQuiz: Unknown quiz type', type)
+			return null
 	}
-	return null
+	if(jsonQuizData.ts != null) quiz.ts = jsonQuizData.ts
+	return quiz
 }
 
-export { loadQuiz, DefaultValueQuiz, DualQuiz }
+export { loadQuiz, DirectQuiz, DualQuiz }

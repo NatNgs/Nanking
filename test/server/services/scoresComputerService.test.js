@@ -1,12 +1,11 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { Manager } from '../../../src/server/data/db.js'
 import { User, ALL_USERS } from '../../../src/server/data/user.js'
 import { EntriesManager, Entry } from '../../../src/server/data/entries.js'
 import ENTRIES from '../../../src/server/data/entries.js'
 import TAGS from '../../../src/server/data/tags.js'
 import { Tag } from '../../../src/server/data/tags.js'
-import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 import { computeUserScores, computeGlobalScores } from '../../../src/server/services/scoresComputerService.js'
 
 /**
@@ -14,7 +13,7 @@ import { computeUserScores, computeGlobalScores } from '../../../src/server/serv
  * tests) with the given quiz list already attached.
  */
 function makeUser(username, quiz) {
-	const user = new User(new Manager({}), username)
+	const user = new User(username)
 	user.quiz = quiz
 	return user
 }
@@ -37,7 +36,7 @@ describe('scoresComputerService', () => {
 		test('averages a single default vote with the entry\'s global score', () => {
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
 			ENTRIES.entries['n:0'].globalScore = 0.5
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
 
 			computeUserScores(user)
 
@@ -47,7 +46,7 @@ describe('scoresComputerService', () => {
 
 		test('never produces NaN/undefined/null even with a single entry', () => {
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 0)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 0)])
 
 			computeUserScores(user)
 
@@ -67,7 +66,7 @@ describe('scoresComputerService', () => {
 
 		test('re-running with an already-computed score keeps averaging with the global score, no NaN', () => {
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 0)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 0)])
 
 			computeUserScores(user)
 			computeUserScores(user)
@@ -124,7 +123,7 @@ describe('scoresComputerService', () => {
 			// on alone first (triggering the single-entry fallback), then a
 			// second entry is added and voted on in a later cycle.
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 0)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 0)])
 			ALL_USERS.bobby = user
 
 			computeUserScores(user)
@@ -132,7 +131,7 @@ describe('scoresComputerService', () => {
 			assertFinite(ENTRIES.entries['n:0'].globalScore)
 
 			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			user.quiz.push(new DefaultValueQuiz(ENTRIES.entries['n:1'], 1))
+			user.quiz.push(new DirectQuiz(ENTRIES.entries['n:1'], 1))
 
 			for(let i = 0; i < 3; i++) {
 				computeUserScores(user)
@@ -161,7 +160,7 @@ describe('scoresComputerService', () => {
 			ENTRIES.entries['n:0'].tags.push('t:0')
 			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
 
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
 			user.tags['t:0'] = 0.9
 
 			computeUserScores(user)
@@ -178,7 +177,7 @@ describe('scoresComputerService', () => {
 			ENTRIES.entries['n:0'].tags.push('t:0')
 			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
 
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
 			computeUserScores(user)
 
 			assertFinite(user.tags['t:0'])
@@ -196,8 +195,8 @@ describe('scoresComputerService', () => {
 			TAGS.tags['t:1'].parents.push('t:0') // Cat -> Animal
 
 			const user = makeUser('bobby', [
-				new DefaultValueQuiz(ENTRIES.entries['n:0'], 1),
-				new DefaultValueQuiz(ENTRIES.entries['n:1'], 0),
+				new DirectQuiz(ENTRIES.entries['n:0'], 1),
+				new DirectQuiz(ENTRIES.entries['n:1'], 0),
 			])
 			computeUserScores(user)
 
@@ -210,7 +209,7 @@ describe('scoresComputerService', () => {
 		test('a tag with no scorable entry or child is left untouched (stays absent, no 0.5 fallback)', () => {
 			TAGS.tags['t:0'] = new Tag('t:0', 'Unused')
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
 
 			computeUserScores(user)
 
@@ -227,7 +226,7 @@ describe('scoresComputerService', () => {
 			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
 			ENTRIES.entries['n:0'].tags.push('t:1')
 
-			const user = makeUser('bobby', [new DefaultValueQuiz(ENTRIES.entries['n:0'], 1)])
+			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
 			computeUserScores(user)
 
 			assertFinite(user.tags['t:1'])

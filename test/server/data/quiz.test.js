@@ -1,19 +1,19 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 import { Entry } from '../../../src/server/data/entries.js'
-import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 
-describe('DefaultValueQuiz.referencesEntry', () => {
+describe('DirectQuiz.referencesEntry', () => {
 	test('returns true for the entry it was created with', () => {
 		const entry = new Entry('n:0', 'A')
-		const quiz = new DefaultValueQuiz(entry, 0.5)
+		const quiz = new DirectQuiz(entry, 0.5)
 		assert.equal(quiz.referencesEntry(entry), true)
 	})
 
 	test('returns false for a different entry', () => {
 		const entry = new Entry('n:0', 'A')
 		const other = new Entry('n:1', 'B')
-		const quiz = new DefaultValueQuiz(entry, 0.5)
+		const quiz = new DirectQuiz(entry, 0.5)
 		assert.equal(quiz.referencesEntry(other), false)
 	})
 })

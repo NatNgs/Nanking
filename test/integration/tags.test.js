@@ -2,12 +2,32 @@ import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
 import { rmSync } from 'node:fs'
+import { setTimeout as delay } from 'node:timers/promises'
 import { startServer, stopServer, BASE_URL } from './helpers/testServer.js'
 import { buildFixtureDb } from './helpers/fixtureDb.js'
 
 const LOGIN = 'tagsintegration' // must already be lowercase: accounts.js normalizes it, but the fixture writes users.<username> as-is
 const PASSWORD = 'testtest'
-const FIXTURE_DB_PATH = 'test/tmp/NankingServerData.test.gz'
+const FIXTURE_DB_PATH = 'test/tmp/nanking.test.sqlite'
+
+/**
+ * Windows can hold a file lock on the previous test file's SQLite database
+ * for a short while after its server process has already exited (the OS
+ * hasn't released the handle yet) - stopServer() only waits for the process
+ * itself to exit, not for the filesystem to catch up. Retries past a
+ * transient EPERM/EBUSY instead of failing the whole suite on it.
+ */
+async function rmSyncWithRetry(path, retries = 10) {
+	for(let attempt = 1; ; attempt++) {
+		try {
+			rmSync(path, {force: true})
+			return
+		} catch(err) {
+			if(attempt >= retries || !['EPERM', 'EBUSY'].includes(err.code)) throw err
+			await delay(200)
+		}
+	}
+}
 
 describe('Tags integration flow', {concurrency: false}, () => {
 	let serverProc, browser, page
@@ -15,8 +35,8 @@ describe('Tags integration flow', {concurrency: false}, () => {
 	before(async () => {
 		// Any file left by a previous test in this suite must be gone before we
 		// write our own fixture, and no server must be running while we do.
-		rmSync(FIXTURE_DB_PATH, {force: true})
-		buildFixtureDb(FIXTURE_DB_PATH, LOGIN)
+		await rmSyncWithRetry(FIXTURE_DB_PATH)
+		await buildFixtureDb(FIXTURE_DB_PATH, LOGIN)
 
 		serverProc = await startServer()
 		browser = await chromium.launch()

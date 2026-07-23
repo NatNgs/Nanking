@@ -25,7 +25,8 @@ Every value has a default, overridable via the config file:
 |---|---|---|
 | `port` | `8053` | Port the server listens on |
 | `cert.keyPath` / `cert.certPath` | *(none)* | TLS private key/certificate - see below |
-| `dbPath` | `data/NankingServerData.gz` | Gzip-compressed database file |
+| `dbPath` | `data/NankingServerData.gz` | Legacy gzip-compressed JSON database, imported once - see below |
+| `sqlitePath` | `data/nanking.sqlite` | SQLite database file (source of truth once created) |
 | `clientDistPath` | `dist/client` | Compiled React app served as static files |
 | `token.validityLimit` | 16 hours (seconds) | Absolute session token expiration |
 | `token.refreshRate` | 1 hour (seconds) | Minimum delay between two token refreshes |
@@ -54,6 +55,21 @@ If `cert.keyPath`/`cert.certPath` point to a missing or unreadable file, the ser
 logs an error and exits (exit code 1) rather than starting without transport
 encryption. With no `cert` section at all (the default), the server starts in plain
 HTTP mode - intended for local development only, never for production.
+
+**Database**: the server persists to a SQLite file (`sqlitePath`, via Node's native
+`node:sqlite`), never to the legacy JSON file directly. On startup:
+
+- If the SQLite file already exists, it is loaded as-is - `dbPath` is ignored entirely.
+- If it doesn't exist yet, a fresh SQLite database is created, and the legacy JSON
+  file (`dbPath`), if present, is imported into it once. The JSON file is then renamed
+  to `<dbPath>.imported` so it's obviously no longer live; the server never reads
+  it again afterwards.
+
+See `src/server/data/sqliteDb.js` for the schema and `src/server/services/
+persistenceService.js` for the read/write logic. The in-memory data model
+(`src/server/data/{entries,tags,accounts,user}.js`) is unaware of SQLite - it stays a
+set of plain data containers, translated to/from SQLite only by `persistenceService.js`.
+No application logic uses relational queries yet (see the TODO list below).
 
 ## Installation
 
@@ -102,23 +118,9 @@ usual.
 
 ## TODO List
 
-- `vite.config.js` explicitly disables minification and enables sourcemaps for the
-  build (`minify: false`, `sourcemap: true`). Need to find how to set the value to `minify: true` / `sourcemap: 'hidden'` for production, and keep `minify: false`, `sourcemap: true` for dev only.
-- `userService.js`'s `setEntryScore` calls `user.setEntryScore(...)`, a method that
-  does not exist on the `User` class (`data/user.js`) - dead code that would throw if
-  ever wired to a route. It's imported in `userRoutes.js` but not mounted anywhere.
-  Either remove it, or implement it if a "manual direct score" route is actually
-  planned. => To be removed
-- `quizRoutes.js`: `POST`/`DELETE '/default'` and `'/dual'` build a `DefaultValueQuiz`/
-  `DualQuiz` directly from `ENTRIES.getEntryById(req.body.*)` with no existence check;
-  a missing/invalid id throws an uncaught `QuizError` from the constructor, surfacing
-  as an unhandled 500 instead of a clean 400/404 like the rest of the API. Validate
-  the referenced entries exist before constructing the quiz.
-- Pagination: When currently on page 3, display the page 1 in the "-2" slot instead of as "First page" slot. Another example: if on page 2/5, next is 3, "+2" is 4, "+10" is hidden and "Last" is 5 => Change such as "+10" becomes the "+3" if there is no "+10", and remove "Last" if last is the same as "+3". Obviously apply in mirror (same behaviour up and down from the current page)
-- Add pagination to every table (in any case, pagination will not display if there is only one page of results)
 - Fix that React-select (tag picker, new entry picker) behavior (tests show often fails to compute/display the suggestions; clears itself when click on already inputed text; ...), and align the confirm button next to it (even try to make the + button with white background such as it looks like to be part of the picker) => Maybe the solution is to create my own picker with suggestions
 - Consider migrating session handling to `express-session` (see below)
-- Use a real BDD instead of saving/loading json every 15min
+- Progressively rework the data services (`entryService.js`, `tagService.js`, `userService.js`, `scoresComputerService.js`) to actually use SQLite's relational model (joins, indexes, `WHERE` filtering) instead of loading everything into plain JS objects/arrays at startup and working in memory - the SQLite migration (see Configuration > Database above) only replaced the storage backend so far, none of the query/computation logic changed
 - Improve dual picker (reduce chance to pick already compared entries, or transitively compared ones, increase chance to pick entries with low number of dual aleady done with them, increased chance to pick entries with only winning duals)
 - Possibility to manually chose what entry to dual (either no manual selection => automatic, or one selected and other automatic, or both manual)
 - Display on authenticated users' entry pages, the tree of what pushes their scores up or down (all the duals and the related scores)

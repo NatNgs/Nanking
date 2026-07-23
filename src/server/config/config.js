@@ -44,6 +44,7 @@ const CONFIG = {
 	CERT_KEY_PATH:         p(localConfig?.cert?.keyPath         || null                          ),
 	CERT_CERT_PATH:        p(localConfig?.cert?.certPath        || null                          ),
 	DB_PATH:               p(localConfig.dbPath                || './data/NankingServerData.gz' ),
+	SQLITE_PATH:           p(localConfig.sqlitePath            || './data/nanking.sqlite'       ),
 	CLIENT_DIST_PATH:      p(localConfig.clientDistPath        || './dist/client'               ),
 	DATA_DIR:              p(localConfig.dataDir               || './data'                      ),
 	TOKEN_VALIDITY_LIMIT:  +(localConfig?.token?.validityLimit || (16 * 60 * 60)                ) * 1000,

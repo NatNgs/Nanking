@@ -1,30 +1,20 @@
-import { test, describe, beforeEach, afterEach } from 'node:test'
+import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { unlinkSync, existsSync } from 'fs'
-import { Manager } from '../../../src/server/data/db.js'
 import { TagsManager, Tag } from '../../../src/server/data/tags.js'
 import ENTRIES from '../../../src/server/data/entries.js'
 
-const TEST_DB_PATH = 'test/tmp/tags.test.json'
-
 describe('TagsManager', () => {
-	let db
-
 	beforeEach(() => {
-		db = new Manager({})
 		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]
-	})
-	afterEach((t) => {
-		if(t.passed && existsSync(TEST_DB_PATH)) unlinkSync(TEST_DB_PATH)
 	})
 
 	test('getTagByLabel returns null when missing and createIfNotExists=false', () => {
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		assert.equal(tags.getTagByLabel('Animal'), null)
 	})
 
 	test('getTagByLabel creates a tag with an incremental id', () => {
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		const tag = tags.getTagByLabel('Animal', true)
 		assert.equal(tag.label, 'Animal')
 		assert.equal(tag.id, 't:0')
@@ -33,7 +23,7 @@ describe('TagsManager', () => {
 	})
 
 	test('getTagByLabel finds an existing tag by label (no duplicate)', () => {
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		const first = tags.getTagByLabel('Animal', true)
 		const second = tags.getTagByLabel('Animal', true)
 		assert.equal(first.id, second.id)
@@ -41,71 +31,39 @@ describe('TagsManager', () => {
 	})
 
 	test('getTagById finds a tag by id', () => {
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		const created = tags.getTagByLabel('Animal', true)
 		assert.equal(tags.getTagById(created.id), created)
 	})
 
 	test('getTagByLabelIgnoreCase finds a tag regardless of case, excluding a given id', () => {
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		const tag = tags.getTagByLabel('Animal', true)
 		assert.equal(tags.getTagByLabelIgnoreCase('ANIMAL'), tag)
 		assert.equal(tags.getTagByLabelIgnoreCase('animal', tag.id), null)
 	})
 
-	test('save() then reload round-trips the label and parents', () => {
-		const tags = new TagsManager(db)
-		const animal = tags.getTagByLabel('Animal', true)
-		const cat = tags.getTagByLabel('Cat', true)
-		tags.addParent(cat.id, animal.id)
-		tags.save()
-
-		const reloaded = new TagsManager(db)
-		assert.equal(reloaded.getTagById(cat.id).label, 'Cat')
-		assert.deepEqual(reloaded.getTagById(cat.id).parents, [animal.id])
-	})
-
-	test('db.save() then db.load() on disk round-trips tags', () => {
-		const tags = new TagsManager(db)
-		const animal = tags.getTagByLabel('Animal', true)
-		const cat = tags.getTagByLabel('Cat', true)
-		tags.addParent(cat.id, animal.id)
-		tags.save()
-		db.save(TEST_DB_PATH)
-
-		const reloadedDb = new Manager({})
-		reloadedDb.load(TEST_DB_PATH)
-		const reloadedTags = new TagsManager(reloadedDb)
-		assert.deepEqual(reloadedTags.getTagById(cat.id).parents, [animal.id])
-	})
-
-	test('save() omits a tag with no relation at all (no parent, no derived child, no linked entry)', () => {
-		const tags = new TagsManager(db)
+	test('pruneOrphanTagIds omits a tag with no relation at all (no parent, no derived child, no linked entry)', () => {
+		const tags = new TagsManager()
 		const orphan = tags.getTagByLabel('Orphan', true)
 		const animal = tags.getTagByLabel('Animal', true)
 		const cat = tags.getTagByLabel('Cat', true)
 		tags.addParent(cat.id, animal.id)
-		tags.save()
 
-		const reloaded = new TagsManager(db)
-		assert.equal(reloaded.getTagById(orphan.id), undefined)
-		assert.ok(reloaded.getTagById(animal.id))
-		assert.ok(reloaded.getTagById(cat.id))
+		assert.deepEqual(tags.pruneOrphanTagIds(), [orphan.id])
 	})
 
-	test('save() keeps a tag with no parent/child but linked to an entry', () => {
-		const tags = new TagsManager(db)
+	test('pruneOrphanTagIds keeps a tag with no parent/child but linked to an entry', () => {
+		const tags = new TagsManager()
 		const linked = tags.getTagByLabel('Linked', true)
 		const entry = ENTRIES.getEntryByName('Some entry', true)
 		entry.tags.push(linked.id)
-		tags.save()
 
-		const reloaded = new TagsManager(db)
-		assert.ok(reloaded.getTagById(linked.id))
+		assert.deepEqual(tags.pruneOrphanTagIds(), [])
 	})
 
 	test('deleteTag removes the tag so it can no longer be found by id', () => {
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		const tag = tags.getTagByLabel('Animal', true)
 		delete tags.tags[tag.id]
 		assert.equal(tags.getTagById(tag.id), undefined)
@@ -132,41 +90,11 @@ describe('Tag id format validation', () => {
 	})
 })
 
-describe('TagsManager loading with invalid stored ids/parents', () => {
-	test('skips a tag whose id fails validation, and still loads the others', () => {
-		const db = new Manager({})
-		db.set('tags', {
-			't:0': {label: 'Valid tag'},
-			'invalid id': {label: 'Broken tag'},
-			't:1': {label: 'Another valid tag'},
-		})
-
-		const tags = new TagsManager(db)
-
-		assert.equal(Object.keys(tags.tags).length, 2)
-		assert.equal(tags.getTagById('t:0').label, 'Valid tag')
-		assert.equal(tags.getTagById('t:1').label, 'Another valid tag')
-		assert.equal(tags.getTagById('invalid id'), undefined)
-	})
-
-	test('drops a parent id pointing to a tag that failed to load', () => {
-		const db = new Manager({})
-		db.set('tags', {
-			't:0': {label: 'Cat', parents: ['invalid id', 't:1']},
-			't:1': {label: 'Animal'},
-		})
-
-		const tags = new TagsManager(db)
-		assert.deepEqual(tags.getTagById('t:0').parents, ['t:1'])
-	})
-})
-
 describe('TagsManager hierarchy: ancestors, descendants, direct children', () => {
-	let db, tags, animal, mammal, cat, dog, livingBeing
+	let tags, animal, mammal, cat, dog, livingBeing
 
 	beforeEach(() => {
-		db = new Manager({})
-		tags = new TagsManager(db)
+		tags = new TagsManager()
 		livingBeing = tags.getTagByLabel('Living being', true)
 		animal = tags.getTagByLabel('Animal', true)
 		mammal = tags.getTagByLabel('Mammal', true)
@@ -204,11 +132,10 @@ describe('TagsManager hierarchy: ancestors, descendants, direct children', () =>
 })
 
 describe('TagsManager cycle detection', () => {
-	let db, tags, animal, mammal, cat
+	let tags, animal, mammal, cat
 
 	beforeEach(() => {
-		db = new Manager({})
-		tags = new TagsManager(db)
+		tags = new TagsManager()
 		animal = tags.getTagByLabel('Animal', true)
 		mammal = tags.getTagByLabel('Mammal', true)
 		cat = tags.getTagByLabel('Cat', true)
@@ -258,8 +185,7 @@ describe('TagsManager cycle detection', () => {
 
 describe('TagsManager.topologicalOrder', () => {
 	test('every tag appears before each of its direct parents', () => {
-		const db = new Manager({})
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		const livingBeing = tags.getTagByLabel('Living being', true)
 		const animal = tags.getTagByLabel('Animal', true)
 		const mammal = tags.getTagByLabel('Mammal', true)
@@ -283,8 +209,7 @@ describe('TagsManager.topologicalOrder', () => {
 	})
 
 	test('handles unrelated tags and isolated tags without error', () => {
-		const db = new Manager({})
-		const tags = new TagsManager(db)
+		const tags = new TagsManager()
 		tags.getTagByLabel('Alone', true)
 		tags.getTagByLabel('AlsoAlone', true)
 

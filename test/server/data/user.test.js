@@ -1,13 +1,12 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { Manager } from '../../../src/server/data/db.js'
 import { User, ALL_USERS, anyUserReferencesEntry } from '../../../src/server/data/user.js'
 import { Entry } from '../../../src/server/data/entries.js'
 import ENTRIES from '../../../src/server/data/entries.js'
-import { DefaultValueQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
 
 function makeUser() {
-	return new User(new Manager({}), 'bobby')
+	return new User('bobby')
 }
 
 describe('User construction', () => {
@@ -184,7 +183,7 @@ describe('User.removeAllReferencesToEntry', () => {
 	test('removes a default quiz referencing the entry', () => {
 		const entryA = new Entry('n:0', 'A')
 		const user = makeUser()
-		user.quiz.push(new DefaultValueQuiz(entryA, 1))
+		user.quiz.push(new DirectQuiz(entryA, 1))
 
 		user.removeAllReferencesToEntry(entryA)
 
@@ -206,8 +205,8 @@ describe('User.removeAllReferencesToEntry', () => {
 		const entryA = new Entry('n:0', 'A')
 		const entryB = new Entry('n:1', 'B')
 		const user = makeUser()
-		const untouched = new DefaultValueQuiz(entryB, 1)
-		user.quiz.push(new DefaultValueQuiz(entryA, 1))
+		const untouched = new DirectQuiz(entryB, 1)
+		user.quiz.push(new DirectQuiz(entryA, 1))
 		user.quiz.push(untouched)
 
 		user.removeAllReferencesToEntry(entryA)
@@ -235,7 +234,7 @@ describe('anyUserReferencesEntry', () => {
 	test('returns true when a user still has a vote referencing the entry', () => {
 		const entryA = new Entry('n:0', 'A')
 		const alice = makeUser()
-		alice.quiz.push(new DefaultValueQuiz(entryA, 1))
+		alice.quiz.push(new DirectQuiz(entryA, 1))
 		ALL_USERS.alice = alice
 
 		assert.equal(anyUserReferencesEntry(entryA), true)
@@ -245,7 +244,7 @@ describe('anyUserReferencesEntry', () => {
 		const entryA = new Entry('n:0', 'A')
 		const entryB = new Entry('n:1', 'B')
 		const alice = makeUser()
-		alice.quiz.push(new DefaultValueQuiz(entryB, 1))
+		alice.quiz.push(new DirectQuiz(entryB, 1))
 		ALL_USERS.alice = alice
 
 		assert.equal(anyUserReferencesEntry(entryA), false)

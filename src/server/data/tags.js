@@ -1,4 +1,3 @@
-import DB from './db.js'
 import ENTRIES from './entries.js'
 
 // Matches a tag id, e.g. 't:0' or 't:12'
@@ -16,26 +15,8 @@ class Tag {
 	}
 }
 class TagsManager {
-	constructor(db) {
-		this.db = db.sub('tags')
+	constructor() {
 		this.tags = {} // id: Tag
-
-		// Load tags from db
-		for(const tagId of this.db.keys()) {
-			try {
-				const data = this.db.get(tagId)
-				const tag = new Tag(tagId, data.label)
-				if(Array.isArray(data.parents)) tag.parents = data.parents.slice()
-				this.tags[tagId] = tag
-			} catch(err) {
-				console.error(`Impossible de charger le tag '${tagId}' :`, err.message)
-			}
-		}
-		// Second pass: drop any parent id that ended up not loading (invalid id,
-		// corrupted entry, ...), so `parents` never points into the void.
-		for(const tagId in this.tags) {
-			this.tags[tagId].parents = this.tags[tagId].parents.filter((parentId) => this.tags[parentId])
-		}
 	}
 
 	getTagByLabel(label, createIfNotExists=false) {
@@ -222,19 +203,20 @@ class TagsManager {
 		return order
 	}
 
-	save() {
-		// A tag with no relation at all (no parent, no derived child, not used by
-		// any entry) is simply left out of the persisted DB: it stops existing
-		// on the next load, instead of exposing a dedicated delete route.
-		const json = {}
+	/**
+	 * Tag ids with no relation at all (no parent, no derived child, not used by
+	 * any entry): left out of the persisted DB, so they stop existing on the
+	 * next load, instead of exposing a dedicated delete route. Used by
+	 * persistenceService.js when saving.
+	 */
+	pruneOrphanTagIds() {
+		const orphanIds = []
 		for(const tagId in this.tags) {
-			const tag = this.tags[tagId]
-			if(tag.parents.length === 0 && this.getDirectChildren(tagId).length === 0 && !this._isUsedByAnyEntry(tagId)) {
-				continue
+			if(this.tags[tagId].parents.length === 0 && this.getDirectChildren(tagId).length === 0 && !this._isUsedByAnyEntry(tagId)) {
+				orphanIds.push(tagId)
 			}
-			json[tag.id] = {label: tag.label, parents: tag.parents}
 		}
-		this.db.set(null, json)
+		return orphanIds
 	}
 
 	_isUsedByAnyEntry(tagId) {
@@ -245,6 +227,6 @@ class TagsManager {
 	}
 }
 
-const TAGS = new TagsManager(DB)
+const TAGS = new TagsManager()
 export default TAGS
 export { TagsManager, Tag }

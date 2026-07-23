@@ -9,13 +9,14 @@ import ACCOUNTS from '../data/accounts.js'
 import { listEntries } from '../services/entryService.js'
 import { searchTags } from '../services/tagService.js'
 import { paginate, compareBy } from '../lib/pagination.js'
+import { persistAccount } from '../services/persistenceService.js'
 
 const apiRouter = express.Router()
 
 // Apply rate limit
 apiRouter.use(apiLimiter)
 
-apiRouter.post('/login', loginLimiter, (req, res) => {
+apiRouter.post('/login', loginLimiter, async (req, res) => {
 	// Create new account
 	if(req.body.new === 'true') {
 		const success = ACCOUNTS.add(req.body.login, req.body.pwd)
@@ -24,6 +25,10 @@ apiRouter.post('/login', loginLimiter, (req, res) => {
 			console.warn(req.originalUrl, '=> 400: Could not create account (' + req.body.login + (req.body.new ? ' (new account)':'') + ')')
 			return
 		}
+		// Must land in SQLite before any direct_quiz/dual_quiz row created
+		// right after login can reference this username (FK constraint) - see
+		// persistenceService.js's persistAccount().
+		await persistAccount(req.body.login.trim().toLowerCase())
 	}
 
 	// Login by username and password

@@ -1,6 +1,7 @@
 import TAGS from '../data/tags.js'
 import ENTRIES from '../data/entries.js'
 import { compareBy } from '../lib/pagination.js'
+import { saveTags, saveEntries } from './persistenceService.js'
 
 /**
  * Serializes a tag for the HTTP response.
@@ -29,7 +30,7 @@ function renameTag(id, newLabel) {
 	if(TAGS.getTagByLabelIgnoreCase(trimmed, id)) return 'conflict'
 
 	tag.label = trimmed
-	TAGS.save()
+	saveTags().catch((err) => console.error('saveTags() failed:', err))
 	return 'ok'
 }
 
@@ -47,7 +48,7 @@ function getOrCreateTag(label) {
  */
 function addTagParent(tagId, newParentId) {
 	const result = TAGS.addParent(tagId, newParentId)
-	if(result === 'ok') TAGS.save()
+	if(result === 'ok') saveTags().catch((err) => console.error('saveTags() failed:', err))
 	return result
 }
 
@@ -56,7 +57,7 @@ function addTagParent(tagId, newParentId) {
  */
 function removeTagParent(tagId, parentIdToRemove) {
 	const result = TAGS.removeParent(tagId, parentIdToRemove)
-	if(result === 'ok') TAGS.save()
+	if(result === 'ok') saveTags().catch((err) => console.error('saveTags() failed:', err))
 	return result
 }
 
@@ -150,7 +151,7 @@ function addTagToEntry(entryId, tagId) {
 	if(isTagCoveredByEntry(entry, tagId)) return 'already_covered'
 
 	entry.tags.push(tagId)
-	ENTRIES.save()
+	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
 	return 'ok'
 }
 
@@ -163,7 +164,7 @@ function removeTagFromEntry(entryId, tagId) {
 	if(!entry) return 'not_found'
 
 	entry.tags = entry.tags.filter((t) => t !== tagId)
-	ENTRIES.save()
+	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
 	return 'ok'
 }
 

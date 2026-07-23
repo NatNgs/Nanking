@@ -1,20 +1,13 @@
-import DB from './db.js'
 import ENTRIES from './entries.js'
-import { loadQuiz } from './quiz.js'
 import { paginate, compareBy } from '../lib/pagination.js'
 
 const ALL_USERS = {}
 class User {
-	constructor(db, username) {
-		this.db = db.sub('users.' + username)
+	constructor(username) {
 		this.username = username
 		this.entries = {} // {entryId: computedScore}
 		this.tags = {} // {tagId: computedScore}
-
 		this.quiz = []
-		for(const quizData of this.db.get('quiz') || []) {
-			this.quiz.push(loadQuiz(quizData))
-		}
 	}
 
 	getUserList() {
@@ -97,7 +90,7 @@ class User {
 
 	/**
 	 * Paginated, newest-first view of this user's quiz history, optionally
-	 * filtered by `type` ('default' | 'dual'). Never mutates or reorders
+	 * filtered by `type` ('direct' | 'dual'). Never mutates or reorders
 	 * `this.quiz` itself: the insertion order backs computeUserScores and
 	 * must stay untouched, this only builds a derived, reversed copy for
 	 * display. Each item carries `rank`, the 1-based position in the FULL,
@@ -116,7 +109,14 @@ class User {
 		}
 	}
 
+	/**
+	 * Records a vote, stamping it with the current time. `quiz.ts` is used by
+	 * persistenceService.js to persist the true moment of the vote to
+	 * SQLite's direct_quiz/dual_quiz `ts` column - it plays no role in the
+	 * in-memory model otherwise.
+	 */
 	didQuiz(quiz) {
+		quiz.ts = Date.now()
 		this.quiz.push(quiz)
 	}
 	removeQuiz(quiz) {
@@ -130,37 +130,19 @@ class User {
 		this.quiz = this.quiz.filter((q) => !q.referencesEntry(entry))
 		delete this.entries[entry.id]
 	}
-
-	save() {
-		// Convert this.quiz to proper Db format
-		const json = []
-		for(const quiz of this.quiz) {
-			json.push(quiz.toJson())
-		}
-		this.db.set('quiz', json)
-	}
-
 }
 
 function getUser(username) {
-	if(!ALL_USERS.hasOwnProperty(username)) ALL_USERS[username] = new User(DB, username)
+	if(!ALL_USERS.hasOwnProperty(username)) ALL_USERS[username] = new User(username)
 	return ALL_USERS[username]
 }
-function loadAllUsers() {
-	for(const username in DB.get('users') || {}) {
-		ALL_USERS[username] = new User(DB, username)
-	}
-}
-function saveAllUsers() {
-	for(const username in ALL_USERS) ALL_USERS[username].save()
-}
 /**
- * Permanently deletes a user's data (cache + persisted db subtree), never
- * touching the shared ENTRIES catalog.
+ * Permanently deletes a user's in-memory data. The caller (userService.js's
+ * deleteAccount()) is responsible for also removing the persisted rows - see
+ * persistenceService.js - never touching the shared ENTRIES catalog.
  */
 function deleteUser(username) {
 	delete ALL_USERS[username]
-	DB.sub('users.' + username).delete(null)
 }
 /**
  * True if at least one known user still has a vote referencing `entry`.
@@ -174,4 +156,4 @@ function anyUserReferencesEntry(entry) {
 	return false
 }
 
-export { getUser, loadAllUsers, saveAllUsers, deleteUser, anyUserReferencesEntry, ALL_USERS, User }
+export { getUser, deleteUser, anyUserReferencesEntry, ALL_USERS, User }

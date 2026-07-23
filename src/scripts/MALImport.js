@@ -48,10 +48,10 @@ function importMALuserData(username, clientId, nankingData, cb) {
 		}
 
 		// Update the user score
-		// Find if no previous userQuizData of type 'default' and with that same entry : if already present in list, ignore
-		if(!userQuizData.find((q) => q.type === 'default' && q.entry === entryIndex)) {
+		// Find if no previous userQuizData of type 'direct' and with that same entry : if already present in list, ignore
+		if(!userQuizData.find((q) => (q.type === 'direct' || q.type === 'default') && q.entry === entryIndex)) {
 			userQuizData.push({
-				type: 'default',
+				type: 'direct',
 				entry: entryIndex,
 				value: (userScore-1)/9,
 			})
