@@ -2,7 +2,7 @@ let unauthorizedHandler = null
 
 /**
  * Registers the function called instead of the alert+reload fallback when a
- * request comes back 401 (expired/invalid token). Meant to be called once by
+ * request comes back 401 (expired/invalid session). Meant to be called once by
  * UserProvider on mount, so an expired session degrades to the app's normal
  * logged-out state instead of a full page reload that would wipe any
  * in-progress form/modal/vote state.
@@ -12,9 +12,9 @@ function setUnauthorizedHandler(fn) {
 }
 
 /**
- * Sends an authenticated request to the API. Attaches the token from localStorage
- * in the `Authorization` header, and persists back the refreshed token returned by
- * the server (sliding session), mirroring the behavior of the previous callAPI().
+ * Sends a request to the API. The session cookie (HttpOnly, set by the
+ * server on login) is attached/renewed by the browser automatically via
+ * `credentials: 'include'` - no token bookkeeping needed here.
  *
  * `data` may be a FormData instance (e.g. file uploads): it is then sent as-is
  * (multipart), without JSON.stringify or a manual Content-Type header, since the
@@ -26,10 +26,8 @@ function setUnauthorizedHandler(fn) {
 async function apiFetch(path, method, data, options = {}) {
 	let url = '/api' + path
 	const headers = {}
-	const token = window.localStorage.getItem('token')
-	if(token) headers['Authorization'] = token
 
-	const fetchOptions = {method, headers, signal: options.signal}
+	const fetchOptions = {method, headers, credentials: 'include', signal: options.signal}
 	if(method === 'GET') {
 		if(data) url += '?' + new URLSearchParams(data).toString()
 	} else if(data instanceof FormData) {
@@ -41,17 +39,12 @@ async function apiFetch(path, method, data, options = {}) {
 
 	const response = await fetch(url, fetchOptions)
 
-	const refreshedToken = response.headers.get('authorization')
-	if(refreshedToken) window.localStorage.setItem('token', refreshedToken)
-
-	// if no refreshedToken and status is 401, means the token is expired, remove it
-	if(!refreshedToken && response.status === 401) {
-		window.localStorage.removeItem('token')
+	if(response.status === 401) {
 		if(unauthorizedHandler) {
 			unauthorizedHandler()
 		} else {
 			// Fallback if no handler was registered yet (e.g. UserProvider not mounted)
-			alert('Session token expired. Please log in again.')
+			alert('Session expired. Please log in again.')
 			window.location.reload()
 		}
 		return null

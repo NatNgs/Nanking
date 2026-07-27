@@ -48,7 +48,7 @@ const CONFIG = {
 	CLIENT_DIST_PATH:      p(localConfig.clientDistPath        || './dist/client'               ),
 	DATA_DIR:              p(localConfig.dataDir               || './data'                      ),
 	TOKEN_VALIDITY_LIMIT:  +(localConfig?.token?.validityLimit || (16 * 60 * 60)                ) * 1000,
-	TOKEN_REFRESH_RATE:    +(localConfig?.token?.refreshRate   || (1 * 60 * 60)                 ) * 1000,
+	SESSION_SECRET:          localConfig?.session?.secret       || null                          ,
 	SHUTDOWN_TIMEOUT:      +(localConfig.shutdownTimeout       || (60)                          ) * 1000,
 	SCORE_COMPUTE_INTERVAL:+(localConfig.scoreComputeInterval  || (3)                           ) * 1000,
 	RATE_LIMIT: {
@@ -57,6 +57,11 @@ const CONFIG = {
 		publicProfile: {limit: +(localConfig?.rateLimit?.publicProfile?.limit  || 30 ), windowMs: +(localConfig?.rateLimit?.publicProfile?.windowSeconds  || 60) * 1000},
 		page:          {limit: +(localConfig?.rateLimit?.page?.limit           || 60 ), windowMs: +(localConfig?.rateLimit?.page?.windowSeconds           || 60) * 1000},
 	},
+}
+
+if(!CONFIG.SESSION_SECRET) {
+	console.warn('No session.secret configured: using an insecure generated placeholder. Set session.secret in the config file for production.')
+	CONFIG.SESSION_SECRET = 'nanking-insecure-dev-secret-' + ENV_NAME
 }
 
 export default CONFIG

@@ -1,9 +1,5 @@
-import { v4 as uuidv4 } from 'uuid'
-import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'node:crypto'
-import CONFIG from '../config/config.js'
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 
-const TOKEN_VALIDITY_LIMIT = CONFIG.TOKEN_VALIDITY_LIMIT
-const TOKEN_REFRESH_RATE = CONFIG.TOKEN_REFRESH_RATE
 const USER_REGEX = /^[a-z0-9_.-]{4,20}$/
 
 /**
@@ -14,20 +10,9 @@ function hashWithSalt(pwd, salt) {
 	return scryptSync(pwd, salt, 64).toString('hex')
 }
 
-/**
- * Hashes a (token, ip) pair for in-memory storage. The raw token/IP are never
- * kept in memory past this point: only this hash is stored, so that a memory
- * dump does not expose directly reusable session tokens or IP addresses.
- */
-function hashTokenIp(token, ip) {
-	return createHash('sha256').update(token + '|' + ip).digest('hex')
-}
-
 class AccountManager {
 	constructor() {
 		this.accounts = {} // {user: {hash, salt, displayLogin}}
-		this.tokens = {}
-		this.tokens_reverse = {}
 	}
 
 	/**
@@ -62,7 +47,13 @@ class AccountManager {
 	getDisplayLogin(user) {
 		return this.accounts[user]?.displayLogin || user
 	}
-	login(user, pwd, ip) {
+	/**
+	 * Verifies credentials and returns the canonical (lowercased) username on
+	 * success, or false otherwise. No longer issues any token: the caller
+	 * (apiRoutes.js's /login) is responsible for establishing the
+	 * express-session once this returns.
+	 */
+	login(user, pwd) {
 		if(!user || !pwd) return false
 
 		// Check: username should match regex
@@ -81,8 +72,7 @@ class AccountManager {
 			return false
 		}
 
-		// Create new token, random string
-		return this.refresh_token(user, ip, null)
+		return user
 	}
 	/**
 	 * Checks a password against the stored hash without creating or refreshing
@@ -101,9 +91,10 @@ class AccountManager {
 		return timingSafeEqual(Buffer.from(hash), Buffer.from(account.hash))
 	}
 	/**
-	 * Removes the account and its associated token from memory. Purely
-	 * in-memory: the caller (userService.js's deleteAccount()) is responsible
-	 * for also removing the persisted row - see persistenceService.js.
+	 * Removes the account from memory. Purely in-memory: the caller
+	 * (userService.js's deleteAccount()) is responsible for also destroying
+	 * the user's express-session(s) and removing the persisted row - see
+	 * persistenceService.js.
 	 */
 	remove(user) {
 		if(!user) return false
@@ -111,68 +102,10 @@ class AccountManager {
 		if(!this.accounts[user]) return false
 
 		delete this.accounts[user]
-
-		const tokenInfo = this.tokens_reverse[user]
-		if(tokenInfo) {
-			delete this.tokens[tokenInfo.hash]
-			delete this.tokens_reverse[user]
-		}
-
 		return true
-	}
-	/**
-	 * Validates a token, and checks that it is being used from the same IP address
-	 * it was issued/refreshed on. Neither the raw token nor the IP are ever kept in
-	 * memory: only hash(token, ip) is stored, so a memory dump exposes nothing directly
-	 * reusable.
-	 */
-	check_token(token, ip) {
-		if(!token) return false
-		const hash = hashTokenIp(token, ip)
-		const user = this.tokens[hash]
-		if(!user) {
-			console.debug('Unknown token (or IP mismatch)')
-			return false
-		}
-		const tokenInfo = this.tokens_reverse[user]
-		if(Date.now() - tokenInfo.time > TOKEN_VALIDITY_LIMIT) {
-			delete this.tokens[hash]
-			delete this.tokens_reverse[user]
-			console.debug('Expired token', user)
-			return false
-		}
-		return user
-	}
-	/**
-	 * Refreshes (or creates) the session token for `user`, bound to `ip`.
-	 * `currentToken` is the token the caller already validated on this request (if any):
-	 * when the existing binding is still fresh enough, it is returned as-is instead of
-	 * generating a new one, since the caller already knows it — no need to keep the raw
-	 * token in memory to "give it back" later.
-	 */
-	refresh_token(user, ip, currentToken) {
-		user = user.trim().toLowerCase()
-
-		// If the current token is still bound to this exact (token, ip) pair and is not
-		// older than TOKEN_REFRESH_RATE, return it without refresh
-		const current = this.tokens_reverse[user]
-		if(current && currentToken
-		&& current.hash === hashTokenIp(currentToken, ip)
-		&& Date.now() - current.time < TOKEN_REFRESH_RATE) {
-			return currentToken
-		}
-
-		// Do refresh the token
-		const token = uuidv4()
-		if(current) delete this.tokens[current.hash]
-
-		const hash = hashTokenIp(token, ip)
-		this.tokens[hash] = user
-		this.tokens_reverse[user] = {hash, time: Date.now()}
-		return token
 	}
 }
 
 const ACCOUNTS = new AccountManager()
 export default ACCOUNTS
-export { AccountManager, hashTokenIp }
+export { AccountManager }

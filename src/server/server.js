@@ -7,6 +7,7 @@ import express, { 'static' as express_static } from 'express'
 const app = express()
 
 import { urlencoded, json } from 'body-parser'
+import session from 'express-session'
 
 import CONFIG from './config/config.js'
 import { openSqlite } from './data/sqliteDb.js'
@@ -35,6 +36,25 @@ launchComputation()
 // Configuring express to use body-parser as middle-ware
 app.use(urlencoded({ extended: false }));
 app.use(json())
+
+// Cookie-based session (HttpOnly, so a script cannot read it from the
+// client - unlike the previous localStorage-based token). Backed by the
+// default in-memory MemoryStore: sessions do not survive a server restart,
+// deemed acceptable for this single-instance server (see README's TODO).
+app.set('trust proxy', 1)
+app.use(session({
+	name: 'nanking.sid',
+	secret: CONFIG.SESSION_SECRET,
+	resave: false,
+	saveUninitialized: false,
+	rolling: true,
+	cookie: {
+		httpOnly: true,
+		secure: CONFIG.CERT_KEY_PATH != null,
+		sameSite: 'lax',
+		maxAge: CONFIG.TOKEN_VALIDITY_LIMIT,
+	},
+}))
 
 /* HARD DEBUG */
 app.all('{*path}', (req, res, next) => {

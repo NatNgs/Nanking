@@ -26,15 +26,16 @@ const loginLimiter = rateLimit({
 
 /**
  * Looser limit on authenticated routes (`/user`, `/quiz`), keyed by username
- * so it does not penalize multiple users behind the same NAT/proxy. Must run
- * after the `authenticate` middleware, since it relies on `req.user`.
+ * so it does not penalize multiple users behind the same NAT/proxy. Reads
+ * `req.session.username` directly rather than `req.user`, since this limiter
+ * runs before the `authenticate` middleware on some routes.
  */
 const apiLimiter = rateLimit({
 	windowMs: CONFIG.RATE_LIMIT.api.windowMs,
 	limit: CONFIG.RATE_LIMIT.api.limit,
 	standardHeaders: true,
 	legacyHeaders: false,
-	keyGenerator: (req) => req.user?.username || ipKeyGenerator(req.ip),
+	keyGenerator: (req) => req.session?.username || ipKeyGenerator(req.ip),
 	handler,
 })
 

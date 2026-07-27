@@ -6,10 +6,15 @@ import RecentVotesTable from '../../components/quiz/RecentVotesTable.jsx'
 import './AccountPage.css'
 
 function AccountPage() {
-	const {isAuthenticated, username, logOut} = useUserContext()
+	const {isAuthenticated, isLoading, username, logOut} = useUserContext()
 	const {scoreFormatter} = useOutletContext()
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
+	// Wait for the initial /user/me check (see useAuth.js) before deciding to
+	// redirect: on a full page load, isAuthenticated starts false until that
+	// check resolves, since a HttpOnly cookie can't be inspected synchronously
+	// the way the previous localStorage token was.
+	if(isLoading) return null
 	if(!isAuthenticated) return <Navigate to="/" replace />
 
 	return (

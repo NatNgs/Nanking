@@ -32,14 +32,35 @@ apiRouter.post('/login', loginLimiter, async (req, res) => {
 	}
 
 	// Login by username and password
-	const newToken = ACCOUNTS.login(req.body.login, req.body.pwd, req.ip)
-	if(newToken) {
-		res.setHeader('authorization', newToken).status(200).send('ok')
-		console.debug(req.originalUrl, `=> 200 (${req.body.login}${req.body.new ? ' (new account)':' (using pwd)'})`)
+	const username = ACCOUNTS.login(req.body.login, req.body.pwd)
+	if(username) {
+		// Regenerate the session id on login, so a pre-login session id (fixation)
+		// can never be reused as an authenticated one.
+		req.session.regenerate((err) => {
+			if(err) {
+				console.error(req.originalUrl, '=> 500: session.regenerate() failed:', err)
+				res.status(500).send('Login failed')
+				return
+			}
+			req.session.username = username
+			res.status(200).send('ok')
+			console.debug(req.originalUrl, `=> 200 (${req.body.login}${req.body.new ? ' (new account)':' (using pwd)'})`)
+		})
 	} else {
 		res.status(403).send('Login failed')
 		console.warn(req.originalUrl, `=> 403: Login failed (${req.body.login}${req.body.new ? ' (new account)':''})`)
 	}
+})
+apiRouter.post('/logout', (req, res) => {
+	req.session.destroy((err) => {
+		if(err) {
+			console.error(req.originalUrl, '=> 500: session.destroy() failed:', err)
+			res.status(500).send('Logout failed')
+			return
+		}
+		res.clearCookie('nanking.sid')
+		res.status(200).send('ok')
+	})
 })
 apiRouter.get('/entries', (req, res) => {
 	const {q, sort, order, page, limit} = req.query

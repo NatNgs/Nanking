@@ -158,9 +158,10 @@ async function saveTags() {
 }
 
 /**
- * Loads every account from SQLite into ACCOUNTS, and every still-valid
- * session (see `sessions` table) so tokens survive a server restart. Called
- * once at startup, after loadTags() - see loadAll().
+ * Loads every account from SQLite into ACCOUNTS. Called once at startup,
+ * after loadTags() - see loadAll(). Sessions themselves are not persisted -
+ * see server.js's express-session setup (in-memory MemoryStore, sessions do
+ * not survive a restart).
  */
 async function loadAccounts() {
 	const rows = await sqlite.all('SELECT username, display_login, password_hash, salt FROM accounts')
@@ -171,12 +172,6 @@ async function loadAccounts() {
 		// until add()/persistAccount() gives it real credentials.
 		if(row.password_hash == null) continue
 		ACCOUNTS.accounts[row.username] = {hash: row.password_hash, salt: row.salt, displayLogin: row.display_login}
-	}
-
-	const sessions = await sqlite.all('SELECT token_ip_hash, username, issued_at FROM sessions')
-	for(const session of sessions) {
-		ACCOUNTS.tokens[session.token_ip_hash] = session.username
-		ACCOUNTS.tokens_reverse[session.username] = {hash: session.token_ip_hash, time: session.issued_at}
 	}
 }
 
@@ -222,30 +217,6 @@ async function saveAccounts() {
  */
 async function deleteAccount(username) {
 	await sqlite.run('DELETE FROM accounts WHERE username = ?', [username])
-}
-
-/**
- * Persists a token refresh/expiry to the `sessions` table, fire-and-forget
- * from the caller's perspective (authenticate.js's middleware stays
- * synchronous) - mirrors ACCOUNTS.refresh_token()'s in-memory bookkeeping.
- */
-async function persistTokenRefresh(user, hash, issuedAt, previousHash) {
-	await sqlite.transaction(() => {
-		const db = sqlite.db
-		if(previousHash) db.prepare('DELETE FROM sessions WHERE token_ip_hash = ?').run(previousHash)
-		db.prepare(
-			'INSERT INTO sessions (token_ip_hash, username, issued_at) VALUES (?, ?, ?) ' +
-			'ON CONFLICT (token_ip_hash) DO UPDATE SET username = excluded.username, issued_at = excluded.issued_at'
-		).run(hash, user, issuedAt)
-	})
-}
-
-/**
- * Removes an expired token's row from the `sessions` table, fire-and-forget -
- * mirrors ACCOUNTS.check_token()'s in-memory cleanup on expiry.
- */
-async function deleteSession(hash) {
-	await sqlite.run('DELETE FROM sessions WHERE token_ip_hash = ?', [hash])
 }
 
 /**
@@ -351,6 +322,6 @@ async function loadAll() {
 export {
 	init, loadAll, loadEntries, loadTags, loadAccounts, loadAllUsers, loadUserQuiz,
 	saveEntries, saveTags, saveAccounts, saveUser, saveAllUsers,
-	persistAccount, deleteAccount, persistTokenRefresh, deleteSession,
+	persistAccount, deleteAccount,
 	normalizeDualQuiz,
 }

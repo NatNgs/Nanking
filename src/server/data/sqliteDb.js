@@ -39,12 +39,6 @@ CREATE TABLE IF NOT EXISTS accounts (
 	salt          TEXT
 );
 
-CREATE TABLE IF NOT EXISTS sessions (
-	token_ip_hash TEXT PRIMARY KEY,
-	username      TEXT NOT NULL REFERENCES accounts(username) ON DELETE CASCADE,
-	issued_at     INTEGER NOT NULL
-);
-
 -- ON DELETE CASCADE: deleteAccount() (userService.js) calls ACCOUNTS.remove()
 -- before deleteUser(), so a removed account's quiz history must be purged
 -- automatically rather than relying on that call order to hold forever.
@@ -73,6 +67,10 @@ function openDatabase(path) {
 	const db = new DatabaseSync(path)
 	db.exec('PRAGMA foreign_keys = ON')
 	db.exec(SCHEMA)
+	// Migration to express-session (cookie-based, MemoryStore): the homemade
+	// token table is no longer read or written, drop it from any database
+	// created before this change.
+	db.exec('DROP TABLE IF EXISTS sessions')
 	return db
 }
 

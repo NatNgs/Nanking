@@ -28,8 +28,8 @@ Every value has a default, overridable via the config file:
 | `dbPath` | `data/NankingServerData.gz` | Legacy gzip-compressed JSON database, imported once - see below |
 | `sqlitePath` | `data/nanking.sqlite` | SQLite database file (source of truth once created) |
 | `clientDistPath` | `dist/client` | Compiled React app served as static files |
-| `token.validityLimit` | 16 hours (seconds) | Absolute session token expiration |
-| `token.refreshRate` | 1 hour (seconds) | Minimum delay between two token refreshes |
+| `token.validityLimit` | 16 hours (seconds) | Session cookie max age (`express-session`'s `cookie.maxAge`, sliding - see below) |
+| `session.secret` | *(none - insecure placeholder, warns)* | Secret used to sign the session ID cookie - see below |
 | `shutdownTimeout` | 60 seconds | Force-exit delay if graceful shutdown hangs |
 | `dataDir` | `data` | Directory for auxiliary data (e.g. uploaded entry images) |
 | `scoreComputeInterval` | 3 seconds | Interval between two score recomputation cycles |
@@ -55,6 +55,20 @@ If `cert.keyPath`/`cert.certPath` point to a missing or unreadable file, the ser
 logs an error and exits (exit code 1) rather than starting without transport
 encryption. With no `cert` section at all (the default), the server starts in plain
 HTTP mode - intended for local development only, never for production.
+
+**Sessions**: authentication is a cookie-based `express-session` (`HttpOnly`, and
+`Secure` whenever `cert` is configured), backed by the default in-memory
+`MemoryStore` - sessions do not survive a server restart (acceptable for this
+single-instance server; revisit with a persistent store only if that becomes an
+issue). The cookie is signed with `session.secret`; if unset, the server logs a
+warning and falls back to an insecure generated placeholder - always set it for
+production:
+
+```yaml
+# conf/conf.local.yml
+session:
+  secret: some-long-random-string
+```
 
 **Database**: the server persists to a SQLite file (`sqlitePath`, via Node's native
 `node:sqlite`), never to the legacy JSON file directly. On startup:
@@ -119,7 +133,6 @@ usual.
 ## TODO List
 
 - Fix that React-select (tag picker, new entry picker) behavior (tests show often fails to compute/display the suggestions; clears itself when click on already inputed text; ...), and align the confirm button next to it (even try to make the + button with white background such as it looks like to be part of the picker) => Maybe the solution is to create my own picker with suggestions
-- Consider migrating session handling to `express-session` (see below)
 - Progressively rework the data services (`entryService.js`, `tagService.js`, `userService.js`, `scoresComputerService.js`) to actually use SQLite's relational model (joins, indexes, `WHERE` filtering) instead of loading everything into plain JS objects/arrays at startup and working in memory - the SQLite migration (see Configuration > Database above) only replaced the storage backend so far, none of the query/computation logic changed
 - Improve dual picker (reduce chance to pick already compared entries, or transitively compared ones, increase chance to pick entries with low number of dual aleady done with them, increased chance to pick entries with only winning duals)
 - Possibility to manually chose what entry to dual (either no manual selection => automatic, or one selected and other automatic, or both manual)
@@ -132,49 +145,6 @@ usual.
 - Share filtered user table: Make public link /user/usename filtrable with query params to filter/sort the content (for example ?hasTag=french to only show french items from the username list)
 - Proper mobile dispay mode
 
-
-### Possible migration to `express-session`
-
-Not decided yet. The current homemade token system (`src/server/data/accounts.js`)
-works, but a cookie-based session via `express-session` would bring `HttpOnly`
-protection against token theft via XSS - the current token is readable by any script
-through `localStorage`, which a cookie flagged `HttpOnly` is not.
-
-Server-side impact:
-
-- Replace the `tokens`/`tokens_reverse` maps and the `Authorization` header convention
-  with `req.session`, backed by the default `MemoryStore` (or an external store, if
-  ever needed).
-- The IP-binding and hashed-storage work done in `accounts.js` would need to be
-  reconsidered: `express-session` does not bind sessions to an IP by default, and the
-  session ID is opaque to the application (no more custom hashing needed, since the
-  session store already keeps the mapping outside of readable memory in the same way).
-- Rate-limiting (`src/server/middleware/rateLimit.js`) would switch its authenticated
-  key from `req.user.username` to whatever `express-session` exposes once wired in.
-
-Client-side impact (see `src/client/hooks/useApi.js` and `src/client/hooks/useAuth.js`
-- the only two files that know about the token mechanism; every page/component goes
-through `apiGet`/`apiPost`/`apiPut` and would not change):
-
-- `useApi.js`: `apiFetch()` currently attaches the token manually to the
-  `Authorization` header and persists the response header back to `localStorage` on
-  every call. With cookie-based sessions, this logic is simply removed - the browser
-  attaches the cookie automatically. The `fetch()` call needs
-  `credentials: 'include'` added so it actually sends/accepts the cookie.
-- `useAuth.js`: the mount effect currently checks `localStorage.getItem('token')` to
-  decide whether to attempt auto-login; with a cookie, that check must become an
-  unconditional call to a `/user/me`-style endpoint, since the client can no longer
-  inspect the session cookie's presence directly (especially once `HttpOnly` is set).
-  `login()`/`register()` no longer need to read the `authorization` response header
-  or write to `localStorage` - the server sets the cookie via `Set-Cookie`. `logOut()`
-  can no longer clear the cookie itself; it needs a server-side logout endpoint that
-  calls `req.session.destroy()`.
-- The client-side SHA-512 password hashing (`useAuth.js`) is unaffected either way -
-  it is independent of the session transport mechanism.
-
-Net effect on the client: a dozen lines removed across 2 hooks, no new complexity -
-the browser takes over cookie lifecycle management instead of the client-side JS
-doing it by hand.
 
 ### Rate-limiting
 
