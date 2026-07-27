@@ -56,6 +56,10 @@ function EntryPage() {
 	}, [entryId, isAuthenticated])
 
 	const isBusy = isRenaming || isUploadingImage || isRemovingScore || isEditingTags
+	// An Admin can edit any entry (rename, image, tags) even without a personal
+	// score on it - see README's "Create a user Admin boolean" - unlike
+	// "Remove it from my scores" below, which only makes sense with one.
+	const canEdit = isAuthenticated && (entry.userScore != null || entry.isAdmin)
 
 	async function onImageFileSelected(e) {
 		const file = e.target.files?.[0]
@@ -132,11 +136,11 @@ function EntryPage() {
 		<div className="entry-page">
 			<div className="entry-page-title">
 				<h1>{entry.name}</h1>
-				{isAuthenticated && entry.userScore != null && (<button disabled={isBusy} onClick={onRename}>Rename</button>)}
+				{canEdit && (<button disabled={isBusy} onClick={onRename}>Rename</button>)}
 			</div>
 			<div className="entry-page-image-container">
 				<img className="entry-page-image" src={"/api/entry/" + entry.id + "/image.png?v=" + imageVersion} alt={entry.name} />
-				<div>{isAuthenticated && entry.userScore != null && (<>
+				<div>{canEdit && (<>
 					<label className={"entry-page-image-upload" + (isBusy ? ' disabled' : '')} for={isBusy ? undefined : "entry-page-image-uploader"}>Upload a new picture</label>
 					<input type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} disabled={isBusy} hidden />
 					<p className="entry-page-help">Accepts : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)<br/>Preffered dimensions: 200x200px (other will be resized)</p>
@@ -149,10 +153,10 @@ function EntryPage() {
 				{entry.tags.map((tag) => (
 					<span key={tag.id} className="entry-page-tag">
 						<TagSpan id={tag.id} label={tag.label} />
-						{isAuthenticated && <button disabled={isBusy} onClick={() => onRemoveTag(tag.id)}>x</button>}
+						{canEdit && <button disabled={isBusy} onClick={() => onRemoveTag(tag.id)}>x</button>}
 					</span>
 				))}
-				{isAuthenticated && (
+				{canEdit && (
 					<TagPicker
 						searchFilter={{notOnEntity: entry.id}}
 						onAdd={onAddTag}

@@ -164,14 +164,17 @@ async function saveTags() {
  * not survive a restart).
  */
 async function loadAccounts() {
-	const rows = await sqlite.all('SELECT username, display_login, password_hash, salt FROM accounts')
+	const rows = await sqlite.all('SELECT username, display_login, password_hash, salt, is_admin FROM accounts')
 	for(const row of rows) {
 		// A ghost account (imported quiz data, no credentials yet - see
 		// migrateFromJson.js) has NULL hash/salt: skip it here so
 		// ACCOUNTS.accounts[user] stays falsy, exactly like "not registered",
 		// until add()/persistAccount() gives it real credentials.
 		if(row.password_hash == null) continue
-		ACCOUNTS.accounts[row.username] = {hash: row.password_hash, salt: row.salt, displayLogin: row.display_login}
+		ACCOUNTS.accounts[row.username] = {
+			hash: row.password_hash, salt: row.salt, displayLogin: row.display_login,
+			isAdmin: !!row.is_admin,
+		}
 	}
 }
 
@@ -183,6 +186,11 @@ async function loadAccounts() {
  */
 async function persistAccount(username) {
 	const account = ACCOUNTS.accounts[username]
+	// is_admin is deliberately not part of this upsert's SET clause: it is
+	// never set by the application (see README's "Database access" section),
+	// only ever granted directly in SQLite - this must never overwrite it
+	// back to the in-memory default (false for a brand new account, or
+	// whatever loadAccounts() read for an existing one).
 	await sqlite.run(
 		'INSERT INTO accounts (username, display_login, password_hash, salt) VALUES (?, ?, ?, ?) ' +
 		'ON CONFLICT (username) DO UPDATE SET display_login = excluded.display_login, password_hash = excluded.password_hash, salt = excluded.salt',
@@ -193,7 +201,8 @@ async function persistAccount(username) {
 /**
  * Fully syncs SQLite's `accounts` table to ACCOUNTS.accounts: only ever
  * upserts (never deletes a row missing from memory - deleteAccount() below
- * already handles deletion directly and immediately).
+ * already handles deletion directly and immediately). Deliberately does not
+ * touch is_admin - see persistAccount()'s comment.
  */
 async function saveAccounts() {
 	await sqlite.transaction(() => {

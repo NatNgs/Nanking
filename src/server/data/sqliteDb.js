@@ -32,11 +32,14 @@ CREATE TABLE IF NOT EXISTS entry_tags (
 -- (and is already linked to direct_quiz/dual_quiz rows via username), but
 -- AccountManager.add() must still treat it as "not registered yet" so the
 -- first real registration attaches credentials to it instead of failing.
+-- is_admin is never set by the application itself - see README's "Database
+-- access" section for how to grant it directly in SQLite.
 CREATE TABLE IF NOT EXISTS accounts (
 	username      TEXT PRIMARY KEY,
 	display_login TEXT NOT NULL,
 	password_hash TEXT,
-	salt          TEXT
+	salt          TEXT,
+	is_admin      INTEGER NOT NULL DEFAULT 0
 );
 
 -- ON DELETE CASCADE: deleteAccount() (userService.js) calls ACCOUNTS.remove()
@@ -71,6 +74,13 @@ function openDatabase(path) {
 	// token table is no longer read or written, drop it from any database
 	// created before this change.
 	db.exec('DROP TABLE IF EXISTS sessions')
+	// Migration for the Admin flag: SQLite has no "ADD COLUMN IF NOT EXISTS",
+	// so check first - re-running this on a database that already has the
+	// column would fail ("duplicate column name").
+	const accountColumns = db.prepare('PRAGMA table_info(accounts)').all()
+	if(!accountColumns.some((col) => col.name === 'is_admin')) {
+		db.exec('ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
+	}
 	return db
 }
 

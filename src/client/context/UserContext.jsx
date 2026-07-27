@@ -15,6 +15,7 @@ function UserProvider({children}) {
 
 	const [username, setUsername] = useState(null)
 	const [scoredEntriesCount, setScoredEntriesCount] = useState(0)
+	const [isAdmin, setIsAdmin] = useState(false)
 	// Bumped by every action that changes a user's scores (vote, entry
 	// creation, score removal). Views showing a paginated score table
 	// (usePaginatedList's `dependsOn`) watch this to refetch their current
@@ -34,11 +35,13 @@ function UserProvider({children}) {
 		if(!auth.isAuthenticated) {
 			setUsername(null)
 			setScoredEntriesCount(0)
+			setIsAdmin(false)
 			return
 		}
 		const data = await apiGet('/user/me')
 		setUsername(data.username)
 		setScoredEntriesCount(data.scoredEntriesCount || 0)
+		setIsAdmin(!!data.isAdmin)
 	}, [auth.isAuthenticated])
 
 	useEffect(() => {
@@ -53,6 +56,7 @@ function UserProvider({children}) {
 		logOut: auth.logOut,
 		username,
 		scoredEntriesCount,
+		isAdmin,
 		entriesVersion,
 		bumpEntriesVersion,
 		refreshUserData,

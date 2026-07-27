@@ -29,6 +29,7 @@ function returnUserData(req, res) {
 	res.json({
 		username: req.user.displayLogin || req.user.username,
 		scoredEntriesCount: Object.keys(req.user.entries).length,
+		isAdmin: !!req.user.isAdmin,
 	})
 }
 

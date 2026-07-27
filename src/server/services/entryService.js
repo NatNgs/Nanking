@@ -7,7 +7,9 @@ import { saveEntries } from './persistenceService.js'
 
 /**
  * Serializes an entry for the HTTP response. Includes the current user's
- * score on this entry when `user` is authenticated and has one.
+ * score on this entry when `user` is authenticated and has one, and whether
+ * they are an Admin (who can edit any entry regardless of having a score on
+ * it - see EntryPage.jsx).
  */
 function getEntryData(id, user=null) {
 	const entry = ENTRIES.getEntryById(id)
@@ -19,6 +21,7 @@ function getEntryData(id, user=null) {
 		image: entry.image,
 		globalScore: entry.globalScore,
 		tags: resolveEntryTags(entry),
+		isAdmin: !!user?.isAdmin,
 	}
 	if(user && user.entries.hasOwnProperty(entry.id)) {
 		data.userScore = user.entries[entry.id]

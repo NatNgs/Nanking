@@ -90,6 +90,28 @@ describe('entryService', () => {
 
 			assert.equal('userScore' in data, false)
 		})
+
+		test('isAdmin is false when no user is given', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			assert.equal(getEntryData('n:0').isAdmin, false)
+		})
+
+		test('isAdmin is false for a regular authenticated user', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby')
+			assert.equal(getEntryData('n:0', user).isAdmin, false)
+		})
+
+		test('isAdmin is true when the given user has the Admin flag set, even without a score on this entry', () => {
+			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
+			const user = makeUser('bobby')
+			user.isAdmin = true
+
+			const data = getEntryData('n:0', user)
+
+			assert.equal(data.isAdmin, true)
+			assert.equal('userScore' in data, false)
+		})
 	})
 
 	describe('renameEntry', () => {

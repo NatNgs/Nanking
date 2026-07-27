@@ -15,6 +15,7 @@ function requireAuthentication(req, res, next) {
 	}
 	req.user = getUser(username)
 	req.user.displayLogin = ACCOUNTS.getDisplayLogin(username)
+	req.user.isAdmin = ACCOUNTS.isAdmin(username)
 	next()
 }
 
@@ -30,6 +31,7 @@ function attachUserIfAuthenticated(req, res, next) {
 
 	req.user = getUser(username)
 	req.user.displayLogin = ACCOUNTS.getDisplayLogin(username)
+	req.user.isAdmin = ACCOUNTS.isAdmin(username)
 	next()
 }
 

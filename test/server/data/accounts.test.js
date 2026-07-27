@@ -107,4 +107,22 @@ describe('AccountManager', () => {
 		const accounts = new AccountManager()
 		assert.equal(accounts.remove('ghost'), false)
 	})
+
+	test('isAdmin() is false by default (not settable from the application itself)', () => {
+		const accounts = new AccountManager()
+		accounts.add('bobby', 'hashedpwd')
+		assert.equal(accounts.isAdmin('bobby'), false)
+	})
+
+	test('isAdmin() is false for an unknown account', () => {
+		const accounts = new AccountManager()
+		assert.equal(accounts.isAdmin('ghost'), false)
+	})
+
+	test('isAdmin() reflects the Admin flag once set directly (e.g. loaded from SQLite)', () => {
+		const accounts = new AccountManager()
+		accounts.add('bobby', 'hashedpwd')
+		accounts.accounts.bobby.isAdmin = true
+		assert.equal(accounts.isAdmin('bobby'), true)
+	})
 })

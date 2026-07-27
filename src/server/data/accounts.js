@@ -48,6 +48,15 @@ class AccountManager {
 		return this.accounts[user]?.displayLogin || user
 	}
 	/**
+	 * True if `user` has the Admin flag set. This flag is never settable from
+	 * the application itself - see README's "Database access" section for how
+	 * to grant it directly in SQLite - so this is the only place it is ever
+	 * read from.
+	 */
+	isAdmin(user) {
+		return !!this.accounts[user]?.isAdmin
+	}
+	/**
 	 * Verifies credentials and returns the canonical (lowercased) username on
 	 * success, or false otherwise. No longer issues any token: the caller
 	 * (apiRoutes.js's /login) is responsible for establishing the
