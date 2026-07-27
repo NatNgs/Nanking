@@ -87,7 +87,7 @@ function apiDelete(path, data, options) {
 async function loadOr404(fetchResource, resourceName) {
 	try {
 		return await fetchResource()
-	} catch(err) {
+	} catch (err) {
 		if(err.status === 404) throw new Response(resourceName, {status: 404})
 		throw err
 	}

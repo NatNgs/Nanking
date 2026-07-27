@@ -41,6 +41,26 @@ function RecentVotesTable({scoreFormatter, type, limit = 100, showPagination = f
 		}
 	}
 
+	function voteDetail(vote) {
+		if(vote.type === 'direct') {
+			return (
+				<>
+					<EntrySpan id={vote.entry} label={vote.entryLabel} title={vote.entryLabel} />
+					{' => '}
+					<span className="entryScore">{scoreFormatter.pretty(vote.value)}</span>
+				</>
+			)
+		}
+		const operator = vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'
+		return (
+			<>
+				<EntrySpan id={vote.neg} label={vote.negLabel} title={vote.negLabel} />
+				{' '}<span className="dualOperator">{operator}</span>{' '}
+				<EntrySpan id={vote.pos} label={vote.posLabel} title={vote.posLabel} />
+			</>
+		)
+	}
+
 	if(items.length === 0) return null
 
 	return (
@@ -63,14 +83,14 @@ function RecentVotesTable({scoreFormatter, type, limit = 100, showPagination = f
 								{showRank && <td className="rankCol">{vote.rank}</td>}
 								<td>{vote.type}</td>
 								<td>
-									<div className="voteDetail">{vote.type === 'direct'
-										? (<><EntrySpan id={vote.entry} label={vote.entryLabel} title={vote.entryLabel} /> =&gt; <span className="entryScore">{scoreFormatter.pretty(vote.value)}</span></>)
-										: (<>
-										<EntrySpan id={vote.neg} label={vote.negLabel} title={vote.negLabel} /> <span className="dualOperator">{vote.value < 0 ? '>' : vote.value === 0 ? '=' : '<'}</span> <EntrySpan id={vote.pos} label={vote.posLabel} title={vote.posLabel} />
-										</>)
-									}</div>
+									<div className="voteDetail">{voteDetail(vote)}</div>
 								</td>
-								<td className="actionsCol"><button disabled={deletingKey != null} onClick={() => onDelete(vote)} className="deleteButton" title="Remove">🗙</button></td>
+								<td className="actionsCol">
+									<button
+										disabled={deletingKey != null} onClick={() => onDelete(vote)}
+										className="deleteButton" title="Remove"
+									>🗙</button>
+								</td>
 							</tr>
 						)
 					})}

@@ -13,9 +13,14 @@ function Header({scoreFormat, setScoreFormat, onOpenLogin}) {
 			<div className="app-header-actions">
 				<div className="app-header-labelled">
 					<label htmlFor="header-score-format">Scores format:</label>
-					<select id="header-score-format" name="format" value={scoreFormat} onChange={(e) => setScoreFormat(e.target.value)}>
+					<select
+						id="header-score-format" name="format" value={scoreFormat}
+						onChange={(e) => setScoreFormat(e.target.value)}
+					>
 						{Object.keys(FORMATTERS).map((format) => (
-							<option key={format} value={format}>{format} ({FORMATTERS[format].pretty(0)}-{FORMATTERS[format].pretty(1)})</option>
+							<option key={format} value={format}>
+								{format} ({FORMATTERS[format].pretty(0)}-{FORMATTERS[format].pretty(1)})
+							</option>
 						))}
 					</select>
 				</div>

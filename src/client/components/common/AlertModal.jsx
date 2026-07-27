@@ -1,3 +1,4 @@
+import { useModalA11y } from '../../hooks/useModalA11y.js'
 import './Modal.css'
 
 /**
@@ -6,9 +7,14 @@ import './Modal.css'
  * overlay click.
  */
 function AlertModal({message, onClose}) {
+	const boxRef = useModalA11y(onClose)
+
 	return (
 		<div className="modal-overlay" onClick={onClose}>
-			<div className="modal-box" onClick={(e) => e.stopPropagation()}>
+			<div
+				className="modal-box" ref={boxRef} role="dialog" aria-modal="true"
+				tabIndex={-1} onClick={(e) => e.stopPropagation()}
+			>
 				<p className="modal-message">{message}</p>
 				<div className="modal-actions">
 					<button type="button" onClick={onClose}>OK</button>

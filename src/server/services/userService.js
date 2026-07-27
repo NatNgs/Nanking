@@ -1,7 +1,8 @@
-import ACCOUNTS from '../data/accounts.js'
-import { getUser, deleteUser } from '../data/user.js'
-import ENTRIES from '../data/entries.js'
-import { deleteAccount as deletePersistedAccount } from './persistenceService.js'
+import { getAccount, getDisplayLogin, removeAccount } from '../data/accountsRepository.js'
+import { getUser } from '../data/userRepository.js'
+import { getEntryById, getEntriesByIds } from '../data/entriesRepository.js'
+import { paginate, compareBy } from '../lib/pagination.js'
+import { computeUserScores } from './scoresComputerService.js'
 
 /**
  * Enriches a serialized vote (toJson()) with the labels of the entries it
@@ -9,13 +10,13 @@ import { deleteAccount as deletePersistedAccount } from './persistenceService.js
  * display them (AccountPage "My inputs"). Mirrors resolveEntryTags in
  * tagService.js.
  */
-function enrichVoteWithLabels(voteJson) {
-	const label = (entryId) => ENTRIES.getEntryById(entryId)?.name ?? null
+async function enrichVoteWithLabels(sqlite, voteJson) {
+	const label = async (entryId) => (await getEntryById(sqlite, entryId))?.name ?? null
 	if(voteJson.type === 'direct') {
-		return {...voteJson, entryLabel: label(voteJson.entry)}
+		return {...voteJson, entryLabel: await label(voteJson.entry)}
 	}
 	if(voteJson.type === 'dual') {
-		return {...voteJson, negLabel: label(voteJson.neg), posLabel: label(voteJson.pos)}
+		return {...voteJson, negLabel: await label(voteJson.neg), posLabel: await label(voteJson.pos)}
 	}
 	return voteJson
 }
@@ -23,9 +24,13 @@ function enrichVoteWithLabels(voteJson) {
 /**
  * Serializes the current user's data for the HTTP response. Kept light:
  * neither user_scores (see GET /api/user/me/entities) nor the vote history
- * (see GET /api/user/me/quiz) - both are paginated separately.
+ * (see GET /api/user/me/quiz) - both are paginated separately. user.entries is
+ * never persisted (see scoresComputerService's design notes) - recomputed
+ * here so scoredEntriesCount reflects the user's current vote history, not
+ * whatever computeUserScores() call (if any) happened earlier in this request.
  */
-function returnUserData(req, res) {
+async function returnUserData(sqlite, req, res) {
+	await computeUserScores(sqlite, req.user)
 	res.json({
 		username: req.user.displayLogin || req.user.username,
 		scoredEntriesCount: Object.keys(req.user.entries).length,
@@ -38,39 +43,89 @@ function returnUserData(req, res) {
  * GET /api/user/me/quiz. `type` ('direct' | 'dual') optionally restricts to
  * one quiz kind, e.g. for the "recent inputs" mini-tables on NewEntryForm/DualQuiz.
  */
-function getUserQuizPaginated(user, {type, page, limit} = {}) {
+async function getUserQuizPaginated(sqlite, user, {type, page, limit} = {}) {
 	const paginated = user.getQuizPaginated({type, page, limit})
-	return {...paginated, items: paginated.items.map(enrichVoteWithLabels)}
+	const items = []
+	for(const item of paginated.items) items.push(await enrichVoteWithLabels(sqlite, item))
+	return {...paginated, items}
+}
+
+/**
+ * Paginated version of user.entries (raw computed scores, see
+ * scoresComputerService.computeUserScores): sorts on the RAW user score
+ * (min-max stretching is a monotonic function of the raw score, so sorting
+ * before or after stretching gives the same order), slices the requested
+ * page, and only THEN stretches the page's items and resolves their entry
+ * label/image/globalScore in one batch — using the min/max computed over the
+ * full entries set, never materializing the whole stretched list.
+ */
+async function paginateUserEntries(sqlite, userEntries, {sort, order, page, limit} = {}) {
+	const rawEntries = Object.entries(userEntries) // [[entryId, rawScore], ...]
+	const values = Object.values(userEntries)
+	const minUserScore = Math.min(...values)
+	const maxUserScore = Math.max(...values)
+	const range = maxUserScore - minUserScore
+
+	let entriesById
+	if(sort === 'label' || sort === 'globalScore') {
+		entriesById = await getEntriesByIds(sqlite, rawEntries.map(([id]) => id))
+	}
+
+	let sortKey
+	if(sort === 'label') sortKey = ([id]) => entriesById.get(id)?.name
+	else if(sort === 'globalScore') sortKey = ([id]) => entriesById.get(id)?.globalScore
+	else sortKey = ([, rawScore]) => rawScore
+	const defaultOrder = sort === 'label' ? 'asc' : 'desc'
+	rawEntries.sort(compareBy(sortKey, order || defaultOrder))
+
+	const {items, page: p, limit: l, total, hasMore} = paginate(rawEntries, {page, limit})
+
+	const pageEntriesById = await getEntriesByIds(sqlite, items.map(([id]) => id))
+	const stretchedItems = items.map(([entryId, rawScore]) => {
+		const entry = pageEntriesById.get(entryId)
+		return {
+			id: entryId,
+			label: entry?.name,
+			image: entry?.image,
+			score: range === 0 ? 0.5 : (rawScore - minUserScore) / range,
+			globalScore: entry?.globalScore,
+		}
+	})
+
+	return {items: stretchedItems, page: p, limit: l, total, hasMore}
 }
 
 /**
  * Paginated scores for the current user, backing GET /api/user/me/entities.
+ * user.entries is never persisted (see scoresComputerService's design notes)
+ * - always recomputed here from the user's own vote history before pagination.
  */
-function getUserEntities(user, {sort, order, page, limit} = {}) {
-	return user.getUserListPaginated({sort, order, page, limit})
+async function getUserEntities(sqlite, user, {sort, order, page, limit} = {}) {
+	await computeUserScores(sqlite, user)
+	return paginateUserEntries(sqlite, user.entries, {sort, order, page, limit})
 }
 
 /**
  * Public profile data for `username`: paginated computed scores only (never
  * manual scores). Returns null if the account does not exist.
  */
-function getPublicUserData(username, {sort, order, page, limit} = {}) {
+async function getPublicUserData(sqlite, username, {sort, order, page, limit} = {}) {
 	const lookupKey = username.trim().toLowerCase()
-	if(!ACCOUNTS.accounts[lookupKey]) return null
+	const account = await getAccount(sqlite, lookupKey)
+	if(!account || account.hash == null) return null
 
-	const user = getUser(lookupKey)
-	const paginatedEntities = user.getUserListPaginated({sort, order, page, limit})
-	return {username: ACCOUNTS.getDisplayLogin(lookupKey), ...paginatedEntities}
+	const user = await getUser(sqlite, lookupKey)
+	await computeUserScores(sqlite, user)
+	const paginatedEntities = await paginateUserEntries(sqlite, user.entries, {sort, order, page, limit})
+	return {username: await getDisplayLogin(sqlite, lookupKey), ...paginatedEntities}
 }
 
 /**
- * Permanently deletes an account and all of its user data.
+ * Permanently deletes an account and all of its user data (cascades to
+ * direct_quiz/dual_quiz via SQLite's ON DELETE CASCADE).
  */
-function deleteAccount(username) {
-	ACCOUNTS.remove(username)
-	deleteUser(username.trim().toLowerCase())
-	deletePersistedAccount(username.trim().toLowerCase())
-		.catch((err) => console.error('deleteAccount() persistence failed:', err))
+async function deleteAccount(sqlite, username) {
+	await removeAccount(sqlite, username.trim().toLowerCase())
 }
 
 export { returnUserData, getPublicUserData as returnPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount }

@@ -8,13 +8,20 @@ function ErrorPage({message: messageProp} = {}) {
 	const isUnknownEntry = isRouteErrorResponse(error) && error.status === 404 && error.data === 'entry'
 	const stateMessage = messageProp || location.state?.message
 
-	const title = isUnknownUser ? 'User not found'
-		: isUnknownEntry ? 'Entry not found'
-		: stateMessage ? 'Error'
-		: 'Page not found'
-	const message = isUnknownUser ? 'This user does not exist.'
-		: isUnknownEntry ? 'This entry does not exist.'
-		: stateMessage || 'The page you are looking for does not exist.'
+	let title, message
+	if(isUnknownUser) {
+		title = 'User not found'
+		message = 'This user does not exist.'
+	} else if(isUnknownEntry) {
+		title = 'Entry not found'
+		message = 'This entry does not exist.'
+	} else if(stateMessage) {
+		title = 'Error'
+		message = stateMessage
+	} else {
+		title = 'Page not found'
+		message = 'The page you are looking for does not exist.'
+	}
 
 	return (
 		<div className="error-page">

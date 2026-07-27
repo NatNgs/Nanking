@@ -33,10 +33,10 @@ function EntryPage() {
 
 	const {isRenaming, rename: onRename, promptModalProps, alertModalProps} = useRenamePrompt({
 		currentValue: entry.name,
-		promptMessage: 'Nouveau nom pour',
+		promptMessage: 'New name for',
 		patch: (name) => apiPatch('/entry/' + entry.id + '/name', {name}).then(setEntry),
-		conflictMessage: 'Une entry avec ce nom existe déjà',
-		failMessage: 'Échec du renommage',
+		conflictMessage: 'An entry with this name already exists',
+		failMessage: 'Rename failed',
 	})
 	const [showRemoveScoreConfirm, setShowRemoveScoreConfirm] = useState(false)
 
@@ -50,9 +50,12 @@ function EntryPage() {
 			isFirstRender.current = false
 			return
 		}
-		apiGet('/entry/' + entryId).then(setEntry).catch(() => {
-			// Ignored: a transient failure here just keeps showing the last known state.
+		const controller = new AbortController()
+		apiGet('/entry/' + entryId, null, {signal: controller.signal}).then(setEntry).catch(() => {
+			// Ignored: a transient failure (including this effect's own abort on
+			// cleanup) here just keeps showing the last known state.
 		})
+		return () => controller.abort()
 	}, [entryId, isAuthenticated])
 
 	const isBusy = isRenaming || isUploadingImage || isRemovingScore || isEditingTags
@@ -67,7 +70,7 @@ function EntryPage() {
 		if(!file) return
 
 		if(file.size > MAX_IMAGE_SIZE) {
-			setError('Image trop lourde (5MB maximum)')
+			setError('Image too large (5MB maximum)')
 			return
 		}
 
@@ -82,7 +85,7 @@ function EntryPage() {
 				setImageVersion((v) => v + 1)
 			}
 		} catch {
-			setError('Échec de l\'envoi de l\'image')
+			setError('Failed to upload image')
 		} finally {
 			setIsUploadingImage(false)
 		}
@@ -127,7 +130,7 @@ function EntryPage() {
 			bumpEntriesVersion()
 			navigate('/')
 		} catch {
-			setError('Échec de la suppression')
+			setError('Failed to remove')
 			setIsRemovingScore(false)
 		}
 	}
@@ -139,11 +142,24 @@ function EntryPage() {
 				{canEdit && (<button disabled={isBusy} onClick={onRename}>Rename</button>)}
 			</div>
 			<div className="entry-page-image-container">
-				<img className="entry-page-image" src={"/api/entry/" + entry.id + "/image.png?v=" + imageVersion} alt={entry.name} />
+				<img
+					className="entry-page-image"
+					src={`/api/entry/${entry.id}/image.png?v=${imageVersion}`}
+					alt={entry.name}
+				/>
 				<div>{canEdit && (<>
-					<label className={"entry-page-image-upload" + (isBusy ? ' disabled' : '')} for={isBusy ? undefined : "entry-page-image-uploader"}>Upload a new picture</label>
-					<input type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES} onChange={onImageFileSelected} disabled={isBusy} hidden />
-					<p className="entry-page-help">Accepts : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)<br/>Preffered dimensions: 200x200px (other will be resized)</p>
+					<label
+						className={`entry-page-image-upload${isBusy ? ' disabled' : ''}`}
+						for={isBusy ? undefined : 'entry-page-image-uploader'}
+					>Upload a new picture</label>
+					<input
+						type="file" id="entry-page-image-uploader" accept={ACCEPTED_IMAGE_TYPES}
+						onChange={onImageFileSelected} disabled={isBusy} hidden
+					/>
+					<p className="entry-page-help">
+						Accepts : PNG, JPEG, BMP, GIF, TIFF (5MB maximum)<br/>
+						Preffered dimensions: 200x200px (other will be resized)
+					</p>
 				</>)}
 				</div>
 			</div>
@@ -180,7 +196,7 @@ function EntryPage() {
 			{alertModalProps.show && <AlertModal {...alertModalProps} />}
 			{showRemoveScoreConfirm && (
 				<ConfirmModal
-					message={'Supprimer "' + entry.name + '" ? Cette action est irréversible.'}
+					message={'Remove "' + entry.name + '"? This action is irreversible.'}
 					onConfirm={confirmRemoveScore}
 					onCancel={() => setShowRemoveScoreConfirm(false)}
 				/>

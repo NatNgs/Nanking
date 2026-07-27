@@ -13,8 +13,14 @@ import { asyncSelectStyles, ASYNC_SELECT_NO_INDICATORS } from '../../lib/reactSe
 function TagPicker({searchFilter, onAdd, disabled, placeholder, className}) {
 	const [selected, setSelected] = useState(null)
 
+	// Depends on searchFilter's content (JSON.stringify), not its own identity,
+	// so a fresh plain-object literal passed by the caller on every render
+	// doesn't force loadOptions to recreate (and react-select to re-fetch) on
+	// every keystroke. `searchFilter` itself is still read fresh from the
+	// closure each time this recreates.
 	const fetchCandidates = useCallback(
 		(q) => apiPost('/tags/search', {q, ...searchFilter}).then((r) => r.items),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 		[JSON.stringify(searchFilter)],
 	)
 	const {suggested, loadOptions, isNewOption} = useAsyncSearchOptions(fetchCandidates)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import AsyncCreatableSelect from 'react-select/async-creatable';
+import AsyncCreatableSelect from 'react-select/async-creatable'
 import { apiGet, apiPut, apiPost } from '../../hooks/useApi.js'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { useAsyncSearchOptions } from '../../hooks/useAsyncSearchOptions.js'
@@ -13,8 +13,13 @@ function NewEntryForm({scoreFormatter}) {
 	const [newEntryScore, setNewEntryScore] = useState(10)
 	const [errorMessage, setErrorMessage] = useState('')
 
-	const fetchCandidates = useCallback((q) => q ? apiGet(`/entries?q=${q}`).then((r) => r.items) : Promise.resolve([]), [])
-	const {suggested: suggestedEntries, loadOptions: onSuggestionsFetchRequested, isNewOption: isNewEntry} = useAsyncSearchOptions(fetchCandidates)
+	const fetchCandidates = useCallback(
+		(q) => q ? apiGet(`/entries?q=${q}`).then((r) => r.items) : Promise.resolve([]),
+		[],
+	)
+	const {
+		suggested: suggestedEntries, loadOptions: onSuggestionsFetchRequested, isNewOption: isNewEntry,
+	} = useAsyncSearchOptions(fetchCandidates)
 
 	async function handleNewEntry() {
 		if(!newEntryName) {
@@ -47,8 +52,8 @@ function NewEntryForm({scoreFormatter}) {
 
 	return (
 		<div className="new-entry-form">
-			<h2 class="title">New Entry</h2>
-			<div class="content">
+			<h2 className="title">New Entry</h2>
+			<div className="content">
 				<div className="labelled">
 					<label for="name">Entry name:</label>
 					<AsyncCreatableSelect
@@ -68,7 +73,11 @@ function NewEntryForm({scoreFormatter}) {
 				</div>
 				<div className="labelled">
 					<label for="score">Initial score:</label>
-					<input name="score" type="number" min={scoreFormatter.min} max={scoreFormatter.max} step={scoreFormatter.step} value={newEntryScore} onChange={(e) => setNewEntryScore(+e.target.value)}/>
+					<input
+						name="score" type="number" min={scoreFormatter.min} max={scoreFormatter.max}
+						step={scoreFormatter.step} value={newEntryScore}
+						onChange={(e) => setNewEntryScore(+e.target.value)}
+					/>
 				</div>
 				<div className="labelled">
 					<span>&nbsp;</span>

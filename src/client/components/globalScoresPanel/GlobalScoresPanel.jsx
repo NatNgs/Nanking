@@ -11,7 +11,10 @@ function GlobalScoresPanel({scoreFormatter}) {
 
 	return (
 		<>
-			<ScoreTable items={items} columns={COLUMNS} sort={sort} order={order} onSort={onSort} scoreFormatter={scoreFormatter}/>
+			<ScoreTable
+				items={items} columns={COLUMNS} sort={sort} order={order}
+				onSort={onSort} scoreFormatter={scoreFormatter}
+			/>
 			<PaginationControls page={page} total={total} limit={limit} onPageChange={goToPage}/>
 		</>
 	)

@@ -103,28 +103,32 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		assert.equal((await row.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), 'First entry => 0%')
 	})
 
-	test('clicking the "x" on a direct vote in the recent-inputs table removes it from both the vote history AND the personal score list', async () => {
-		// Regression test: DELETE /api/quiz/direct used to report success and
-		// correctly drop the vote from the user's quiz history, but never
-		// cleared the now-stale computed score in user.entries (only entries
-		// still referenced by a live quiz get refreshed by computeUserScores),
-		// so the entry kept showing up everywhere a personal score is listed.
-		// Uses its own throwaway entry so the "First entry" used by the format
-		// tests right after this one stays untouched.
-		await createEntry('Deletable entry', 42)
+	test(
+		'clicking the "x" on a direct vote in the recent-inputs table removes it '
+		+ 'from both the vote history AND the personal score list',
+		async () => {
+			// Regression test: DELETE /api/quiz/direct used to report success and
+			// correctly drop the vote from the user's quiz history, but never
+			// cleared the now-stale computed score in user.entries (only entries
+			// still referenced by a live quiz get refreshed by computeUserScores),
+			// so the entry kept showing up everywhere a personal score is listed.
+			// Uses its own throwaway entry so the "First entry" used by the format
+			// tests right after this one stays untouched.
+			await createEntry('Deletable entry', 42)
 
-		const row = recentVoteRow('.new-entry-form', 'Deletable entry')
-		await row.waitFor({state: 'visible', timeout: 5000})
-		await row.locator('.deleteButton').click()
-		await row.waitFor({state: 'hidden', timeout: 5000})
+			const row = recentVoteRow('.new-entry-form', 'Deletable entry')
+			await row.waitFor({state: 'visible', timeout: 5000})
+			await row.locator('.deleteButton').click()
+			await row.waitFor({state: 'hidden', timeout: 5000})
 
-		// Gone from the vote history mini-table (proves removeQuiz itself works)
-		assert.equal(await recentVoteRow('.new-entry-form', 'Deletable entry').count(), 0)
+			// Gone from the vote history mini-table (proves removeQuiz itself works)
+			assert.equal(await recentVoteRow('.new-entry-form', 'Deletable entry').count(), 0)
 
-		// Gone from the EntriesPanel personal score list too (the actual bug:
-		// this used to still show "Deletable entry" with its old, now-orphaned score)
-		await entriesPanelRow('Deletable entry').waitFor({state: 'hidden', timeout: 5000})
-	})
+			// Gone from the EntriesPanel personal score list too (the actual bug:
+			// this used to still show "Deletable entry" with its old, now-orphaned score)
+			await entriesPanelRow('Deletable entry').waitFor({state: 'hidden', timeout: 5000})
+		},
+	)
 
 	test('switch score format to MAL', async () => {
 		await page.locator('select[name=format]').selectOption('MAL')
@@ -222,47 +226,55 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 		assert.equal(new URL(response.url()).pathname, '/assets/unknown.svg')
 	})
 
-	test('changing the name and picture updates the page: new name shown, image no longer redirects to the placeholder', async () => {
-		await page.locator('button:has-text("Rename")').click()
-		await page.locator('.modal-input').fill('Renamed test element')
-		await page.locator('.modal-actions button[type=submit]').click()
-		await page.locator('.entry-page h1', {hasText: 'Renamed test element'}).waitFor({state: 'visible', timeout: 5000})
+	test(
+		'changing the name and picture updates the page: new name shown, '
+		+ 'image no longer redirects to the placeholder',
+		async () => {
+			await page.locator('button:has-text("Rename")').click()
+			await page.locator('.modal-input').fill('Renamed test element')
+			await page.locator('.modal-actions button[type=submit]').click()
+			await page.locator('.entry-page h1', {hasText: 'Renamed test element'}).waitFor({state: 'visible', timeout: 5000})
 
-		const pngBuffer = await makePngBuffer(10, 10, 0xff0000ff)
-		await page.locator('#entry-page-image-uploader').setInputFiles({
-			name: 'test-image.png',
-			mimeType: 'image/png',
-			buffer: pngBuffer,
+			const pngBuffer = await makePngBuffer(10, 10, 0xff0000ff)
+			await page.locator('#entry-page-image-uploader').setInputFiles({
+				name: 'test-image.png',
+				mimeType: 'image/png',
+				buffer: pngBuffer,
+			})
+			// Wait for the upload to complete (button re-enabled) as the submit signal
+			await page.locator('button:has-text("Rename")').waitFor({state: 'attached', timeout: 5000})
+			await page.locator('button:has-text("Rename"):not([disabled])').waitFor({state: 'visible', timeout: 5000})
+
+			const img = page.locator('.entry-page-image')
+			const src = await img.getAttribute('src')
+			const response = await page.request.get(new URL(src, BASE_URL).toString())
+			assert.equal(new URL(response.url()).pathname, src.split('?')[0])
+			assert.equal(response.status(), 200)
 		})
-		// Wait for the upload to complete (button re-enabled) as the submit signal
-		await page.locator('button:has-text("Rename")').waitFor({state: 'attached', timeout: 5000})
-		await page.locator('button:has-text("Rename"):not([disabled])').waitFor({state: 'visible', timeout: 5000})
 
-		const img = page.locator('.entry-page-image')
-		const src = await img.getAttribute('src')
-		const response = await page.request.get(new URL(src, BASE_URL).toString())
-		assert.equal(new URL(response.url()).pathname, src.split('?')[0])
-		assert.equal(response.status(), 200)
-	})
+	test(
+		'removing the vote deletes the entry: it disappears from the rankings, '
+		+ 'from the recent inputs, and its page no longer shows edit controls',
+		async () => {
+			const entryUrl = page.url()
 
-	test('removing the vote deletes the entry: it disappears from the rankings, from the recent inputs, and its page no longer shows edit controls', async () => {
-		const entryUrl = page.url()
+			await page.locator('button:has-text("Remove it from my scores")').click()
+			await page.locator('.modal-actions button', {hasText: 'OK'}).click()
+			// The action navigates back to the home page once done
+			await page.waitForURL(BASE_URL + '/')
 
-		await page.locator('button:has-text("Remove it from my scores")').click()
-		await page.locator('.modal-actions button', {hasText: 'OK'}).click()
-		// The action navigates back to the home page once done
-		await page.waitForURL(BASE_URL + '/')
+			await entriesPanelRow('Renamed test element').waitFor({state: 'hidden', timeout: 5000})
 
-		await entriesPanelRow('Renamed test element').waitFor({state: 'hidden', timeout: 5000})
+			await page.locator('.main-page-view-buttons button:has-text("New entry")').click()
+			const remainingRows = page.locator(
+				'.new-entry-form .recent-votes-table tbody tr', {hasText: 'Renamed test element'},
+			)
+			assert.equal(await remainingRows.count(), 0)
 
-		await page.locator('.main-page-view-buttons button:has-text("New entry")').click()
-		const remainingRows = page.locator('.new-entry-form .recent-votes-table tbody tr', {hasText: 'Renamed test element'})
-		assert.equal(await remainingRows.count(), 0)
-
-		await page.goto(entryUrl)
-		await page.locator('.error-page', {hasText: 'Entry not found'}).waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await page.locator('button:has-text("Rename")').count(), 0)
-		assert.equal(await page.locator('button:has-text("Remove it from my scores")').count(), 0)
-		assert.equal(await page.locator('#entry-page-image-uploader').count(), 0)
-	})
+			await page.goto(entryUrl)
+			await page.locator('.error-page', {hasText: 'Entry not found'}).waitFor({state: 'visible', timeout: 5000})
+			assert.equal(await page.locator('button:has-text("Rename")').count(), 0)
+			assert.equal(await page.locator('button:has-text("Remove it from my scores")').count(), 0)
+			assert.equal(await page.locator('#entry-page-image-uploader').count(), 0)
+		})
 })

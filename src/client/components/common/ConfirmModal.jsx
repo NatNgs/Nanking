@@ -1,3 +1,4 @@
+import { useModalA11y } from '../../hooks/useModalA11y.js'
 import './Modal.css'
 
 /**
@@ -6,9 +7,14 @@ import './Modal.css'
  * "false" outcome.
  */
 function ConfirmModal({message, confirmLabel = 'OK', cancelLabel = 'Cancel', onConfirm, onCancel}) {
+	const boxRef = useModalA11y(onCancel)
+
 	return (
 		<div className="modal-overlay" onClick={onCancel}>
-			<div className="modal-box" onClick={(e) => e.stopPropagation()}>
+			<div
+				className="modal-box" ref={boxRef} role="dialog" aria-modal="true"
+				tabIndex={-1} onClick={(e) => e.stopPropagation()}
+			>
 				<p className="modal-message">{message}</p>
 				<div className="modal-actions">
 					<button type="button" onClick={onCancel}>{cancelLabel}</button>

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, renameSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import CONFIG from '../config/config.js'
+import { seedIdSequences } from './sqliteDb.js'
 
 /**
  * One-shot compatibility import: reads the legacy gzip-compressed JSON
@@ -17,8 +18,8 @@ function readLegacyJson(path) {
 }
 
 /**
- * True if the JSON legacy quiz `type` value is the pre-rename 'default' (see
- * quiz.js's own loadQuiz() rétrocompatibilité), normalized to 'direct' here too.
+ * True if the JSON legacy quiz `type` value is the pre-rename 'default',
+ * normalized to 'direct' here too.
  */
 function normalizeDirectType(type) {
 	return type === 'default' ? 'direct' : type
@@ -112,6 +113,14 @@ async function importJsonIntoSqlite(conn, json) {
 				}
 			}
 		}
+
+		// The legacy JSON's entry/tag ids follow the same 'n:<n>'/'t:<n>'
+		// convention (see entriesRepository/tagsRepository), but were just
+		// inserted straight from JSON rather than through getEntryByName()/
+		// getTagByLabel() - id_sequences must be resynced now, or the very
+		// first entry/tag created after this import would collide with one
+		// just imported.
+		seedIdSequences(db)
 	})
 }
 

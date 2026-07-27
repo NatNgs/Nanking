@@ -1,34 +1,48 @@
 import { existsSync } from 'node:fs'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { gunzipSync, gzipSync } from 'node:zlib'
+import { createInterface } from 'node:readline/promises'
 import axios from 'axios'
 
-function main(dbPath, username, malClientId) {
+/**
+ * CLI prompt: node has no global prompt() (that's a browser-only API), so
+ * this reads a single line from stdin via readline/promises instead.
+ */
+async function prompt(question) {
+	const rl = createInterface({input: process.stdin, output: process.stdout})
+	try {
+		return await rl.question(question + ' ')
+	} finally {
+		rl.close()
+	}
+}
+
+async function main(dbPath, username, malClientId) {
 	// Load nanking data
 	if(!existsSync(dbPath)) {
 		console.error('Database file not found')
 		return
 	}
 
-	username = username || prompt("Please enter your MAL username")
-	malClientId = malClientId || prompt("Please enter your MAL Client ID (get this from https://myanimelist.net/apiconfig)")
+	username = username || await prompt('Please enter your MAL username')
+	malClientId = malClientId
+		|| await prompt('Please enter your MAL Client ID (get this from https://myanimelist.net/apiconfig)')
 	const nankingData = JSON.parse(gunzipSync(readFileSync(dbPath)).toString('utf8'))
 
-	importMALuserData(username, malClientId, nankingData, (nb)=>{
+	importMALuserData(username, malClientId, nankingData, (nb) => {
 		// Save data to file
 		writeFileSync(dbPath, gzipSync(JSON.stringify(nankingData)))
-		//console.log('\n\n----------\n\n')
-		//console.log(nankingData)
+		// console.log('\n\n----------\n\n')
+		// console.log(nankingData)
 		console.log('Imported ', nb, ' MAL entries')
 	})
-
 }
 
 function importMALuserData(username, clientId, nankingData, cb) {
-	if(!nankingData.users[username]) nankingData.users[username] = {quiz:[]}
+	if(!nankingData.users[username]) nankingData.users[username] = {quiz: []}
 	let newData = 0
 	const userQuizData = nankingData.users[username].quiz
-	callMALuserAPI(username, clientId, 0, (animeData)=>{
+	callMALuserAPI(username, clientId, 0, (animeData) => {
 		// If anime is not watched or not scored, skip it
 		if(animeData.watched_episodes < 1 || !animeData.score) return
 
@@ -38,7 +52,7 @@ function importMALuserData(username, clientId, nankingData, cb) {
 		const entryImage = animeData.image_url
 		const userScore = animeData.score
 
-		let entry = nankingData.entries[entryIndex]
+		const entry = nankingData.entries[entryIndex]
 		if(!entry) {
 			// Create the new entry
 			nankingData.entries[entryIndex] = {
@@ -55,9 +69,9 @@ function importMALuserData(username, clientId, nankingData, cb) {
 				entry: entryIndex,
 				value: (userScore-1)/9,
 			})
-			newData ++
+			newData++
 		}
-	}, ()=>{
+	}, () => {
 		cb(newData)
 	})
 }
@@ -66,15 +80,17 @@ function callMALuserAPI(username, clientId, offset, cb, onEnd) {
 	const d = new Date()
 	const limit = 100
 	const fields = 'list_status,num_episodes,mean,genres,start_date,end_date,media_type,main_picture,rating'
-	const url = 'https://api.myanimelist.net/v2/users/' + encodeURIComponent(username) + '/animelist?offset=' + offset + '&limit=' + limit + '&fields=' + encodeURIComponent(fields) + '&sort=list_score'
+	const url = 'https://api.myanimelist.net/v2/users/' + encodeURIComponent(username)
+		+ '/animelist?offset=' + offset + '&limit=' + limit
+		+ '&fields=' + encodeURIComponent(fields) + '&sort=list_score'
 
 	console.info('GET', url)
 	axios.get(url, {
 		accept: 'application/json',
 		headers: {
-			'X-MAL-CLIENT-ID': clientId
+			'X-MAL-CLIENT-ID': clientId,
 		},
-	}).then((response)=>{
+	}).then((response) => {
 		if(response?.data?.data?.length) {
 			console.info('Success', url, (new Date() - d) + 'ms')
 
@@ -92,13 +108,13 @@ function callMALuserAPI(username, clientId, offset, cb, onEnd) {
 					start_date: item.node.start_date,
 					end_date: item.node.end_date,
 					genres: item.node.genres,
-					tags: item.list_status?.tags || []
+					tags: item.list_status?.tags || [],
 				})
 			}
 
 			// Continue pagination if there are more results
 			if(response.data.paging?.next) {
-				setTimeout(()=>callMALuserAPI(username, clientId, offset + limit, cb, onEnd), 1000)
+				setTimeout(() => callMALuserAPI(username, clientId, offset + limit, cb, onEnd), 1000)
 			} else {
 				onEnd()
 			}
@@ -107,11 +123,15 @@ function callMALuserAPI(username, clientId, offset, cb, onEnd) {
 			console.log(response.data)
 			onEnd()
 		}
-	}).catch((error)=>{
-		if(!error?.response?.status)
-			console.error( (new Date() - d) + 'ms', 'MAL returned Error', error)
-		else
-			console.warn( (new Date() - d) + 'ms', 'MAL returned Error', error.response.status, error.response.statusText, ':', error.response.data.message)
+	}).catch((error) => {
+		if(!error?.response?.status) {
+			console.error((new Date() - d) + 'ms', 'MAL returned Error', error)
+		} else {
+			console.warn(
+				(new Date() - d) + 'ms', 'MAL returned Error',
+				error.response.status, error.response.statusText, ':', error.response.data.message,
+			)
+		}
 		onEnd()
 	})
 }
@@ -119,4 +139,4 @@ function callMALuserAPI(username, clientId, offset, cb, onEnd) {
 
 // Parse arguments
 const args = process.argv.slice(2) // node src/scripts/MALImport.js dbPath username malClientId
-main(...args)
+await main(...args)

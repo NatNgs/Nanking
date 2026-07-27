@@ -108,7 +108,10 @@ function PaginationControls({page, total, limit, onPageChange}) {
 					<a
 						key={slot.key}
 						href="#"
-						className={'pagination-item pagination-tier-' + slot.tier + (slot.disabled ? ' pagination-disabled' : '')}
+						className={
+							'pagination-item pagination-tier-' + slot.tier
+							+ (slot.disabled ? ' pagination-disabled' : '')
+						}
 						aria-disabled={slot.disabled}
 						tabIndex={slot.disabled ? -1 : 0}
 						onClick={(e) => handleClick(e, slot)}

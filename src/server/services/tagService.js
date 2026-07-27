@@ -1,36 +1,64 @@
-import TAGS from '../data/tags.js'
-import ENTRIES from '../data/entries.js'
+import {
+	getTagById, getTagsByIds, getTagByLabelIgnoreCase, getTagByLabel, searchTag,
+	getDirectChildren, getDirectChildrenForTagIds, getAllTags,
+	getDescendantIds, getAncestorIds, addParent, removeParent, saveTag,
+} from '../data/tagsRepository.js'
+import { getEntryById, getEntriesByIds, getAllEntriesWithScores, saveEntry } from '../data/entriesRepository.js'
 import { compareBy } from '../lib/pagination.js'
-import { saveTags, saveEntries } from './persistenceService.js'
 
 /**
  * Serializes a tag for the HTTP response.
  */
-function getTagData(id) {
-	const tag = TAGS.getTagById(id)
+async function getTagData(sqlite, id) {
+	const tag = await getTagById(sqlite, id)
 	if(!tag) return null
 	return {
 		id: tag.id,
 		label: tag.label,
-		score: tag.score,
 		parents: tag.parents.slice(),
 	}
+}
+
+/**
+ * True if `user` is allowed to mutate `tagId` (rename, add/remove a parent):
+ * either an Admin, or someone who has at least one quiz vote referencing an
+ * entry covered by this tag (directly tagged, or tagged with one of its
+ * descendants - the inheritance sense, see isTagCoveredByEntry). Anonymous
+ * callers are never allowed.
+ */
+async function canEditTag(sqlite, user, tagId) {
+	if(!user) return false
+	if(user.isAdmin) return true
+
+	const coveredTagIds = await getDescendantIds(sqlite, tagId) // tagId + every more specific tag
+	const votedEntryIds = new Set()
+	for(const q of user.quiz) {
+		if(q.type === 'direct') votedEntryIds.add(q.entry.id)
+		else { votedEntryIds.add(q.neg.id); votedEntryIds.add(q.pos.id) }
+	}
+	if(!votedEntryIds.size) return false
+
+	const entries = await getEntriesByIds(sqlite, [...votedEntryIds])
+	for(const entry of entries.values()) {
+		if(entry.tags.some((t) => coveredTagIds.has(t))) return true
+	}
+	return false
 }
 
 /**
  * Renames a tag after checking no other tag already uses this label
  * (case-insensitive). Returns 'not_found' | 'invalid' | 'conflict' | 'ok'.
  */
-function renameTag(id, newLabel) {
-	const tag = TAGS.getTagById(id)
+async function renameTag(sqlite, id, newLabel) {
+	const tag = await getTagById(sqlite, id)
 	if(!tag) return 'not_found'
 
 	const trimmed = (newLabel || '').trim()
 	if(!trimmed) return 'invalid'
-	if(TAGS.getTagByLabelIgnoreCase(trimmed, id)) return 'conflict'
+	if(await getTagByLabelIgnoreCase(sqlite, trimmed, id)) return 'conflict'
 
 	tag.label = trimmed
-	saveTags().catch((err) => console.error('saveTags() failed:', err))
+	await saveTag(sqlite, tag)
 	return 'ok'
 }
 
@@ -38,62 +66,67 @@ function renameTag(id, newLabel) {
  * Finds a tag by label (case-sensitive exact match, like getEntryByName), or
  * creates it if missing. Never returns null.
  */
-function getOrCreateTag(label) {
-	return TAGS.getTagByLabel(label, true)
+async function getOrCreateTag(sqlite, label) {
+	return getTagByLabel(sqlite, label, true)
 }
 
 /**
  * Adds `newParentId` as a parent of `tagId`. Returns
  * 'not_found' | 'cycle' | 'conflict' | 'ok'.
  */
-function addTagParent(tagId, newParentId) {
-	const result = TAGS.addParent(tagId, newParentId)
-	if(result === 'ok') saveTags().catch((err) => console.error('saveTags() failed:', err))
-	return result
+async function addTagParent(sqlite, tagId, newParentId) {
+	return addParent(sqlite, tagId, newParentId)
 }
 
 /**
  * Removes the parent link. Returns 'not_found' | 'ok'.
  */
-function removeTagParent(tagId, parentIdToRemove) {
-	const result = TAGS.removeParent(tagId, parentIdToRemove)
-	if(result === 'ok') saveTags().catch((err) => console.error('saveTags() failed:', err))
-	return result
+async function removeTagParent(sqlite, tagId, parentIdToRemove) {
+	return removeParent(sqlite, tagId, parentIdToRemove)
 }
 
 /**
  * Parent tree for /tag/:id display, depth 2: direct parents (level 1) and
  * their own direct parents (level 2, "grand-parents"). Not deduplicated:
  * a tag reachable through multiple branches (multiple inheritance) appears
- * once per branch, each shown in its own parental context.
+ * once per branch, each shown in its own parental context. Each level is
+ * fetched in one batched round-trip (getTagsByIds) rather than one query per
+ * tag.
  */
-function getParentTree(tagId) {
-	const tag = TAGS.getTagById(tagId)
+async function getParentTree(sqlite, tagId) {
+	const tag = await getTagById(sqlite, tagId)
 	if(!tag) return []
-	return tag.parents.map((parentId) => {
-		const parent = TAGS.getTagById(parentId)
-		if(!parent) return null
-		return {
-			id: parent.id,
-			label: parent.label,
-			parents: parent.parents.map((gpId) => {
-				const gp = TAGS.getTagById(gpId)
-				return gp ? {id: gp.id, label: gp.label} : null
-			}).filter(Boolean),
-		}
-	}).filter(Boolean)
+
+	const parentsById = await getTagsByIds(sqlite, tag.parents)
+	const grandParentIds = [...parentsById.values()].flatMap((p) => p.parents)
+	const grandParentsById = await getTagsByIds(sqlite, grandParentIds)
+
+	const result = []
+	for(const parentId of tag.parents) {
+		const parent = parentsById.get(parentId)
+		if(!parent) continue
+		const grandParents = parent.parents
+			.map((gpId) => grandParentsById.get(gpId))
+			.filter(Boolean)
+			.map((gp) => ({id: gp.id, label: gp.label}))
+		result.push({id: parent.id, label: parent.label, parents: grandParents})
+	}
+	return result
 }
 
 /**
  * Child tree for /tag/:id display, depth 2: direct children (derived from
- * other tags' `parents`) and their own direct children.
+ * other tags' `parents`) and their own direct children. Grand-children for
+ * every direct child are fetched in one batched round-trip
+ * (getDirectChildrenForTagIds) rather than one query per child.
  */
-function getChildTree(tagId) {
-	const directChildren = TAGS.getDirectChildren(tagId)
+async function getChildTree(sqlite, tagId) {
+	const directChildren = await getDirectChildren(sqlite, tagId)
+	const grandChildrenByParent = await getDirectChildrenForTagIds(sqlite, directChildren.map((c) => c.id))
+
 	return directChildren.map((child) => ({
-		id: child.id,
-		label: child.label,
-		children: TAGS.getDirectChildren(child.id).map((gc) => ({id: gc.id, label: gc.label})),
+		id: child.id, label: child.label,
+		children: (grandChildrenByParent.get(child.id) || []).map((gc) => ({id: gc.id, label: gc.label})),
 	}))
 }
 
@@ -102,21 +135,19 @@ function getChildTree(tagId) {
  * with any tag more specific than tagId (a descendant, in the inheritance
  * sense: specific tags propagate up to their generic ancestors). Each entry
  * is enriched with its global score and, when `user` is given, that user's
- * own score on it (stretched 0-1 the same way EntriesPanel's list is,
- * omitted entirely if the user never scored this entry). Sorted by
- * `sort`/`order` (globalScore desc by default), matching listEntries'
+ * own score on it (omitted entirely if the user never scored this entry).
+ * Sorted by `sort`/`order` (globalScore desc by default), matching listEntries'
  * conventions for /api/entries.
  */
-function getEntriesForTag(tagId, {user, sort, order} = {}) {
-	const relevantTagIds = TAGS.getDescendants(tagId) // includes tagId + every more specific tag
+async function getEntriesForTag(sqlite, tagId, {user, sort, order} = {}) {
+	const relevantTagIds = await getDescendantIds(sqlite, tagId) // includes tagId + every more specific tag
+	const entries = await getAllEntriesWithScores(sqlite)
 	const result = []
-	for(const entryId in ENTRIES.entries) {
-		const entry = ENTRIES.entries[entryId]
+	for(const entry of entries) {
 		if(!entry.tags.some((t) => relevantTagIds.has(t))) continue
 
 		const item = {id: entry.id, label: entry.name, image: entry.image, globalScore: entry.globalScore}
-		const userScore = user?.getStretchedScore(entry.id)
-		if(userScore != null) item.score = userScore
+		if(user && Object.hasOwn(user.entries, entry.id)) item.score = user.entries[entry.id]
 		result.push(item)
 	}
 
@@ -135,8 +166,8 @@ function getEntriesForTag(tagId, {user, sort, order} = {}) {
  * than tagId (a descendant), meaning tagId is already inherited. Used to
  * disable the [+] button client-side, and to validate server-side before add.
  */
-function isTagCoveredByEntry(entry, tagId) {
-	const descendants = TAGS.getDescendants(tagId)
+async function isTagCoveredByEntry(sqlite, entry, tagId) {
+	const descendants = await getDescendantIds(sqlite, tagId)
 	return entry.tags.some((directTagId) => descendants.has(directTagId))
 }
 
@@ -144,14 +175,14 @@ function isTagCoveredByEntry(entry, tagId) {
  * Adds tagId to entry.tags after checking coverage. Returns
  * 'not_found' (unknown entry or tag) | 'already_covered' | 'ok'.
  */
-function addTagToEntry(entryId, tagId) {
-	const entry = ENTRIES.getEntryById(entryId)
-	const tag = TAGS.getTagById(tagId)
+async function addTagToEntry(sqlite, entryId, tagId) {
+	const entry = await getEntryById(sqlite, entryId)
+	const tag = await getTagById(sqlite, tagId)
 	if(!entry || !tag) return 'not_found'
-	if(isTagCoveredByEntry(entry, tagId)) return 'already_covered'
+	if(await isTagCoveredByEntry(sqlite, entry, tagId)) return 'already_covered'
 
 	entry.tags.push(tagId)
-	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
+	await saveEntry(sqlite, entry)
 	return 'ok'
 }
 
@@ -159,12 +190,12 @@ function addTagToEntry(entryId, tagId) {
  * Removes tagId from entry.tags (only the direct link). Returns
  * 'not_found' | 'ok'. Idempotent if already absent.
  */
-function removeTagFromEntry(entryId, tagId) {
-	const entry = ENTRIES.getEntryById(entryId)
+async function removeTagFromEntry(sqlite, entryId, tagId) {
+	const entry = await getEntryById(sqlite, entryId)
 	if(!entry) return 'not_found'
 
 	entry.tags = entry.tags.filter((t) => t !== tagId)
-	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
+	await saveEntry(sqlite, entry)
 	return 'ok'
 }
 
@@ -172,11 +203,13 @@ function removeTagFromEntry(entryId, tagId) {
  * Resolves an entry's direct tag ids into {id, label} pairs for the HTTP
  * response, so the client never has to fetch each tag individually.
  */
-function resolveEntryTags(entry) {
-	return entry.tags.map((tagId) => {
-		const tag = TAGS.getTagById(tagId)
-		return tag ? {id: tag.id, label: tag.label} : null
-	}).filter(Boolean)
+async function resolveEntryTags(sqlite, entry) {
+	const result = []
+	for(const tagId of entry.tags) {
+		const tag = await getTagById(sqlite, tagId)
+		if(tag) result.push({id: tag.id, label: tag.label})
+	}
+	return result
 }
 
 /**
@@ -189,24 +222,30 @@ function resolveEntryTags(entry) {
  * - notHavingAsParent: excludes, for each given tagId, every tag already more
  *   generic than it (its ancestors) — symmetric filter, kept for future use.
  */
-function searchTags({q, notOnEntity, notHavingAsParent, notHavingAsChild} = {}) {
-	let candidates = q ? TAGS.searchTag(q) : Object.values(TAGS.tags)
+async function searchTags(sqlite, {q, notOnEntity, notHavingAsParent, notHavingAsChild} = {}) {
+	let candidates = q ? await searchTag(sqlite, q) : await getAllTags(sqlite)
 
 	if(notOnEntity) {
-		const entry = ENTRIES.getEntryById(notOnEntity)
-		if(entry) candidates = candidates.filter((t) => !isTagCoveredByEntry(entry, t.id))
+		const entry = await getEntryById(sqlite, notOnEntity)
+		if(entry) {
+			const filtered = []
+			for(const t of candidates) {
+				if(!await isTagCoveredByEntry(sqlite, entry, t.id)) filtered.push(t)
+			}
+			candidates = filtered
+		}
 	}
 	if(Array.isArray(notHavingAsChild)) {
 		const excluded = new Set()
 		for(const tagId of notHavingAsChild) {
-			for(const descendantId of TAGS.getDescendants(tagId)) excluded.add(descendantId)
+			for(const descendantId of await getDescendantIds(sqlite, tagId)) excluded.add(descendantId)
 		}
 		candidates = candidates.filter((t) => !excluded.has(t.id))
 	}
 	if(Array.isArray(notHavingAsParent)) {
 		const excluded = new Set()
 		for(const tagId of notHavingAsParent) {
-			for(const ancestorId of TAGS.getAncestors(tagId)) excluded.add(ancestorId)
+			for(const ancestorId of await getAncestorIds(sqlite, tagId)) excluded.add(ancestorId)
 		}
 		candidates = candidates.filter((t) => !excluded.has(t.id))
 	}
@@ -215,7 +254,7 @@ function searchTags({q, notOnEntity, notHavingAsParent, notHavingAsChild} = {}) 
 }
 
 export {
-	getTagData, renameTag, getOrCreateTag, addTagParent, removeTagParent,
+	getTagData, canEditTag, renameTag, getOrCreateTag, addTagParent, removeTagParent,
 	getParentTree, getChildTree, getEntriesForTag, isTagCoveredByEntry,
 	addTagToEntry, removeTagFromEntry, resolveEntryTags, searchTags,
 }

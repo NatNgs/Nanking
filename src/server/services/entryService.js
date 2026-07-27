@@ -1,9 +1,10 @@
-import ENTRIES from '../data/entries.js'
-import { anyUserReferencesEntry } from '../data/user.js'
+import {
+	getEntryById, getEntryByNameIgnoreCase, searchEntry, getAllEntriesWithScores, saveEntry, deleteEntry as deleteEntryFromDb,
+} from '../data/entriesRepository.js'
+import { anyUserReferencesEntry, removeUserReferencesToEntry } from '../data/userRepository.js'
 import { processImageUpload, saveEntryImage, deleteEntryImage } from './entryImageService.js'
 import { resolveEntryTags } from './tagService.js'
 import { paginate, compareBy } from '../lib/pagination.js'
-import { saveEntries } from './persistenceService.js'
 
 /**
  * Serializes an entry for the HTTP response. Includes the current user's
@@ -11,8 +12,8 @@ import { saveEntries } from './persistenceService.js'
  * they are an Admin (who can edit any entry regardless of having a score on
  * it - see EntryPage.jsx).
  */
-function getEntryData(id, user=null) {
-	const entry = ENTRIES.getEntryById(id)
+async function getEntryData(sqlite, id, user=null) {
+	const entry = await getEntryById(sqlite, id)
 	if(!entry) return null
 
 	const data = {
@@ -20,29 +21,40 @@ function getEntryData(id, user=null) {
 		name: entry.name,
 		image: entry.image,
 		globalScore: entry.globalScore,
-		tags: resolveEntryTags(entry),
+		tags: await resolveEntryTags(sqlite, entry),
 		isAdmin: !!user?.isAdmin,
 	}
-	if(user && user.entries.hasOwnProperty(entry.id)) {
+	if(user && Object.hasOwn(user.entries, entry.id)) {
 		data.userScore = user.entries[entry.id]
 	}
 	return data
 }
 
 /**
+ * True if `user` is allowed to mutate `entry` (rename, change image, add/remove
+ * tags): either an Admin, or someone who has at least one quiz vote (direct or
+ * dual) referencing this entry. Anonymous callers are never allowed.
+ */
+function canEditEntry(user, entry) {
+	if(!user) return false
+	if(user.isAdmin) return true
+	return user.quiz.some((q) => q.referencesEntry(entry))
+}
+
+/**
  * Renames an entry after checking no other entry already uses this name
  * (case-insensitive). Returns 'not_found' | 'invalid' | 'conflict' | 'ok'.
  */
-function renameEntry(id, newName) {
-	const entry = ENTRIES.getEntryById(id)
+async function renameEntry(sqlite, id, newName) {
+	const entry = await getEntryById(sqlite, id)
 	if(!entry) return 'not_found'
 
 	const trimmed = (newName || '').trim()
 	if(!trimmed) return 'invalid'
-	if(ENTRIES.getEntryByNameIgnoreCase(trimmed, id)) return 'conflict'
+	if(await getEntryByNameIgnoreCase(sqlite, trimmed, id)) return 'conflict'
 
 	entry.name = trimmed
-	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
+	await saveEntry(sqlite, entry)
 	return 'ok'
 }
 
@@ -50,8 +62,8 @@ function renameEntry(id, newName) {
  * Validates and stores a new image for an entry, replacing the previous
  * custom image if any. Returns 'not_found' | 'invalid' | 'ok'.
  */
-async function updateEntryImage(id, fileBuffer) {
-	const entry = ENTRIES.getEntryById(id)
+async function updateEntryImage(sqlite, id, fileBuffer) {
+	const entry = await getEntryById(sqlite, id)
 	if(!entry) return 'not_found'
 
 	let pngBuffer
@@ -63,7 +75,7 @@ async function updateEntryImage(id, fileBuffer) {
 
 	deleteEntryImage(entry)
 	entry.image = await saveEntryImage(entry.id, pngBuffer)
-	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
+	await saveEntry(sqlite, entry)
 	return 'ok'
 }
 
@@ -72,42 +84,38 @@ async function updateEntryImage(id, fileBuffer) {
  * image) is only permanently deleted once no other user has a vote left on it.
  * Returns 'not_found' | 'ok'.
  */
-function deleteEntry(id, user) {
-	const entry = ENTRIES.getEntryById(id)
+async function deleteEntry(sqlite, id, user) {
+	const entry = await getEntryById(sqlite, id)
 	if(!entry) return 'not_found'
 
-	user.removeAllReferencesToEntry(entry)
+	await removeUserReferencesToEntry(sqlite, user.username, entry.id)
 
-	if(!anyUserReferencesEntry(entry)) {
+	if(!await anyUserReferencesEntry(sqlite, entry.id)) {
 		deleteEntryImage(entry)
-		ENTRIES.deleteEntry(id)
+		await deleteEntryFromDb(sqlite, id)
 	}
-	saveEntries().catch((err) => console.error('saveEntries() failed:', err))
 	return 'ok'
 }
 
 /**
  * Paginated entry listing, backing GET /api/entries. With `q`, delegates to
- * ENTRIES.searchEntry (fuzzy match, already sorted by name-length relevance
- * and capped to 32 results — a relevance cap distinct from pagination, left
+ * searchEntry (fuzzy match, already sorted by name-length relevance and
+ * capped to 32 results — a relevance cap distinct from pagination, left
  * untouched) and paginates that result. Without `q`, lists every entry's
  * global score, sorted by `sort` ('score' desc by default, or 'label' asc),
  * then paginated.
  */
-function listEntries({q, sort, order, page, limit} = {}) {
+async function listEntries(sqlite, {q, sort, order, page, limit} = {}) {
 	if(q) {
-		const candidates = ENTRIES.searchEntry(q).map((e) => ({id: e.id, label: e.name, image: e.image}))
+		const candidates = (await searchEntry(sqlite, q)).map((e) => ({id: e.id, label: e.name, image: e.image}))
 		return paginate(candidates, {page, limit})
 	}
 
-	const scores = ENTRIES.getGlobalScores()
-	const list = Object.entries(scores).map(([id, score]) => {
-		const entry = ENTRIES.getEntryById(id)
-		return {id: entry.id, label: entry.name, score, image: entry.image}
-	})
+	const entries = await getAllEntriesWithScores(sqlite)
+	const list = entries.map((entry) => ({id: entry.id, label: entry.name, score: entry.globalScore, image: entry.image}))
 	const cmp = sort === 'label' ? compareBy((e) => e.label, order || 'asc') : compareBy((e) => e.score, order || 'desc')
 	list.sort(cmp)
 	return paginate(list, {page, limit})
 }
 
-export { getEntryData, renameEntry, updateEntryImage, deleteEntry, listEntries }
+export { getEntryData, canEditEntry, renameEntry, updateEntryImage, deleteEntry, listEntries }

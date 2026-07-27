@@ -1,22 +1,11 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { User, ALL_USERS } from '../../../src/server/data/user.js'
-import { EntriesManager, Entry } from '../../../src/server/data/entries.js'
-import ENTRIES from '../../../src/server/data/entries.js'
-import TAGS from '../../../src/server/data/tags.js'
-import { Tag } from '../../../src/server/data/tags.js'
-import { DirectQuiz, DualQuiz } from '../../../src/server/data/quiz.js'
+import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
+import { getEntryByName, getEntryById, saveEntry } from '../../../src/server/data/entriesRepository.js'
+import { addAccount } from '../../../src/server/data/accountsRepository.js'
+import { getUser, saveUser } from '../../../src/server/data/userRepository.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/data/quizModel.js'
 import { computeUserScores, computeGlobalScores } from '../../../src/server/services/scoresComputerService.js'
-
-/**
- * Builds a bare User instance (no db-backed persistence needed for these
- * tests) with the given quiz list already attached.
- */
-function makeUser(username, quiz) {
-	const user = new User(username)
-	user.quiz = quiz
-	return user
-}
 
 function assertFinite(value, message) {
 	assert.equal(typeof value, 'number', message)
@@ -24,317 +13,148 @@ function assertFinite(value, message) {
 }
 
 describe('scoresComputerService', () => {
-	beforeEach(() => {
-		// Reset the shared singletons before every test, mirroring the pattern
-		// used for db.js/accounts.js singletons elsewhere in this test suite.
-		for(const key in ENTRIES.entries) delete ENTRIES.entries[key]
-		for(const key in ALL_USERS) delete ALL_USERS[key]
-		for(const key in TAGS.tags) delete TAGS.tags[key]
-	})
+	const db = useSqliteFixture()
+	let sqlite
+	beforeEach(() => { sqlite = db.sqlite })
+
+	async function makeUser(username, quizFactory) {
+		await addAccount(sqlite, username, 'hashedpwd')
+		const user = await getUser(sqlite, username)
+		if(quizFactory) user.quiz = await quizFactory()
+		return user
+	}
 
 	describe('computeUserScores', () => {
-		test('averages a single default vote with the entry\'s global score', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].globalScore = 0.5
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
+		test('averages a single default vote with the entry\'s global score', async () => {
+			const entry = await getEntryByName(sqlite, 'A', true)
+			entry.globalScore = 0.5
+			await saveEntry(sqlite, entry)
+			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 1)])
 
-			computeUserScores(user)
+			await computeUserScores(sqlite, user)
 
-			assertFinite(user.entries['n:0'])
-			assert.equal(user.entries['n:0'], (1 + 0.5) / 2)
+			assertFinite(user.entries[entry.id])
+			assert.equal(user.entries[entry.id], (1 + 0.5) / 2)
 		})
 
-		test('never produces NaN/undefined/null even with a single entry', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 0)])
+		test('never produces NaN/undefined/null even with a single entry', async () => {
+			const entry = await getEntryByName(sqlite, 'A', true)
+			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 0)])
 
-			computeUserScores(user)
+			await computeUserScores(sqlite, user)
 
-			assertFinite(user.entries['n:0'])
+			assertFinite(user.entries[entry.id])
 		})
 
-		test('averages a dual vote against both entries\' global scores', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			const user = makeUser('bobby', [new DualQuiz(ENTRIES.entries['n:0'], ENTRIES.entries['n:1'], 1)])
+		test('averages a dual vote against both entries\' global scores', async () => {
+			const a = await getEntryByName(sqlite, 'A', true)
+			const b = await getEntryByName(sqlite, 'B', true)
+			const user = await makeUser('bobby', () => [new DualQuiz(a, b, 1)])
 
-			computeUserScores(user)
+			await computeUserScores(sqlite, user)
 
-			assertFinite(user.entries['n:0'])
-			assertFinite(user.entries['n:1'])
+			assertFinite(user.entries[a.id])
+			assertFinite(user.entries[b.id])
 		})
 
-		test('re-running with an already-computed score keeps averaging with the global score, no NaN', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 0)])
+		test('re-running with an already-computed score keeps averaging with the global score, no NaN', async () => {
+			const entry = await getEntryByName(sqlite, 'A', true)
+			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 0)])
 
-			computeUserScores(user)
-			computeUserScores(user)
-			computeUserScores(user)
+			await computeUserScores(sqlite, user)
+			await computeUserScores(sqlite, user)
+			await computeUserScores(sqlite, user)
 
-			assertFinite(user.entries['n:0'])
+			assertFinite(user.entries[entry.id])
+		})
+
+		test('does not persist user.entries anywhere - recomputed fresh from votes each time', async () => {
+			const entry = await getEntryByName(sqlite, 'A', true)
+			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 1)])
+			await computeUserScores(sqlite, user)
+			await saveUser(sqlite, user)
+
+			const reloaded = await getUser(sqlite, 'bobby')
+			assert.deepEqual(reloaded.entries, {}) // freshly loaded, not yet recomputed
+			await computeUserScores(sqlite, reloaded)
+			assert.equal(reloaded.entries[entry.id], user.entries[entry.id])
 		})
 	})
 
 	describe('computeGlobalScores', () => {
-		test('falls back to 0.5 when there is a single entry (no variance to stretch)', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0.3
-			ALL_USERS.bobby = user
+		test('falls back to 0.5 when there is a single entry (no variance to stretch)', async () => {
+			const entry = await getEntryByName(sqlite, 'A', true)
+			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 0.3)])
+			await saveUser(sqlite, user)
 
-			computeGlobalScores()
+			await computeGlobalScores(sqlite)
 
-			assert.equal(ENTRIES.entries['n:0'].globalScore, 0.5)
+			const reloaded = await getEntryById(sqlite, entry.id)
+			assert.equal(reloaded.globalScore, 0.5)
 		})
 
-		test('falls back to 0.5 when every entry\'s score is tied', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0.4
-			user.entries['n:1'] = 0.4
-			ALL_USERS.bobby = user
+		test('falls back to 0.5 when every entry\'s score is tied', async () => {
+			const a = await getEntryByName(sqlite, 'A', true)
+			const b = await getEntryByName(sqlite, 'B', true)
+			const user = await makeUser('bobby', () => [new DirectQuiz(a, 0.4), new DirectQuiz(b, 0.4)])
+			await saveUser(sqlite, user)
 
-			computeGlobalScores()
+			await computeGlobalScores(sqlite)
 
-			assert.equal(ENTRIES.entries['n:0'].globalScore, 0.5)
-			assert.equal(ENTRIES.entries['n:1'].globalScore, 0.5)
+			assert.equal((await getEntryById(sqlite, a.id)).globalScore, 0.5)
+			assert.equal((await getEntryById(sqlite, b.id)).globalScore, 0.5)
 		})
 
-		test('stretches distinct scores to the full 0-1 range', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0
-			user.entries['n:1'] = 1
-			ALL_USERS.bobby = user
+		test('stretches distinct scores to the full 0-1 range', async () => {
+			const a = await getEntryByName(sqlite, 'A', true)
+			const b = await getEntryByName(sqlite, 'B', true)
+			const user = await makeUser('bobby', () => [new DirectQuiz(a, 0), new DirectQuiz(b, 1)])
+			await saveUser(sqlite, user)
 
-			computeGlobalScores()
+			await computeGlobalScores(sqlite)
 
-			assertFinite(ENTRIES.entries['n:0'].globalScore)
-			assertFinite(ENTRIES.entries['n:1'].globalScore)
-			assert.equal(ENTRIES.entries['n:0'].globalScore, 0)
-			assert.equal(ENTRIES.entries['n:1'].globalScore, 1)
+			const reloadedA = await getEntryById(sqlite, a.id)
+			const reloadedB = await getEntryById(sqlite, b.id)
+			assertFinite(reloadedA.globalScore)
+			assertFinite(reloadedB.globalScore)
+			assert.equal(reloadedA.globalScore, 0)
+			assert.equal(reloadedB.globalScore, 1)
 		})
 
-		test('never leaves a NaN globalScore after repeated cycles, even starting from a single entry', () => {
-			// Reproduces the real-world sequence: an entry is created and voted
-			// on alone first (triggering the single-entry fallback), then a
-			// second entry is added and voted on in a later cycle.
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 0)])
-			ALL_USERS.bobby = user
+		test('keeps an entry alive with its previous global_score unchanged when it has no real user score yet', async () => {
+			const entry = await getEntryByName(sqlite, 'A', true)
 
-			computeUserScores(user)
-			computeGlobalScores()
-			assertFinite(ENTRIES.entries['n:0'].globalScore)
+			await computeGlobalScores(sqlite)
 
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			user.quiz.push(new DirectQuiz(ENTRIES.entries['n:1'], 1))
+			const reloaded = await getEntryById(sqlite, entry.id)
+			assert.ok(reloaded, 'a freshly created, not-yet-voted-on entry must survive a computation cycle')
+			assert.equal(reloaded.globalScore, 0.5)
+		})
+
+		test('never leaves a NaN globalScore after repeated cycles, even starting from a single entry', async () => {
+			const a = await getEntryByName(sqlite, 'A', true)
+			await addAccount(sqlite, 'bobby', 'hashedpwd')
+			let user = await getUser(sqlite, 'bobby')
+			user.quiz = [new DirectQuiz(a, 0)]
+			await saveUser(sqlite, user)
+
+			await computeUserScores(sqlite, user)
+			await computeGlobalScores(sqlite)
+			assertFinite((await getEntryById(sqlite, a.id)).globalScore)
+
+			const b = await getEntryByName(sqlite, 'B', true)
+			user = await getUser(sqlite, 'bobby')
+			user.quiz.push(new DirectQuiz(b, 1))
+			await saveUser(sqlite, user)
 
 			for(let i = 0; i < 3; i++) {
-				computeUserScores(user)
-				computeGlobalScores()
+				user = await getUser(sqlite, 'bobby')
+				await computeUserScores(sqlite, user)
+				await computeGlobalScores(sqlite)
 			}
 
-			assertFinite(ENTRIES.entries['n:0'].globalScore)
-			assertFinite(ENTRIES.entries['n:1'].globalScore)
-			assertFinite(user.entries['n:0'])
-			assertFinite(user.entries['n:1'])
-		})
-
-		test('removes an entry that only the initial global score accounts for (no real user score)', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-
-			computeGlobalScores()
-
-			assert.equal(ENTRIES.entries['n:0'], undefined)
-		})
-	})
-
-	describe('computeUserScores no longer factors in tag scores', () => {
-		test('a user score on an entry is unaffected by its tags\' user scores', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].globalScore = 0.5
-			ENTRIES.entries['n:0'].tags.push('t:0')
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
-			user.tags['t:0'] = 0.9
-
-			computeUserScores(user)
-
-			// quiz vote (1) + globalScore (0.5) only, averaged — tag score ignored
-			assertFinite(user.entries['n:0'])
-			assert.equal(user.entries['n:0'], (1 + 0.5) / 2)
-		})
-	})
-
-	describe('computeUserTagScores (via computeUserScores)', () => {
-		test('a tag\'s user score averages the user scores of entries directly tagged with it', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].tags.push('t:0')
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
-			computeUserScores(user)
-
-			assertFinite(user.tags['t:0'])
-			assert.equal(user.tags['t:0'], user.entries['n:0'])
-		})
-
-		test('a tag\'s user score also averages in its already-computed direct children\'s user scores', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
-			ENTRIES.entries['n:0'].tags.push('t:1') // Cat
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'Animal entry')
-			ENTRIES.entries['n:1'].tags.push('t:0') // Animal
-
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-			TAGS.tags['t:1'] = new Tag('t:1', 'Cat')
-			TAGS.tags['t:1'].parents.push('t:0') // Cat -> Animal
-
-			const user = makeUser('bobby', [
-				new DirectQuiz(ENTRIES.entries['n:0'], 1),
-				new DirectQuiz(ENTRIES.entries['n:1'], 0),
-			])
-			computeUserScores(user)
-
-			assertFinite(user.tags['t:1']) // Cat: only from n:0 (Cat entry)
-			assertFinite(user.tags['t:0']) // Animal: n:1 (Animal entry) + Cat's already-computed score
-			assert.equal(user.tags['t:1'], user.entries['n:0'])
-			assert.equal(user.tags['t:0'], (user.entries['n:1'] + user.tags['t:1']) / 2)
-		})
-
-		test('a tag with no scorable entry or child is left untouched (stays absent, no 0.5 fallback)', () => {
-			TAGS.tags['t:0'] = new Tag('t:0', 'Unused')
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
-
-			computeUserScores(user)
-
-			assert.equal('t:0' in user.tags, false)
-		})
-
-		test('computes correctly regardless of the order tags were declared/voted in', () => {
-			// Declare the parent before the child, and vote on the child's entry
-			// last: topologicalOrder must still process the child before the parent.
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-			TAGS.tags['t:1'] = new Tag('t:1', 'Cat')
-			TAGS.tags['t:1'].parents.push('t:0')
-
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
-			ENTRIES.entries['n:0'].tags.push('t:1')
-
-			const user = makeUser('bobby', [new DirectQuiz(ENTRIES.entries['n:0'], 1)])
-			computeUserScores(user)
-
-			assertFinite(user.tags['t:1'])
-			assertFinite(user.tags['t:0'])
-		})
-	})
-
-	describe('computeGlobalScores no longer factors in tag scores', () => {
-		test('an entry\'s globalScore is unaffected by its tags\' global score', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].tags.push('t:0')
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-			TAGS.tags['t:0'].score = 0.9
-
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0.3
-			ALL_USERS.bobby = user
-
-			computeGlobalScores()
-
-			// Single user score -> single-entry fallback (no variance to stretch)
-			assert.equal(ENTRIES.entries['n:0'].globalScore, 0.5)
-		})
-
-		test('without any tag defined, behaves exactly like before (non-regression)', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0
-			user.entries['n:1'] = 1
-			ALL_USERS.bobby = user
-
-			computeGlobalScores()
-
-			assert.equal(ENTRIES.entries['n:0'].globalScore, 0)
-			assert.equal(ENTRIES.entries['n:1'].globalScore, 1)
-		})
-	})
-
-	describe('computeGlobalTagScores (via computeGlobalScores)', () => {
-		test('a tag\'s global score averages the globalScore of entries directly tagged with it', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].globalScore = 0.5
-			ENTRIES.entries['n:0'].tags.push('t:0')
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0.5
-			ALL_USERS.bobby = user
-
-			computeGlobalScores()
-
-			assertFinite(TAGS.tags['t:0'].score)
-		})
-
-		test('a tag\'s global score also averages in its direct children\'s already-computed global scores', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'Cat entry')
-			ENTRIES.entries['n:0'].tags.push('t:1') // Cat
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'Animal entry')
-			ENTRIES.entries['n:1'].tags.push('t:0') // Animal
-
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-			TAGS.tags['t:1'] = new Tag('t:1', 'Cat')
-			TAGS.tags['t:1'].parents.push('t:0') // Cat -> Animal
-
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0.2
-			user.entries['n:1'] = 0.8
-			ALL_USERS.bobby = user
-
-			computeGlobalScores()
-
-			assertFinite(TAGS.tags['t:1'].score)
-			assertFinite(TAGS.tags['t:0'].score)
-		})
-
-		test('a tag with no scorable entry or child keeps its previous score unchanged (no reset, no NaN)', () => {
-			TAGS.tags['t:0'] = new Tag('t:0', 'Unused')
-			TAGS.tags['t:0'].score = 0.42
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0.3
-			ALL_USERS.bobby = user
-
-			computeGlobalScores()
-
-			assert.equal(TAGS.tags['t:0'].score, 0.42)
-		})
-
-		test('tag scores are never stretched min-max, unlike entry globalScore', () => {
-			ENTRIES.entries['n:0'] = new Entry('n:0', 'A')
-			ENTRIES.entries['n:0'].tags.push('t:0')
-			ENTRIES.entries['n:1'] = new Entry('n:1', 'B')
-			ENTRIES.entries['n:1'].tags.push('t:0')
-			TAGS.tags['t:0'] = new Tag('t:0', 'Animal')
-
-			const user = makeUser('bobby', [])
-			user.entries['n:0'] = 0
-			user.entries['n:1'] = 1
-			ALL_USERS.bobby = user
-
-			computeGlobalScores()
-
-			// Entry scores are stretched to 0/1, but the tag score is a plain
-			// average of its entries' (already stretched) globalScore, not
-			// itself re-stretched against other tags.
-			const expected = (ENTRIES.entries['n:0'].globalScore + ENTRIES.entries['n:1'].globalScore) / 2
-			assert.equal(TAGS.tags['t:0'].score, expected)
+			assertFinite((await getEntryById(sqlite, a.id)).globalScore)
+			assertFinite((await getEntryById(sqlite, b.id)).globalScore)
 		})
 	})
 })

@@ -1,3 +1,5 @@
+import { getEntriesByIds } from '../data/entriesRepository.js'
+
 /**
  * Weight of the second duel entry, based on the absolute score gap with the
  * first one already picked (abs). Mirrors the client-side weightFor() that
@@ -20,8 +22,8 @@ function weightFor(abs) {
  * moved here so the client no longer needs to load the full user score list
  * to pick a pair.
  *
- * `options`: list of {id, label, image, score} (the un-paginated output of
- * user.getUserList()). Returns null if options.length < 2 (not enough scored
+ * `options`: list of {id, label, image, score} (the user's own stretched
+ * score list). Returns null if options.length < 2 (not enough scored
  * entries for a duel) — up to the caller to map that to an HTTP status.
  */
 function pickPair(options) {
@@ -65,13 +67,40 @@ function pickPair(options) {
 }
 
 /**
+ * Builds the full stretched score list for `user` (mirrors the old
+ * User.getUserList()): batches every scored entry's label/image/globalScore
+ * in one round-trip, then stretches user.entries' raw scores to 0-1.
+ */
+async function getUserStretchedList(sqlite, user) {
+	const entryIds = Object.keys(user.entries)
+	if(!entryIds.length) return []
+
+	const entriesById = await getEntriesByIds(sqlite, entryIds)
+	const values = Object.values(user.entries)
+	const minUserScore = Math.min(...values)
+	const maxUserScore = Math.max(...values)
+	const range = maxUserScore - minUserScore
+
+	return entryIds.map((entryId) => {
+		const entry = entriesById.get(entryId)
+		return {
+			id: entryId,
+			label: entry?.name,
+			image: entry?.image,
+			score: range === 0 ? 0.5 : (user.entries[entryId] - minUserScore) / range,
+			globalScore: entry?.globalScore,
+		}
+	})
+}
+
+/**
  * Builds the pair for GET /api/quiz/dual: picks via pickPair() over the
  * user's full (un-paginated, never serialized as-is) score list, then
  * serializes only the two chosen entries in the shape the client expects.
  * Returns null if the user doesn't have enough scored entries (<2).
  */
-function pickDualPair(user) {
-	const options = user.getUserList() // full stretched list, internal use only
+async function pickDualPair(sqlite, user) {
+	const options = await getUserStretchedList(sqlite, user)
 	const pair = pickPair(options)
 	if(!pair) return null
 

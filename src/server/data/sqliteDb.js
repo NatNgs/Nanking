@@ -1,13 +1,16 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, existsSync } from 'node:fs'
 import { dirname } from 'node:path'
-import CONFIG from '../config/config.js'
 
 const SCHEMA = `
+-- global_score is the only computed value persisted: derived from all users'
+-- votes by scoresComputerService.js, refreshed each computation cycle. Never
+-- user-editable directly.
 CREATE TABLE IF NOT EXISTS entries (
-	id    TEXT PRIMARY KEY,
-	name  TEXT NOT NULL,
-	image TEXT NOT NULL DEFAULT 'assets/unknown.svg'
+	id           TEXT PRIMARY KEY,
+	name         TEXT NOT NULL,
+	image        TEXT NOT NULL DEFAULT 'assets/unknown.svg',
+	global_score REAL NOT NULL DEFAULT 0.5
 );
 
 CREATE TABLE IF NOT EXISTS tags (
@@ -15,17 +18,22 @@ CREATE TABLE IF NOT EXISTS tags (
 	label TEXT NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_entries_name ON entries(name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS idx_tags_label ON tags(label COLLATE NOCASE);
+
 CREATE TABLE IF NOT EXISTS tag_parents (
 	tag_id    TEXT NOT NULL REFERENCES tags(id),
 	parent_id TEXT NOT NULL REFERENCES tags(id),
 	PRIMARY KEY (tag_id, parent_id)
 );
+CREATE INDEX IF NOT EXISTS idx_tag_parents_parent ON tag_parents(parent_id);
 
 CREATE TABLE IF NOT EXISTS entry_tags (
 	entry_id TEXT NOT NULL REFERENCES entries(id),
 	tag_id   TEXT NOT NULL REFERENCES tags(id),
 	PRIMARY KEY (entry_id, tag_id)
 );
+CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id);
 
 -- password_hash/salt are NULL for a "ghost" account created by a data import
 -- (e.g. MALImport) with no credentials yet: the account row already exists
@@ -63,6 +71,15 @@ CREATE TABLE IF NOT EXISTS dual_quiz (
 	ts       INTEGER NOT NULL,
 	UNIQUE (username, neg_id, pos_id)
 );
+
+-- Backs the 'n:<seq>'/'t:<seq>' id convention with a strictly-increasing,
+-- never-reused counter per prefix (see entriesRepository/tagsRepository's
+-- nextIdForPrefix()) - one atomic UPDATE instead of the old "count rows, probe
+-- candidate ids in a loop" approach, which raced under concurrent creates.
+CREATE TABLE IF NOT EXISTS id_sequences (
+	prefix     TEXT PRIMARY KEY,
+	next_value INTEGER NOT NULL DEFAULT 0
+);
 `
 
 function openDatabase(path) {
@@ -81,7 +98,49 @@ function openDatabase(path) {
 	if(!accountColumns.some((col) => col.name === 'is_admin')) {
 		db.exec('ALTER TABLE accounts ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
 	}
+	// Migration for the no-memory-cache rework: global_score used to live only
+	// in memory (recomputed every cycle, lost on restart, defaulting to 0.5) -
+	// now the single source of truth, persisted here instead.
+	const entryColumns = db.prepare('PRAGMA table_info(entries)').all()
+	if(!entryColumns.some((col) => col.name === 'global_score')) {
+		db.exec('ALTER TABLE entries ADD COLUMN global_score REAL NOT NULL DEFAULT 0.5')
+	}
+	// Migration for the id_sequences rework: seed each prefix's counter one past
+	// the highest numeric suffix already in use, so a database created before
+	// this change never reissues an id that already exists.
+	seedIdSequences(db)
 	return db
+}
+
+/**
+ * (Re)seeds entries'/tags' id_sequences counters to one past the highest
+ * numeric suffix currently in use for each prefix ('n:', 't:') - never lower
+ * than what's already there (GREATEST-style upsert), so this is always safe
+ * to call again after any bulk insert of externally-sourced ids (the legacy
+ * JSON import, or a test fixture writing rows directly). Without this, a bulk
+ * insert that bypasses getEntryByName()/getTagByLabel() (the only normal
+ * callers of the counter) would leave it seeded from an empty table, and the
+ * very next created id would collide with one already in use.
+ */
+function seedIdSequences(db) {
+	const idPrefixes = [
+		{table: 'entries', column: 'id', prefix: 'n:'},
+		{table: 'tags', column: 'id', prefix: 't:'},
+	]
+	for(const {table, column, prefix} of idPrefixes) {
+		const rows = db.prepare(
+			`SELECT ${column} AS id FROM ${table} WHERE ${column} LIKE ? ESCAPE '\\'`
+		).all(prefix.replace(/[%_]/g, '\\$&') + '%')
+		let maxSuffix = -1
+		for(const {id} of rows) {
+			const suffix = Number(id.slice(prefix.length))
+			if(Number.isInteger(suffix) && suffix > maxSuffix) maxSuffix = suffix
+		}
+		db.prepare(
+			'INSERT INTO id_sequences (prefix, next_value) VALUES (?, ?) ' +
+			'ON CONFLICT (prefix) DO UPDATE SET next_value = MAX(next_value, excluded.next_value)'
+		).run(prefix, maxSuffix + 1)
+	}
 }
 
 /**
@@ -95,7 +154,7 @@ function toAsync(fn) {
 		setTimeout(() => {
 			try {
 				resolve(fn())
-			} catch(err) {
+			} catch (err) {
 				reject(err)
 			}
 		}, 0)
@@ -143,7 +202,7 @@ class SqliteConnection {
 				const result = fn()
 				this.db.exec('COMMIT')
 				return result
-			} catch(err) {
+			} catch (err) {
 				this.db.exec('ROLLBACK')
 				throw err
 			}
@@ -166,7 +225,7 @@ class SqliteConnection {
  * fixture database - see test/integration/helpers/fixtureDb.js) must never
  * open/lock CONFIG.SQLITE_PATH as a side effect of the import graph alone.
  * The single production connection is created explicitly by server.js and
- * threaded through persistenceService.js from there.
+ * threaded through db.js's setSqlite() from there.
  */
 async function openSqlite(path) {
 	const conn = new SqliteConnection(path)
@@ -177,4 +236,4 @@ async function openSqlite(path) {
 	return conn
 }
 
-export { SqliteConnection, SCHEMA, openSqlite }
+export { SqliteConnection, SCHEMA, openSqlite, seedIdSequences }

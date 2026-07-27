@@ -1,13 +1,13 @@
-import { SqliteConnection } from '../../../src/server/data/sqliteDb.js'
+import { SqliteConnection, seedIdSequences } from '../../../src/server/data/sqliteDb.js'
 
 /**
  * Builds a pre-filled SQLite file at `path` (same schema as the real server -
  * see sqliteDb.js) so the tags integration test can start from a rich,
  * already-scored state instead of rebuilding tags/entries/votes from scratch
  * through the UI for every test. Writes SQL directly (like migrateFromJson.js)
- * rather than going through EntriesManager/TagsManager/User/
- * persistenceService.js: those are all only ever wired to the production
- * SQLITE singleton, and this needs its own throwaway connection instead.
+ * rather than going through the *Repository.js modules: this needs its own
+ * throwaway connection, separate from the production one threaded through
+ * db.js's setSqlite().
  *
  * Contains only entries/tags/quiz data and a ghost account row (no
  * credentials - see accounts.js's own "ghost account" handling): the test
@@ -73,6 +73,13 @@ async function buildFixtureDb(path, username) {
 		insertDirectQuiz.run(username, 'n:0', 0.9, 1)
 		insertDirectQuiz.run(username, 'n:1', 0.2, 2)
 		insertDirectQuiz.run(username, 'n:2', 0.6, 3)
+
+		// Entry/tag rows above were inserted with explicit ids, bypassing
+		// getEntryByName()/getTagByLabel() (the only normal callers of the
+		// id_sequences counter) - resync it now, or the test's first UI-driven
+		// creation (e.g. a new tag from the picker) would collide with one of
+		// the ids seeded here.
+		seedIdSequences(db)
 	})
 
 	await sqlite.close()

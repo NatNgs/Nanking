@@ -23,7 +23,8 @@ const EMPTY_EXTRA_PARAMS = {}
  * `method`: 'GET' (default) or 'POST' (for /tags/search, which takes a body).
  */
 function usePaginatedList(endpoint, {
-	initialSort, initialOrder, limit = 100, extraParams = EMPTY_EXTRA_PARAMS, refreshIntervalMs = null, dependsOn = null, method = 'GET',
+	initialSort, initialOrder, limit = 100, extraParams = EMPTY_EXTRA_PARAMS,
+	refreshIntervalMs = null, dependsOn = null, method = 'GET',
 } = {}) {
 	const [page, setPage] = useState(1)
 	const [sort, setSort] = useState(initialSort)
@@ -47,6 +48,7 @@ function usePaginatedList(endpoint, {
 		// identity, so a fresh plain-object literal passed by the caller on
 		// every render doesn't force a refetch loop. `extraParams` itself is
 		// still read fresh from the closure each time this recreates.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [endpoint, extraParamsKey, page, sort, order, limit, method])
 
 	useEffect(() => { fetchPage() }, [fetchPage])
@@ -56,12 +58,47 @@ function usePaginatedList(endpoint, {
 	useEffect(() => {
 		if(dependsOn == null) return
 		fetchPage()
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [dependsOn])
 
+	// Only polls while the tab is visible, to avoid wasting network calls on a
+	// backgrounded tab. When the tab becomes visible again, polls immediately
+	// if at least refreshIntervalMs has elapsed since the last poll, then
+	// resumes the normal interval from there.
 	useEffect(() => {
 		if(!refreshIntervalMs) return
-		const id = setInterval(fetchPage, refreshIntervalMs)
-		return () => clearInterval(id)
+
+		let intervalId = null
+		let lastPollAt = Date.now()
+
+		function poll() {
+			lastPollAt = Date.now()
+			fetchPage()
+		}
+		function startInterval() {
+			if(intervalId != null) return
+			intervalId = setInterval(poll, refreshIntervalMs)
+		}
+		function stopInterval() {
+			if(intervalId == null) return
+			clearInterval(intervalId)
+			intervalId = null
+		}
+		function onVisibilityChange() {
+			if(document.visibilityState !== 'visible') {
+				stopInterval()
+				return
+			}
+			if(Date.now() - lastPollAt >= refreshIntervalMs) poll()
+			startInterval()
+		}
+
+		if(document.visibilityState === 'visible') startInterval()
+		document.addEventListener('visibilitychange', onVisibilityChange)
+		return () => {
+			document.removeEventListener('visibilitychange', onVisibilityChange)
+			stopInterval()
+		}
 	}, [fetchPage, refreshIntervalMs])
 
 	function onSort(column) {

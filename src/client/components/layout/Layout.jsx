@@ -57,9 +57,9 @@ function Layout() {
 				onOpenLogin={setLoginModalMode}
 			/>
 			<div className="main-page-content">
-			{sessionExpiredMessage
-				? <ErrorPage message={sessionExpiredMessage} />
-				: <Outlet context={{scoreFormatter}}/>}
+				{sessionExpiredMessage
+					? <ErrorPage message={sessionExpiredMessage} />
+					: <Outlet context={{scoreFormatter}}/>}
 			</div>
 
 			{loginModalMode && (

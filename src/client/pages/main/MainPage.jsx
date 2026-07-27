@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useOutletContext } from 'react-router'
 import NewEntryForm from '../../components/quiz/NewEntryForm.jsx'
 import DualQuiz from '../../components/quiz/DualQuiz.jsx'
@@ -29,10 +29,10 @@ function MainPage() {
 	return (
 		<div className="main-page">
 			{username && (
-				<div className="main-page-view-buttons" >
-					<button onClick={()=>setView(null)}>Global scores</button>
-					<button onClick={()=>setView('newEntry')}>New entry</button>
-					{ scoredEntriesCount > 2 && (<button onClick={()=>setView('quiz')}>Random Quiz</button>)}
+				<div className="main-page-view-buttons">
+					<button onClick={() => setView(null)}>Global scores</button>
+					<button onClick={() => setView('newEntry')}>New entry</button>
+					{scoredEntriesCount > 2 && (<button onClick={() => setView('quiz')}>Random Quiz</button>)}
 				</div>
 			)}
 			<div className={'main-page-view-content ' + (isPanelOpen ? 'panel-open ' : 'panel-closed ')}>

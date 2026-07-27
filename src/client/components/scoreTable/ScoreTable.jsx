@@ -44,9 +44,13 @@ function ScoreTable({items, columns, scoreFormatter, sort, order, onSort}) {
 			<table className="score-table">
 				<thead>
 					<tr>
-						<th onClick={() => onSort(LABEL_SORT_KEY)} class="sortable">Entry<span class="sortIndicator">{sortIndicator(LABEL_SORT_KEY)}</span></th>
+						<th onClick={() => onSort(LABEL_SORT_KEY)} className="sortable">
+							Entry<span className="sortIndicator">{sortIndicator(LABEL_SORT_KEY)}</span>
+						</th>
 						{columns.map((col) => (
-							<th key={col.column} onClick={() => onSort(col.sortKey)} class="sortable">{col.column}<span class="sortIndicator">{sortIndicator(col.sortKey)}</span></th>
+							<th key={col.column} onClick={() => onSort(col.sortKey)} className="sortable">
+								{col.column}<span className="sortIndicator">{sortIndicator(col.sortKey)}</span>
+							</th>
 						))}
 					</tr>
 				</thead>
@@ -59,7 +63,11 @@ function ScoreTable({items, columns, scoreFormatter, sort, order, onSort}) {
 								return (
 									<td key={col.column} className="scoreCol">
 										{value != null && (
-											<><span class="scoreValue">{scoreFormatter.pretty(value)}</span>&nbsp;<span style={{color: scoreToColor(value)}}>●</span></>
+											<>
+												<span className="scoreValue">{scoreFormatter.pretty(value)}</span>
+												&nbsp;
+												<span style={{color: scoreToColor(value)}}>●</span>
+											</>
 										)}
 									</td>
 								)

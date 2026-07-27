@@ -24,7 +24,10 @@ function AccountPage() {
 			<button onClick={() => setIsDeleteModalOpen(true)}>Remove my account</button>
 			<br/>
 			<h2>User log</h2>
-			<p>Here are displayed all the scores given to your entries. Removing lines will cancel them, and so modify your scores.</p>
+			<p>
+				Here are displayed all the scores given to your entries.
+				Removing lines will cancel them, and so modify your scores.
+			</p>
 			<RecentVotesTable scoreFormatter={scoreFormatter} showRank showPagination />
 			<br/>
 			{isDeleteModalOpen && (

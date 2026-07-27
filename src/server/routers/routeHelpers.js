@@ -1,12 +1,13 @@
 /**
- * Builds a `(id, res, ...args) => void` responder: fetches the resource via
- * `getData(id, ...args)`, replies 404 with `notFoundMessage` if it doesn't
- * exist, otherwise replies with the resource as JSON. Used to build
- * `respondWithEntryData`/`respondWithTagData` from their respective services.
+ * Builds a `(sqlite, id, res, ...args) => Promise<void>` responder: fetches
+ * the resource via `getData(sqlite, id, ...args)`, replies 404 with
+ * `notFoundMessage` if it doesn't exist, otherwise replies with the resource
+ * as JSON. Used to build `respondWithEntryData`/`respondWithTagData` from
+ * their respective services.
  */
 function respondWithData(getData, notFoundMessage) {
-	return (id, res, ...args) => {
-		const data = getData(id, ...args)
+	return async (sqlite, id, res, ...args) => {
+		const data = await getData(sqlite, id, ...args)
 		if(!data) return res.status(404).send(notFoundMessage)
 		res.json(data)
 	}

@@ -11,7 +11,7 @@ import session from 'express-session'
 
 import CONFIG from './config/config.js'
 import { openSqlite } from './data/sqliteDb.js'
-import * as persistenceService from './services/persistenceService.js'
+import { setSqlite } from './data/db.js'
 
 import { pageLimiter } from './middleware/rateLimit.js'
 import apiRouter from './routers/apiRoutes.js'
@@ -21,20 +21,19 @@ import { launchComputation } from './services/scoresComputerService.js'
 
 // Explicitly open the one production SQLite connection (running the one-shot
 // legacy JSON import, if any - see sqliteDb.js/migrateFromJson.js), and hand
-// it to persistenceService.js before anything else touches persisted data.
-// Deliberately not done at either module's top level - see sqliteDb.js's own
-// openSqlite() docstring for why.
+// it to db.js before anything else touches persisted data. Deliberately not
+// done at either module's top level - see sqliteDb.js's own openSqlite()
+// docstring for why.
 const SQLITE = await openSqlite(CONFIG.SQLITE_PATH)
-persistenceService.init(SQLITE)
+setSqlite(SQLITE)
 
-// Load all persisted data from SQLite into the in-memory singletons.
-await persistenceService.loadAll()
-
-// Init score computation worker
-launchComputation()
+// Init score computation worker. No preload step needed anymore: every
+// route/job reloads exactly what it needs from SQLite on demand instead of
+// keeping ENTRIES/TAGS/ACCOUNTS/ALL_USERS in memory for the process lifetime.
+launchComputation(SQLITE)
 
 // Configuring express to use body-parser as middle-ware
-app.use(urlencoded({ extended: false }));
+app.use(urlencoded({ extended: false }))
 app.use(json())
 
 // Cookie-based session (HttpOnly, so a script cannot read it from the
@@ -88,7 +87,7 @@ app.post('/_shutdown', (req, res) => {
 app.use('/api', apiRouter)
 
 // Files
-app.use(express_static(CONFIG.CLIENT_DIST_PATH), pageLimiter);
+app.use(express_static(CONFIG.CLIENT_DIST_PATH), pageLimiter)
 
 // ERRORS
 app.all('{*path}', (req, res) => {
@@ -119,7 +118,7 @@ if(CONFIG.CERT_KEY_PATH == null) {
 			key: readFileSync(CONFIG.CERT_KEY_PATH),
 			cert: readFileSync(CONFIG.CERT_CERT_PATH),
 		}
-	} catch(e) {
+	} catch (e) {
 		console.error('Could not read SSL certificate/key (' + e.message + ').')
 		process.exit(1)
 	}
@@ -150,26 +149,19 @@ function gracefulShutdown() {
 		process.exit(-1)
 	}, CONFIG.SHUTDOWN_TIMEOUT)
 
-	// Stop server, then persist data and exit once fully closed. Unlike the
-	// fire-and-forget save calls made during normal operation (see
-	// entryService.js/tagService.js), every save here is awaited: this is
-	// the last chance to flush in-memory changes to SQLite before the
-	// process exits, so none of it can be left in flight.
+	// Stop server, then close SQLite once fully closed. No batch save needed
+	// anymore: every route/job already persists its own changes immediately
+	// (see entriesRepository.js/tagsRepository.js/userRepository.js's targeted
+	// save*() functions) rather than relying on a single flush at shutdown.
 	server.close(async () => {
 		clearTimeout(shutting_down)
 
-		await Promise.all([
-			persistenceService.saveAccounts(),
-			persistenceService.saveEntries(),
-			persistenceService.saveTags(),
-			persistenceService.saveAllUsers(),
-		])
 		await SQLITE.close()
 
 		console.log('Shutdown complete')
 		process.exit(0)
 	})
 }
-process.on('SIGTERM', gracefulShutdown);  // Kill command
-process.on('SIGINT', gracefulShutdown);   // Ctrl+C
-process.on('SIGHUP', gracefulShutdown);   // Terminal closure
+process.on('SIGTERM', gracefulShutdown)  // Kill command
+process.on('SIGINT', gracefulShutdown)   // Ctrl+C
+process.on('SIGHUP', gracefulShutdown)   // Terminal closure

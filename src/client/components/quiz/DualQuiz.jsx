@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useOutletContext } from 'react-router'
 import { useUserContext } from '../../context/UserContext.jsx'
 import { apiGet, apiPost } from '../../hooks/useApi.js'
@@ -19,18 +19,25 @@ function DualQuiz() {
 	const [left, setLeft] = useState(null)
 	const [right, setRight] = useState(null)
 	const [error, setError] = useState(null)
+	const abortRef = useRef(null)
 
 	async function fetchNewPair() {
+		abortRef.current?.abort()
+		const controller = new AbortController()
+		abortRef.current = controller
+
 		setIsVoting(true)
 		try {
-			const pair = await apiGet('/quiz/dual')
+			const pair = await apiGet('/quiz/dual', null, {signal: controller.signal})
+			if(controller.signal.aborted) return
 			setLeft(pair.left)
 			setRight(pair.right)
 			setError(null)
-		} catch(err) {
+		} catch (err) {
+			if(controller.signal.aborted) return
 			setError(err)
 		} finally {
-			setIsVoting(false)
+			if(!controller.signal.aborted) setIsVoting(false)
 		}
 	}
 
@@ -47,9 +54,11 @@ function DualQuiz() {
 	}
 
 	// Fetch a pair once on mount. Only a vote or an explicit skip picks a new
-	// pair afterwards.
+	// pair afterwards. Aborts any in-flight fetch on unmount, so a late
+	// response never calls setState on an unmounted component.
 	useEffect(() => {
 		fetchNewPair()
+		return () => abortRef.current?.abort()
 	}, [])
 
 	return (

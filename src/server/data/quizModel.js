@@ -1,5 +1,3 @@
-import ENTRIES from './entries.js'
-
 class QuizError extends Error {
 	constructor(message) {
 		super(message)
@@ -44,11 +42,15 @@ class DirectQuiz extends AbstractQuiz {
 			outputEntriesLists[this.entry.id] = []
 		outputEntriesLists[this.entry.id].push(this.value)
 	}
+	// Compares by entry id, not object identity: entries are reloaded fresh
+	// from SQLite on demand (no long-lived cache - see entriesRepository.js),
+	// so two DirectQuiz instances referencing "the same" entry never share
+	// the same Entry object instance.
 	equals(other) {
-		return this.type === other.type && this.entry === other.entry
+		return this.type === other.type && this.entry.id === other.entry.id
 	}
 	referencesEntry(entry) {
-		return this.entry === entry
+		return this.entry.id === entry.id
 	}
 	toJson() {
 		return {
@@ -64,7 +66,7 @@ class DualQuiz extends AbstractQuiz {
 		if(!neg || !pos) {
 			throw new QuizError('Dual: entries cannot be null')
 		}
-		if(neg === pos) {
+		if(neg.id === pos.id) {
 			throw new QuizError('Dual: cannot compare between the same entry')
 		}
 		if(value < -1 || value > 1) {
@@ -106,15 +108,17 @@ class DualQuiz extends AbstractQuiz {
 			}
 		}
 	}
+	// Compares by entry id, not object identity - see DirectQuiz.equals()'s
+	// comment for why.
 	equals(other) {
 		return this.type === other.type
 			&& (
-				(this.neg === other.neg && this.pos === other.pos)
-				|| (this.neg === other.pos && this.pos === other.neg)
+				(this.neg.id === other.neg.id && this.pos.id === other.pos.id)
+				|| (this.neg.id === other.pos.id && this.pos.id === other.neg.id)
 			)
 	}
 	referencesEntry(entry) {
-		return this.neg === entry || this.pos === entry
+		return this.neg.id === entry.id || this.pos.id === entry.id
 	}
 	toJson() {
 		return {
@@ -127,31 +131,4 @@ class DualQuiz extends AbstractQuiz {
 }
 
 
-/**
- * Rebuilds a DirectQuiz/DualQuiz from persisted data (SQLite direct_quiz/
- * dual_quiz row, or the legacy JSON shape during migration). `ts`, when
- * present, is restored onto the instance so a later save() can round-trip
- * the original vote time instead of re-stamping it with "now" - see
- * User.didQuiz()/User.save().
- */
-function loadQuiz(jsonQuizData) {
-	const type = jsonQuizData.type
-	let quiz
-	switch(type) {
-		// 'default' is the old, pre-rename type value: still accepted here so quiz
-		// history saved before the direct/default rename keeps loading correctly.
-		case 'direct': case 'default':
-			quiz = new DirectQuiz(ENTRIES.getEntryById(jsonQuizData.entry), +jsonQuizData.value)
-			break
-		case 'dual':
-			quiz = new DualQuiz(ENTRIES.getEntryById(jsonQuizData.neg), ENTRIES.getEntryById(jsonQuizData.pos), +jsonQuizData.value)
-			break
-		default:
-			console.error('loadQuiz: Unknown quiz type', type)
-			return null
-	}
-	if(jsonQuizData.ts != null) quiz.ts = jsonQuizData.ts
-	return quiz
-}
-
-export { loadQuiz, DirectQuiz, DualQuiz }
+export { DirectQuiz, DualQuiz }

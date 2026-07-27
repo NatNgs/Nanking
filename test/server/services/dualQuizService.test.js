@@ -1,5 +1,7 @@
-import { test, describe, mock } from 'node:test'
+import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
+import { getEntryByName } from '../../../src/server/data/entriesRepository.js'
 import { pickPair, weightFor, pickDualPair } from '../../../src/server/services/dualQuizService.js'
 
 describe('weightFor', () => {
@@ -63,19 +65,28 @@ describe('pickPair', () => {
 })
 
 describe('pickDualPair', () => {
-	test('returns null when the user has fewer than 2 scored entries', () => {
-		const user = {getUserList: () => [{id: 'a', label: 'A', image: 'img', score: 0.5}]}
-		assert.equal(pickDualPair(user), null)
+	const db = useSqliteFixture()
+	let sqlite
+	beforeEach(() => { sqlite = db.sqlite })
+
+	test('returns null when the user has fewer than 2 scored entries', async () => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const user = {entries: {[a.id]: 0.5}}
+		assert.equal(await pickDualPair(sqlite, user), null)
 	})
 
-	test('returns {left, right} serialized from the two picked entries', () => {
-		const user = {
-			getUserList: () => [
-				{id: 'a', label: 'A', image: 'img-a', score: 0.2},
-				{id: 'b', label: 'B', image: 'img-b', score: 0.8},
-			],
-		}
-		const pair = pickDualPair(user)
+	test('returns null when the user has no scored entries at all', async () => {
+		const user = {entries: {}}
+		assert.equal(await pickDualPair(sqlite, user), null)
+	})
+
+	test('returns {left, right} serialized from the two picked entries', async () => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const b = await getEntryByName(sqlite, 'B', true)
+		const user = {entries: {[a.id]: 0.2, [b.id]: 0.8}}
+
+		const pair = await pickDualPair(sqlite, user)
+
 		assert.ok(pair.left)
 		assert.ok(pair.right)
 		assert.notEqual(pair.left.id, pair.right.id)

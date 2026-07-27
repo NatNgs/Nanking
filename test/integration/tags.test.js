@@ -6,7 +6,9 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { startServer, stopServer, BASE_URL } from './helpers/testServer.js'
 import { buildFixtureDb } from './helpers/fixtureDb.js'
 
-const LOGIN = 'tagsintegration' // must already be lowercase: accounts.js normalizes it, but the fixture writes users.<username> as-is
+// must already be lowercase: accountsModel.js normalizes it, but the fixture
+// writes users.<username> as-is
+const LOGIN = 'tagsintegration'
 const PASSWORD = 'testtest'
 const FIXTURE_DB_PATH = 'test/tmp/nanking.test.sqlite'
 
@@ -22,7 +24,7 @@ async function rmSyncWithRetry(path, retries = 10) {
 		try {
 			rmSync(path, {force: true})
 			return
-		} catch(err) {
+		} catch (err) {
 			if(attempt >= retries || !['EPERM', 'EBUSY'].includes(err.code)) throw err
 			await delay(200)
 		}
@@ -78,24 +80,27 @@ describe('Tags integration flow', {concurrency: false}, () => {
 		assert.equal((await tagLabels.first().innerText()).trim(), 'Cat')
 	})
 
-	test('adding an existing tag from the picker (no creation) attaches it and shows it disabled with no selection', async () => {
-		const addButton = page.locator('.entry-tag-picker button')
-		await addButton.waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await addButton.isDisabled(), true)
+	test(
+		'adding an existing tag from the picker (no creation) attaches it '
+		+ 'and shows it disabled with no selection',
+		async () => {
+			const addButton = page.locator('.entry-tag-picker button')
+			await addButton.waitFor({state: 'visible', timeout: 5000})
+			assert.equal(await addButton.isDisabled(), true)
 
-		await page.locator('.entry-tag-picker input[type=text]').click()
-		await page.locator('.entry-tag-picker input[type=text]').fill('Dog')
-		const option = page.getByRole('option', {name: 'Dog', exact: true})
-		await option.waitFor({state: 'visible', timeout: 3000})
-		await option.click()
+			await page.locator('.entry-tag-picker input[type=text]').click()
+			await page.locator('.entry-tag-picker input[type=text]').fill('Dog')
+			const option = page.getByRole('option', {name: 'Dog', exact: true})
+			await option.waitFor({state: 'visible', timeout: 3000})
+			await option.click()
 
-		assert.equal(await addButton.isDisabled(), false)
-		await addButton.click()
+			assert.equal(await addButton.isDisabled(), false)
+			await addButton.click()
 
-		const tagLabels = page.locator('.entry-page-tags .tagLabel')
-		await page.locator('.entry-page-tags .tagLabel', {hasText: 'Dog'}).waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await tagLabels.count(), 2)
-	})
+			const tagLabels = page.locator('.entry-page-tags .tagLabel')
+			await page.locator('.entry-page-tags .tagLabel', {hasText: 'Dog'}).waitFor({state: 'visible', timeout: 5000})
+			assert.equal(await tagLabels.count(), 2)
+		})
 
 	test('a tag already covered (an ancestor of a tag already on the entry) is not offered by the picker', async () => {
 		// Whiskers already has Cat directly: Mammal/Animal/Living being are all
@@ -128,32 +133,35 @@ describe('Tags integration flow', {concurrency: false}, () => {
 		assert.doesNotMatch(scoreText, /NaN/)
 	})
 
-	test('navigating to an intermediate tag page shows its parent/child tree, score, and inherited linked entries', async () => {
-		await gotoEntryNamed('Generic Mammal thing')
-		await page.locator('.entry-page-tags .tagLabel', {hasText: 'Mammal'}).click()
-		await page.waitForURL(/\/tag\/.+/)
+	test(
+		'navigating to an intermediate tag page shows its parent/child tree, '
+		+ 'score, and inherited linked entries',
+		async () => {
+			await gotoEntryNamed('Generic Mammal thing')
+			await page.locator('.entry-page-tags .tagLabel', {hasText: 'Mammal'}).click()
+			await page.waitForURL(/\/tag\/.+/)
 
-		await page.locator('.tag-page h1', {hasText: 'Mammal'}).waitFor({state: 'visible', timeout: 5000})
+			await page.locator('.tag-page h1', {hasText: 'Mammal'}).waitFor({state: 'visible', timeout: 5000})
 
-		// Parents: Animal and Living being (multiple inheritance)
-		const parentLabels = page.locator('.tag-tree', {hasText: 'Parents'}).locator('> ul > li > a.tagLabel')
-		await parentLabels.first().waitFor({state: 'visible', timeout: 5000})
-		const parentTexts = (await parentLabels.allInnerTexts()).sort()
-		assert.deepEqual(parentTexts, ['Animal', 'Living being'])
+			// Parents: Animal and Living being (multiple inheritance)
+			const parentLabels = page.locator('.tag-tree', {hasText: 'Parents'}).locator('> ul > li > a.tagLabel')
+			await parentLabels.first().waitFor({state: 'visible', timeout: 5000})
+			const parentTexts = (await parentLabels.allInnerTexts()).sort()
+			assert.deepEqual(parentTexts, ['Animal', 'Living being'])
 
-		// Children: Cat and Dog
-		const childLabels = page.locator('.tag-tree', {hasText: 'Children'}).locator('> ul > li > a.tagLabel')
-		const childTexts = (await childLabels.allInnerTexts()).sort()
-		assert.deepEqual(childTexts, ['Cat', 'Dog'])
+			// Children: Cat and Dog
+			const childLabels = page.locator('.tag-tree', {hasText: 'Children'}).locator('> ul > li > a.tagLabel')
+			const childTexts = (await childLabels.allInnerTexts()).sort()
+			assert.deepEqual(childTexts, ['Cat', 'Dog'])
 
-		// Linked entries: Whiskers (Cat) and Generic Mammal thing (direct), Dog's
-		// entry (Rex) is included too since Dog is a descendant of Mammal. Now a
-		// ScoreTable (Global score/Score columns) instead of a plain list.
-		const entryLabels = page.locator('.tag-page .score-table .entryCol .entryLabel')
-		await entryLabels.first().waitFor({state: 'visible', timeout: 5000})
-		const entryTexts = (await entryLabels.allInnerTexts()).sort()
-		assert.deepEqual(entryTexts, ['Generic Mammal thing', 'Rex', 'Whiskers'])
-	})
+			// Linked entries: Whiskers (Cat) and Generic Mammal thing (direct), Dog's
+			// entry (Rex) is included too since Dog is a descendant of Mammal. Now a
+			// ScoreTable (Global score/Score columns) instead of a plain list.
+			const entryLabels = page.locator('.tag-page .score-table .entryCol .entryLabel')
+			await entryLabels.first().waitFor({state: 'visible', timeout: 5000})
+			const entryTexts = (await entryLabels.allInnerTexts()).sort()
+			assert.deepEqual(entryTexts, ['Generic Mammal thing', 'Rex', 'Whiskers'])
+		})
 
 	test('renaming the current tag updates the title', async () => {
 		await page.locator('.tag-page button:has-text("Rename")').click()
@@ -172,7 +180,8 @@ describe('Tags integration flow', {concurrency: false}, () => {
 	})
 
 	test('adding a new valid parent link updates the parents tree', async () => {
-		await page.locator('.tag-parent-picker input[type=text]').fill('Living being') // already a parent: pick a fresh one instead
+		// already a parent: pick a fresh one instead
+		await page.locator('.tag-parent-picker input[type=text]').fill('Living being')
 		await page.locator('.tag-parent-picker input[type=text]').fill('')
 		await page.locator('.tag-parent-picker input[type=text]').fill('Vertebrate')
 		const newOption = page.getByRole('option', {name: '(New) Vertebrate'})

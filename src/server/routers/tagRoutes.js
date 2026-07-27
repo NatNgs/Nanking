@@ -1,9 +1,11 @@
 import express from 'express'
 import requireAuthentication, { attachUserIfAuthenticated } from '../middleware/authenticate.js'
 import {
-	getTagData, renameTag, getOrCreateTag, addTagParent, removeTagParent,
+	getTagData, canEditTag, renameTag, getOrCreateTag, addTagParent, removeTagParent,
 	getParentTree, getChildTree, getEntriesForTag,
 } from '../services/tagService.js'
+import { getSqlite } from '../data/db.js'
+import { computeUserScores } from '../services/scoresComputerService.js'
 import { respondWithData, sendByResult } from './routeHelpers.js'
 import { paginate } from '../lib/pagination.js'
 
@@ -11,60 +13,89 @@ const tagRoutes = express.Router()
 
 const respondWithTagData = respondWithData(getTagData, 'Tag not found')
 
+/**
+ * Express middleware: 403s unless canEditTag(sqlite, req.user, tagId) is true
+ * (Admin, or at least one quiz vote on an entry covered by this tag). Must run
+ * after requireAuthentication (req.user set); the services below still
+ * re-check not_found for a clean 404 if the tag turns out not to exist.
+ */
+function requireCanEditTag(tagIdParam = 'id') {
+	return async (req, res, next) => {
+		const sqlite = getSqlite()
+		if(!await canEditTag(sqlite, req.user, req.params[tagIdParam])) return res.status(403).send('Forbidden')
+		next()
+	}
+}
+
 // Authenticated
 
-tagRoutes.put('/new', requireAuthentication, (req, res) => {
-	const tag = getOrCreateTag(req.body.label)
+tagRoutes.put('/new', requireAuthentication, async (req, res) => {
+	const sqlite = getSqlite()
+	const tag = await getOrCreateTag(sqlite, req.body.label)
 	if(!tag) {
 		return res.status(500).send('Unknown error')
 	}
-	return respondWithTagData(tag.id, res)
+	return respondWithTagData(sqlite, tag.id, res)
 })
 
-tagRoutes.patch('/:id/label', requireAuthentication, (req, res) => {
-	const result = renameTag(req.params.id, req.body.label)
+tagRoutes.patch('/:id/label', requireAuthentication, requireCanEditTag(), async (req, res) => {
+	const sqlite = getSqlite()
+	const result = await renameTag(sqlite, req.params.id, req.body.label)
 	if(sendByResult(res, result, {
 		not_found: {status: 404, message: 'Tag not found'},
 		invalid: {status: 400, message: 'Invalid label'},
 		conflict: {status: 409, message: 'A tag with this label already exists'},
 	})) return
-	return respondWithTagData(req.params.id, res)
+	return respondWithTagData(sqlite, req.params.id, res)
 })
 
-tagRoutes.post('/:id/parents', requireAuthentication, (req, res) => {
-	const result = addTagParent(req.params.id, req.body.parentId)
+tagRoutes.post('/:id/parents', requireAuthentication, requireCanEditTag(), async (req, res) => {
+	const sqlite = getSqlite()
+	const result = await addTagParent(sqlite, req.params.id, req.body.parentId)
 	if(sendByResult(res, result, {
 		not_found: {status: 404, message: 'Tag not found'},
 		cycle: {status: 409, message: 'This would create an inheritance loop'},
 		conflict: {status: 409, message: 'Already a parent'},
 	})) return
-	return respondWithTagData(req.params.id, res)
+	return respondWithTagData(sqlite, req.params.id, res)
 })
 
-tagRoutes.delete('/:id/parents/:parentId', requireAuthentication, (req, res) => {
-	const result = removeTagParent(req.params.id, req.params.parentId)
+tagRoutes.delete('/:id/parents/:parentId', requireAuthentication, requireCanEditTag(), async (req, res) => {
+	const sqlite = getSqlite()
+	const result = await removeTagParent(sqlite, req.params.id, req.params.parentId)
 	if(sendByResult(res, result, {not_found: {status: 404, message: 'Tag not found'}})) return
-	return respondWithTagData(req.params.id, res)
+	return respondWithTagData(sqlite, req.params.id, res)
 })
 
 // Public, declared last
 
-tagRoutes.get('/:id/entries', attachUserIfAuthenticated, (req, res) => {
-	const data = getTagData(req.params.id)
+tagRoutes.get('/:id/entries', attachUserIfAuthenticated, async (req, res) => {
+	const sqlite = getSqlite()
+	const data = await getTagData(sqlite, req.params.id)
 	if(!data) return res.status(404).send('Tag not found')
 
+	// req.user is loaded fresh per-request with an empty user.entries (see
+	// authenticate.js) - recompute before getEntriesForTag() reads it to
+	// enrich each entry with the caller's own score.
+	if(req.user) await computeUserScores(sqlite, req.user)
+
 	const {sort, order, page, limit} = req.query
-	const entries = getEntriesForTag(req.params.id, {user: req.user, sort, order}) // already sorted (globalScore desc by default)
+	// already sorted (globalScore desc by default)
+	const entries = await getEntriesForTag(sqlite, req.params.id, {user: req.user, sort, order})
 	res.json(paginate(entries, {page, limit}))
 })
 
-tagRoutes.get('/:id/tree', (req, res) => {
-	const data = getTagData(req.params.id)
+tagRoutes.get('/:id/tree', async (req, res) => {
+	const sqlite = getSqlite()
+	const data = await getTagData(sqlite, req.params.id)
 	if(!data) return res.status(404).send('Tag not found')
 
-	res.json({parents: getParentTree(req.params.id), children: getChildTree(req.params.id)})
+	res.json({
+		parents: await getParentTree(sqlite, req.params.id),
+		children: await getChildTree(sqlite, req.params.id),
+	})
 })
 
-tagRoutes.get('/:id', (req, res) => respondWithTagData(req.params.id, res))
+tagRoutes.get('/:id', async (req, res) => respondWithTagData(getSqlite(), req.params.id, res))
 
 export default tagRoutes

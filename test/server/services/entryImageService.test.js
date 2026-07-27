@@ -3,8 +3,10 @@ import assert from 'node:assert/strict'
 import { existsSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { Jimp } from 'jimp'
 import CONFIG from '../../../src/server/config/config.js'
-import { Entry } from '../../../src/server/data/entries.js'
-import { processImageUpload, saveEntryImage, deleteEntryImage, EntryImageError } from '../../../src/server/services/entryImageService.js'
+import { Entry } from '../../../src/server/data/entriesModel.js'
+import {
+	processImageUpload, saveEntryImage, deleteEntryImage, EntryImageError,
+} from '../../../src/server/services/entryImageService.js'
 
 // Isolate from the real ./data directory (and from other test files sharing the
 // same CONFIG singleton) with a directory of this file's own: entryImageService

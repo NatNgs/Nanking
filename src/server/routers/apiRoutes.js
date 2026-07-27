@@ -1,15 +1,14 @@
 import express from 'express'
-import requireAuthentication from '../middleware/authenticate.js'
 import { apiLimiter, loginLimiter } from '../middleware/rateLimit.js'
 import userRouter from './userRoutes.js'
 import quizRouter from './quizRoutes.js'
 import entryRouter from './entryRoutes.js'
 import tagRouter from './tagRoutes.js'
-import ACCOUNTS from '../data/accounts.js'
+import { addAccount, login } from '../data/accountsRepository.js'
+import { getSqlite } from '../data/db.js'
 import { listEntries } from '../services/entryService.js'
 import { searchTags } from '../services/tagService.js'
 import { paginate, compareBy } from '../lib/pagination.js'
-import { persistAccount } from '../services/persistenceService.js'
 
 const apiRouter = express.Router()
 
@@ -17,22 +16,22 @@ const apiRouter = express.Router()
 apiRouter.use(apiLimiter)
 
 apiRouter.post('/login', loginLimiter, async (req, res) => {
+	const sqlite = getSqlite()
 	// Create new account
 	if(req.body.new === 'true') {
-		const success = ACCOUNTS.add(req.body.login, req.body.pwd)
+		const success = await addAccount(sqlite, req.body.login, req.body.pwd)
 		if(!success) {
 			res.status(400).send('Could not create account')
-			console.warn(req.originalUrl, '=> 400: Could not create account (' + req.body.login + (req.body.new ? ' (new account)':'') + ')')
+			console.warn(
+				req.originalUrl, '=> 400: Could not create account (' + req.body.login
+				+ (req.body.new ? ' (new account)' : '') + ')',
+			)
 			return
 		}
-		// Must land in SQLite before any direct_quiz/dual_quiz row created
-		// right after login can reference this username (FK constraint) - see
-		// persistenceService.js's persistAccount().
-		await persistAccount(req.body.login.trim().toLowerCase())
 	}
 
 	// Login by username and password
-	const username = ACCOUNTS.login(req.body.login, req.body.pwd)
+	const username = await login(sqlite, req.body.login, req.body.pwd)
 	if(username) {
 		// Regenerate the session id on login, so a pre-login session id (fixation)
 		// can never be reused as an authenticated one.
@@ -62,15 +61,15 @@ apiRouter.post('/logout', (req, res) => {
 		res.status(200).send('ok')
 	})
 })
-apiRouter.get('/entries', (req, res) => {
+apiRouter.get('/entries', async (req, res) => {
 	const {q, sort, order, page, limit} = req.query
-	res.json(listEntries({q, sort, order, page, limit}))
+	res.json(await listEntries(getSqlite(), {q, sort, order, page, limit}))
 })
-apiRouter.post('/tags/search', (req, res) => {
-	const {q, notOnEntity, notHavingAsParent, notHavingAsChild, sort, order, page, limit} = req.body || {}
-	const tags = searchTags({q, notOnEntity, notHavingAsParent, notHavingAsChild})
+apiRouter.post('/tags/search', async (req, res) => {
+	const {q, notOnEntity, notHavingAsParent, notHavingAsChild, order, page, limit} = req.body || {}
+	const tags = await searchTags(getSqlite(), {q, notOnEntity, notHavingAsParent, notHavingAsChild})
 	const mapped = tags.map((tag) => ({id: tag.id, label: tag.label}))
-	// If q is given, TAGS.searchTag already sorted by relevance (name length): don't re-sort.
+	// If q is given, searchTag already sorted by relevance (name length): don't re-sort.
 	const sorted = q ? mapped : [...mapped].sort(compareBy((t) => t.label, order || 'asc'))
 	res.json(paginate(sorted, {page, limit}))
 })

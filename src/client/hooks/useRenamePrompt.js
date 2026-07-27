@@ -28,7 +28,7 @@ function useRenamePrompt({currentValue, promptMessage, patch, conflictMessage, f
 		setIsRenaming(true)
 		try {
 			await patch(trimmed)
-		} catch(err) {
+		} catch (err) {
 			setAlertMessage(err.response?.status === 409 ? conflictMessage : failMessage)
 		} finally {
 			setIsRenaming(false)

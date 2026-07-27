@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useModalA11y } from '../../hooks/useModalA11y.js'
 import './Modal.css'
 
 /**
@@ -8,6 +9,7 @@ import './Modal.css'
  */
 function PromptModal({message, initialValue = '', confirmLabel = 'OK', cancelLabel = 'Cancel', error, onSubmit, onCancel}) {
 	const [value, setValue] = useState(initialValue)
+	const boxRef = useModalA11y(onCancel)
 
 	function handleSubmit(e) {
 		e.preventDefault()
@@ -16,16 +18,17 @@ function PromptModal({message, initialValue = '', confirmLabel = 'OK', cancelLab
 
 	return (
 		<div className="modal-overlay" onClick={onCancel}>
-			<div className="modal-box" onClick={(e) => e.stopPropagation()}>
+			<div
+				className="modal-box" ref={boxRef} role="dialog" aria-modal="true"
+				tabIndex={-1} onClick={(e) => e.stopPropagation()}
+			>
 				<form onSubmit={handleSubmit}>
 					<p className="modal-message">{message}</p>
 					<input
 						type="text"
 						className="modal-input"
 						value={value}
-						autoFocus
 						onChange={(e) => setValue(e.target.value)}
-						onKeyDown={(e) => { if(e.key === 'Escape') onCancel() }}
 					/>
 					{error && <p className="modal-error">{error}</p>}
 					<div className="modal-actions">
