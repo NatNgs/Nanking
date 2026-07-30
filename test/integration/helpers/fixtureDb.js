@@ -1,4 +1,5 @@
 import { SqliteConnection, seedIdSequences } from '../../../src/server/data/sqliteDb.js'
+import CONFIG from '../../../src/server/config/config.js'
 
 /**
  * Builds a pre-filled SQLite file at `path` (same schema as the real server -
@@ -31,32 +32,39 @@ import { SqliteConnection, seedIdSequences } from '../../../src/server/data/sqli
 async function buildFixtureDb(path, username) {
 	const sqlite = new SqliteConnection(path)
 
+	const topicId = CONFIG.DEFAULT_TOPIC
+
 	await sqlite.transaction(() => {
 		const db = sqlite.db
 
-		const insertTag = db.prepare('INSERT INTO tags (id, label) VALUES (?, ?)')
-		insertTag.run('t:0', 'Living being')
-		insertTag.run('t:1', 'Animal')
-		insertTag.run('t:2', 'Mammal')
-		insertTag.run('t:3', 'Cat')
-		insertTag.run('t:4', 'Dog')
+		// The server's own migration only creates this row for a pre-existing
+		// (pre-topics) database - a fresh file (like this fixture's) starts
+		// with an empty `topics` table, so it must be seeded explicitly here.
+		db.prepare('INSERT INTO topics (id, label) VALUES (?, ?)').run(topicId, 'Anime')
 
-		const insertTagParent = db.prepare('INSERT INTO tag_parents (tag_id, parent_id) VALUES (?, ?)')
-		insertTagParent.run('t:2', 't:1') // Mammal -> Animal
-		insertTagParent.run('t:2', 't:0') // Mammal -> Living being
-		insertTagParent.run('t:3', 't:2') // Cat -> Mammal
-		insertTagParent.run('t:4', 't:2') // Dog -> Mammal
+		const insertTag = db.prepare('INSERT INTO tags (topic_id, id, label) VALUES (?, ?, ?)')
+		insertTag.run(topicId, 't:0', 'Living being')
+		insertTag.run(topicId, 't:1', 'Animal')
+		insertTag.run(topicId, 't:2', 'Mammal')
+		insertTag.run(topicId, 't:3', 'Cat')
+		insertTag.run(topicId, 't:4', 'Dog')
 
-		const insertEntry = db.prepare('INSERT INTO entries (id, name) VALUES (?, ?)')
-		insertEntry.run('n:0', 'Whiskers')
-		insertEntry.run('n:1', 'Rex')
-		insertEntry.run('n:2', 'Generic Mammal thing')
-		insertEntry.run('n:3', 'Untagged thing')
+		const insertTagParent = db.prepare('INSERT INTO tag_parents (topic_id, tag_id, parent_id) VALUES (?, ?, ?)')
+		insertTagParent.run(topicId, 't:2', 't:1') // Mammal -> Animal
+		insertTagParent.run(topicId, 't:2', 't:0') // Mammal -> Living being
+		insertTagParent.run(topicId, 't:3', 't:2') // Cat -> Mammal
+		insertTagParent.run(topicId, 't:4', 't:2') // Dog -> Mammal
 
-		const insertEntryTag = db.prepare('INSERT INTO entry_tags (entry_id, tag_id) VALUES (?, ?)')
-		insertEntryTag.run('n:0', 't:3') // Whiskers -> Cat
-		insertEntryTag.run('n:1', 't:4') // Rex -> Dog
-		insertEntryTag.run('n:2', 't:2') // Generic Mammal thing -> Mammal
+		const insertEntry = db.prepare('INSERT INTO entries (topic_id, id, name) VALUES (?, ?, ?)')
+		insertEntry.run(topicId, 'n:0', 'Whiskers')
+		insertEntry.run(topicId, 'n:1', 'Rex')
+		insertEntry.run(topicId, 'n:2', 'Generic Mammal thing')
+		insertEntry.run(topicId, 'n:3', 'Untagged thing')
+
+		const insertEntryTag = db.prepare('INSERT INTO entry_tags (topic_id, entry_id, tag_id) VALUES (?, ?, ?)')
+		insertEntryTag.run(topicId, 'n:0', 't:3') // Whiskers -> Cat
+		insertEntryTag.run(topicId, 'n:1', 't:4') // Rex -> Dog
+		insertEntryTag.run(topicId, 'n:2', 't:2') // Generic Mammal thing -> Mammal
 
 		// Ghost account row (no credentials yet): the test's own
 		// registerAndLogIn() (UI flow) later attaches real credentials to this
@@ -68,21 +76,21 @@ async function buildFixtureDb(path, username) {
 		// Pre-seed the test account's vote history, so its scores are already
 		// non-trivial (not stuck at 0.5) as soon as it registers and logs in.
 		const insertDirectQuiz = db.prepare(
-			'INSERT INTO direct_quiz (username, entry_id, value, ts) VALUES (?, ?, ?, ?)'
+			'INSERT INTO direct_quiz (topic_id, username, entry_id, value, ts) VALUES (?, ?, ?, ?, ?)'
 		)
-		insertDirectQuiz.run(username, 'n:0', 0.9, 1)
-		insertDirectQuiz.run(username, 'n:1', 0.2, 2)
-		insertDirectQuiz.run(username, 'n:2', 0.6, 3)
+		insertDirectQuiz.run(topicId, username, 'n:0', 0.9, 1)
+		insertDirectQuiz.run(topicId, username, 'n:1', 0.2, 2)
+		insertDirectQuiz.run(topicId, username, 'n:2', 0.6, 3)
 
 		// user_entry is never recomputed on read (see scoresComputerService's
 		// design notes) - seed it here too, or the account would show no score
 		// at all until the next global computation cycle picks it up.
 		const insertUserEntry = db.prepare(
-			'INSERT INTO user_entry (username, entry_id, score) VALUES (?, ?, ?)'
+			'INSERT INTO user_entry (username, topic_id, entry_id, score) VALUES (?, ?, ?, ?)'
 		)
-		insertUserEntry.run(username, 'n:0', 0.9)
-		insertUserEntry.run(username, 'n:1', 0.2)
-		insertUserEntry.run(username, 'n:2', 0.6)
+		insertUserEntry.run(username, topicId, 'n:0', 0.9)
+		insertUserEntry.run(username, topicId, 'n:1', 0.2)
+		insertUserEntry.run(username, topicId, 'n:2', 0.6)
 
 		// Entry/tag rows above were inserted with explicit ids, bypassing
 		// getEntryByName()/getTagByLabel() (the only normal callers of the

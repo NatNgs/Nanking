@@ -1,6 +1,7 @@
 import { getAccount } from '../repository/accountsRepository.js'
 import { getUser } from '../repository/userRepository.js'
 import { getSqlite } from '../data/db.js'
+import CONFIG from '../config/config.js'
 
 /**
  * Express middleware: requires an authenticated express-session
@@ -8,7 +9,9 @@ import { getSqlite } from '../data/db.js'
  * user straight from SQLite for this request - no long-lived cache, so an
  * account deleted or revoked since the session was created is a real 401,
  * never a silently fabricated empty User (unlike the old lazy-create
- * getUser()).
+ * getUser()). req.user.quiz is scoped to CONFIG.DEFAULT_TOPIC - the client
+ * never specifies a topic yet, so this is where that default is simulated,
+ * as close to the router layer as this shared middleware allows.
  */
 async function requireAuthentication(req, res, next) {
 	const username = req.session?.username
@@ -19,7 +22,7 @@ async function requireAuthentication(req, res, next) {
 		res.status(401).send('Unauthorized')
 		return
 	}
-	req.user = await getUser(sqlite, username)
+	req.user = await getUser(sqlite, CONFIG.DEFAULT_TOPIC, username)
 	req.user.displayLogin = account.displayLogin
 	req.user.isAdmin = account.isAdmin
 	next()
@@ -39,7 +42,7 @@ async function attachUserIfAuthenticated(req, res, next) {
 	const account = await getAccount(sqlite, username)
 	if(!account || account.hash == null) return next()
 
-	req.user = await getUser(sqlite, username)
+	req.user = await getUser(sqlite, CONFIG.DEFAULT_TOPIC, username)
 	req.user.displayLogin = account.displayLogin
 	req.user.isAdmin = account.isAdmin
 	next()

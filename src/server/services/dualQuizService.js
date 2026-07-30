@@ -1,4 +1,10 @@
 import { getEntriesByIds, getAllEntriesWithScores } from '../repository/entriesRepository.js'
+import { getUserDualStats } from '../repository/userRepository.js'
+
+// "Extreme" result profile boosts for pickSingleCandidate()/pickPair()'s
+// dual-history weighting - see resultProfileWeight().
+const EXTREME_RESULT_BOOST = 3
+const PARTIAL_RESULT_BOOST = 2
 
 /**
  * Weight of the second duel entry, based on the absolute score gap with the
@@ -43,31 +49,112 @@ function ownScoreWeight(s) {
 }
 
 /**
- * Picks a second element of `options` (excluding `fixed`), weighted by score
- * proximity with `fixed` (step 2). Every other entry keeps a (small) chance
- * of being picked via weightFor(), so this never runs out of candidates even
- * when every score is far apart from `fixed`. `options` must not be empty
- * once `fixed` is excluded.
+ * Dual-history weight factor from a {W, L, E} result count (wins/losses/
+ * ties), favoring entries with a one-sided history: never having lost
+ * pushes an entry back into rotation, and so does never having won or
+ * having only ties - all three are "extreme" in the sense that no dual ever
+ * contradicted the others. A genuine mix of wins and losses gets no boost.
+ * No history at all (candidate absent from resultCounts) is the most
+ * extreme case of all - nothing to contradict a boost.
  */
-function pickByProximity(options, fixed) {
-	const candidates = []
-	const w = []
-	let wsum = 0
-	for(const s of options) {
-		if(s.id === fixed.id) continue
-		const abs = Math.abs(fixed.score - s.score)
-		const _w = weightFor(abs)
-		candidates.push(s)
-		w.push(_w)
-		wsum += _w
+function resultProfileWeight(counts) {
+	const {W = 0, L = 0, E = 0} = counts ?? {}
+	if((L === 0 && W === 0) || (L === 0 && E === 0) || (W === 0 && E === 0)) return EXTREME_RESULT_BOOST
+	if((L === 0 && W > 0 && E > 0) || (W === 0 && L > 0 && E > 0)) return PARTIAL_RESULT_BOOST
+	return 1
+}
+
+/** Dual-history weight factor from how many duals an entry already has: fewer duals, higher weight. */
+function dualCountWeight(nbDuals) {
+	return 1 / (1 + (nbDuals ?? 0))
+}
+
+/**
+ * Shortest directed path length from `from` to `to` in `outgoing` (a
+ * Map<id, Set<id>>), capped at `maxDepth` levels. Returns null if no path is
+ * found within that depth (or if `from`/`to` isn't in the graph at all).
+ */
+function shortestDirectedDistance(outgoing, from, to, maxDepth) {
+	if(from === to) return 0
+	let frontier = new Set([from])
+	const visited = new Set(frontier)
+	for(let depth = 1; depth <= maxDepth; depth++) {
+		const next = new Set()
+		for(const id of frontier) {
+			for(const neighbor of outgoing.get(id) ?? []) {
+				if(neighbor === to) return depth
+				if(!visited.has(neighbor)) {
+					visited.add(neighbor)
+					next.add(neighbor)
+				}
+			}
+		}
+		if(!next.size) break
+		frontier = next
 	}
-	let rnd = Math.random() * wsum
-	let i = 0
-	while(rnd > w[i]) {
-		rnd -= w[i]
-		i++
-	}
-	return candidates[i]
+	return null
+}
+
+/**
+ * Weight factor penalizing a candidate for being close to `refId` in the
+ * directed graph of already-done duals (see getUserDualStats()): the
+ * shorter the path in EITHER direction (ref transitively beat candidate, or
+ * candidate transitively beat ref), the stronger the penalty. Two decisive
+ * duals converging on a common opponent never produce a path either way, so
+ * they are correctly left unpenalized - a property of the directed graph,
+ * not special-cased here.
+ *
+ * `candidateCount` is the size of the candidate pool for this draw (the
+ * `N` the penalty is expressed relative to). Returns 1 (no penalty) when
+ * `refId` is null, absent from the graph, or no path is found within
+ * floor(sqrt(candidateCount)) levels either way.
+ */
+function distancePenalty(candidateId, refId, outgoing, candidateCount) {
+	if(refId == null || candidateId === refId) return 1
+	const maxDepth = Math.floor(Math.sqrt(candidateCount))
+	if(maxDepth < 1) return 1
+
+	const forward = shortestDirectedDistance(outgoing, refId, candidateId, maxDepth)
+	const backward = shortestDirectedDistance(outgoing, candidateId, refId, maxDepth)
+	const distances = [forward, backward].filter((d) => d != null)
+	if(!distances.length) return 1
+
+	const d = Math.min(...distances)
+	return (d + 1) / candidateCount
+}
+
+/**
+ * Combines a candidate's base weight (score-based, either step 1's own
+ * score or step 2's proximity to a fixed entry) with the dual-history
+ * factors: fewer existing duals and a one-sided result profile both boost
+ * the weight, being close to `refId` in the comparison graph penalizes it.
+ * `dualStats` (see getUserDualStats()) is optional - when absent, every
+ * history factor is neutral (1), preserving the original score-only
+ * behavior for callers that don't have it (e.g. existing tests).
+ */
+function combinedWeight(candidate, baseWeight, {refId, dualStats, candidateCount}) {
+	if(!dualStats) return baseWeight
+	const historyFactor = dualCountWeight(dualStats.dualCount.get(candidate.id))
+		* resultProfileWeight(dualStats.resultCounts.get(candidate.id))
+		* distancePenalty(candidate.id, refId, dualStats.outgoing, candidateCount)
+	return baseWeight * historyFactor
+}
+
+/**
+ * Picks a second element of `options` (excluding `fixed`), weighted by score
+ * proximity with `fixed` (step 2), combined with dual-history factors (see
+ * combinedWeight()) when `dualStats` is given - `fixed` itself is used as
+ * the history graph's reference point. Every other entry keeps a (small)
+ * chance of being picked via weightFor(), so this never runs out of
+ * candidates even when every score is far apart from `fixed`. `options`
+ * must not be empty once `fixed` is excluded.
+ */
+function pickByProximity(options, fixed, dualStats) {
+	const candidates = options.filter((s) => s.id !== fixed.id)
+	const weightFn = (s) => combinedWeight(
+		s, weightFor(Math.abs(fixed.score - s.score)), {refId: fixed.id, dualStats, candidateCount: options.length}
+	)
+	return pickWeightedBy(candidates, weightFn)
 }
 
 /**
@@ -77,14 +164,22 @@ function pickByProximity(options, fixed) {
  * to pick a pair.
  *
  * `options`: list of {id, label, image, score} (the user's own raw score
- * list). Returns null if options.length < 2 (not enough scored entries for
- * a duel) — up to the caller to map that to an HTTP status.
+ * list). `dualStats` (optional, see getUserDualStats()) folds the dual
+ * picker's history-based factors into both steps' weighting - step 1 (which
+ * entry to pick first) has no reference point yet, so only the "few duals"/
+ * "one-sided profile" factors apply there, not the distance penalty (step 2
+ * uses e1 as the reference point for that). Returns null if
+ * options.length < 2 (not enough scored entries for a duel) — up to the
+ * caller to map that to an HTTP status.
  */
-function pickPair(options) {
+function pickPair(options, dualStats) {
 	if(!Array.isArray(options) || options.length < 2) return null
 
-	const e1 = pickWeightedBy(options, ownScoreWeight)
-	const e2 = pickByProximity(options, e1)
+	const step1WeightFn = (s) => combinedWeight(
+		s, ownScoreWeight(s), {refId: null, dualStats, candidateCount: options.length}
+	)
+	const e1 = pickWeightedBy(options, step1WeightFn)
+	const e2 = pickByProximity(options, e1, dualStats)
 	return [e1, e2]
 }
 
@@ -95,11 +190,11 @@ function pickPair(options) {
  * weightFor()'s thresholds (0.25/2) are meant to read directly against the
  * app's actual score scale, not a per-user relative one.
  */
-async function getUserScoredList(sqlite, user) {
+async function getUserScoredList(sqlite, topicId, user) {
 	const entryIds = Object.keys(user.entries)
 	if(!entryIds.length) return []
 
-	const entriesById = await getEntriesByIds(sqlite, entryIds)
+	const entriesById = await getEntriesByIds(sqlite, topicId, entryIds)
 
 	return entryIds.map((entryId) => {
 		const entry = entriesById.get(entryId)
@@ -119,9 +214,11 @@ async function getUserScoredList(sqlite, user) {
  * serializes only the two chosen entries in the shape the client expects.
  * Returns null if the user doesn't have enough scored entries (<2).
  */
-async function pickDualPair(sqlite, user) {
-	const options = await getUserScoredList(sqlite, user)
-	const pair = pickPair(options)
+async function pickDualPair(sqlite, topicId, user) {
+	const [options, dualStats] = await Promise.all([
+		getUserScoredList(sqlite, topicId, user), getUserDualStats(sqlite, topicId, user.username),
+	])
+	const pair = pickPair(options, dualStats)
 	if(!pair) return null
 
 	const [e1, e2] = pair
@@ -146,8 +243,8 @@ function serializeCandidate(e) {
  * pickPair's e1, applied to global_score instead of the user's own score).
  * Never mixes scored and unscored entries in the same draw.
  */
-async function getUnscoredCandidates(sqlite, user, excluded) {
-	const all = await getAllEntriesWithScores(sqlite)
+async function getUnscoredCandidates(sqlite, topicId, user, excluded) {
+	const all = await getAllEntriesWithScores(sqlite, topicId)
 	return all
 		.filter((entry) => !(entry.id in user.entries) && !excluded.has(entry.id))
 		.map((entry) => ({id: entry.id, label: entry.name, image: entry.image, score: entry.globalScore ?? 0}))
@@ -165,29 +262,41 @@ async function getUnscoredCandidates(sqlite, user, excluded) {
  * also what makes the picker usable for a user with too few scored entries.
  * When `fixedEntryId` itself has no user score (e.g. it just came from that
  * same fallback), proximity weighting is meaningless, so the candidate is
- * picked by its own score instead (step 1) rather than by proximity.
+ * picked by its own score instead (step 1) rather than by proximity. Either
+ * way, dual-history factors (see combinedWeight()) fold into the draw,
+ * using `fixedEntryId` as the comparison graph's reference point when given.
  *
  * Returns null only if there is truly no candidate anywhere (every entry is
  * either `fixedEntryId` or in `excludeIds`).
  */
-async function pickSingleCandidate(sqlite, user, {fixedEntryId, excludeIds = []} = {}) {
+async function pickSingleCandidate(sqlite, topicId, user, {fixedEntryId, excludeIds = []} = {}) {
 	const excluded = new Set(excludeIds)
 	if(fixedEntryId != null) excluded.add(fixedEntryId)
 
-	const scoredList = await getUserScoredList(sqlite, user)
+	const [scoredList, dualStats] = await Promise.all([
+		getUserScoredList(sqlite, topicId, user), getUserDualStats(sqlite, topicId, user.username),
+	])
 	const scoredCandidates = scoredList.filter((s) => !excluded.has(s.id))
 
 	if(scoredCandidates.length) {
 		const fixed = fixedEntryId != null ? scoredList.find((s) => s.id === fixedEntryId) : null
 		const picked = fixed
-			? pickByProximity(scoredCandidates, fixed)
-			: pickWeightedBy(scoredCandidates, ownScoreWeight)
+			? pickByProximity(scoredCandidates, fixed, dualStats)
+			: pickWeightedBy(scoredCandidates, (s) => combinedWeight(
+				s, ownScoreWeight(s), {refId: null, dualStats, candidateCount: scoredCandidates.length}
+			))
 		return serializeCandidate(picked)
 	}
 
-	const unscoredCandidates = await getUnscoredCandidates(sqlite, user, excluded)
+	const unscoredCandidates = await getUnscoredCandidates(sqlite, topicId, user, excluded)
 	if(!unscoredCandidates.length) return null
-	return serializeCandidate(pickWeightedBy(unscoredCandidates, ownScoreWeight))
+	const weightFn = (s) => combinedWeight(
+		s, ownScoreWeight(s), {refId: fixedEntryId, dualStats, candidateCount: unscoredCandidates.length}
+	)
+	return serializeCandidate(pickWeightedBy(unscoredCandidates, weightFn))
 }
 
-export { pickPair, weightFor, pickDualPair, pickSingleCandidate }
+export {
+	pickPair, weightFor, pickDualPair, pickSingleCandidate,
+	resultProfileWeight, dualCountWeight, distancePenalty, pickByProximity,
+}

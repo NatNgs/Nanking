@@ -12,8 +12,8 @@ import { paginate, compareBy } from '../lib/pagination.js'
  * they are an Admin (who can edit any entry regardless of having a score on
  * it - see EntryPage.jsx).
  */
-async function getEntryData(sqlite, id, user=null) {
-	const entry = await getEntryById(sqlite, id)
+async function getEntryData(sqlite, topicId, id, user=null) {
+	const entry = await getEntryById(sqlite, topicId, id)
 	if(!entry) return null
 
 	const data = {
@@ -21,7 +21,7 @@ async function getEntryData(sqlite, id, user=null) {
 		name: entry.name,
 		image: entry.image,
 		globalScore: entry.globalScore,
-		tags: await resolveEntryTags(sqlite, entry),
+		tags: await resolveEntryTags(sqlite, topicId, entry),
 		isAdmin: !!user?.isAdmin,
 	}
 	if(user && Object.hasOwn(user.entries, entry.id)) {
@@ -45,16 +45,16 @@ function canEditEntry(user, entry) {
  * Renames an entry after checking no other entry already uses this name
  * (case-insensitive). Returns 'not_found' | 'invalid' | 'conflict' | 'ok'.
  */
-async function renameEntry(sqlite, id, newName) {
-	const entry = await getEntryById(sqlite, id)
+async function renameEntry(sqlite, topicId, id, newName) {
+	const entry = await getEntryById(sqlite, topicId, id)
 	if(!entry) return 'not_found'
 
 	const trimmed = (newName || '').trim()
 	if(!trimmed) return 'invalid'
-	if(await getEntryByNameIgnoreCase(sqlite, trimmed, id)) return 'conflict'
+	if(await getEntryByNameIgnoreCase(sqlite, topicId, trimmed, id)) return 'conflict'
 
 	entry.name = trimmed
-	await saveEntry(sqlite, entry)
+	await saveEntry(sqlite, topicId, entry)
 	return 'ok'
 }
 
@@ -62,8 +62,8 @@ async function renameEntry(sqlite, id, newName) {
  * Validates and stores a new image for an entry, replacing the previous
  * custom image if any. Returns 'not_found' | 'invalid' | 'ok'.
  */
-async function updateEntryImage(sqlite, id, fileBuffer) {
-	const entry = await getEntryById(sqlite, id)
+async function updateEntryImage(sqlite, topicId, id, fileBuffer) {
+	const entry = await getEntryById(sqlite, topicId, id)
 	if(!entry) return 'not_found'
 
 	let pngBuffer
@@ -75,7 +75,7 @@ async function updateEntryImage(sqlite, id, fileBuffer) {
 
 	deleteEntryImage(entry)
 	entry.image = await saveEntryImage(entry.id, pngBuffer)
-	await saveEntry(sqlite, entry)
+	await saveEntry(sqlite, topicId, entry)
 	return 'ok'
 }
 
@@ -84,15 +84,15 @@ async function updateEntryImage(sqlite, id, fileBuffer) {
  * image) is only permanently deleted once no other user has a vote left on it.
  * Returns 'not_found' | 'ok'.
  */
-async function deleteEntry(sqlite, id, user) {
-	const entry = await getEntryById(sqlite, id)
+async function deleteEntry(sqlite, topicId, id, user) {
+	const entry = await getEntryById(sqlite, topicId, id)
 	if(!entry) return 'not_found'
 
-	await removeUserReferencesToEntry(sqlite, user.username, entry.id)
+	await removeUserReferencesToEntry(sqlite, topicId, user.username, entry.id)
 
-	if(!await anyUserReferencesEntry(sqlite, entry.id)) {
+	if(!await anyUserReferencesEntry(sqlite, topicId, entry.id)) {
 		deleteEntryImage(entry)
-		await deleteEntryFromDb(sqlite, id)
+		await deleteEntryFromDb(sqlite, topicId, id)
 	}
 	return 'ok'
 }
@@ -105,13 +105,15 @@ async function deleteEntry(sqlite, id, user) {
  * global score, sorted by `sort` ('score' desc by default, or 'label' asc),
  * then paginated.
  */
-async function listEntries(sqlite, {q, sort, order, page, limit} = {}) {
+async function listEntries(sqlite, topicId, {q, sort, order, page, limit} = {}) {
 	if(q) {
-		const candidates = (await searchEntry(sqlite, q)).map((e) => ({id: e.id, label: e.name, image: e.image}))
+		const candidates = (await searchEntry(sqlite, topicId, q)).map(
+			(e) => ({id: e.id, label: e.name, image: e.image})
+		)
 		return paginate(candidates, {page, limit})
 	}
 
-	const entries = await getAllEntriesWithScores(sqlite)
+	const entries = await getAllEntriesWithScores(sqlite, topicId)
 	const list = entries.map((entry) => ({id: entry.id, label: entry.name, score: entry.globalScore, image: entry.image}))
 	const cmp = sort === 'label' ? compareBy((e) => e.label, order || 'asc') : compareBy((e) => e.score, order || 'desc')
 	list.sort(cmp)

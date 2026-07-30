@@ -7,6 +7,7 @@ import axios from 'axios'
 import { openSqlite } from '../server/data/sqliteDb.js'
 import { processImageUpload } from '../server/services/entryImageService.js'
 import { Entry } from '../server/model/entriesModel.js'
+import CONFIG from '../server/config/config.js'
 
 const PROJECT_ROOT = resolve(import.meta.dirname + '/../..')
 
@@ -172,18 +173,21 @@ async function main(configPath, username, malClientId, usernameNanking) {
 
 	// Phase 2: read-only lookups, to build an accurate summary
 	const sqlite = await openSqlite(sqlitePath)
+	const topicId = CONFIG.DEFAULT_TOPIC
 	const ids = candidates.map((c) => c.entryId)
 	const placeholders = ids.map(() => '?').join(',')
 	const existingEntryIds = new Set(
 		ids.length
-			? (await sqlite.all(`SELECT id FROM entries WHERE id IN (${placeholders})`, ids)).map((r) => r.id)
+			? (await sqlite.all(
+				`SELECT id FROM entries WHERE topic_id = ? AND id IN (${placeholders})`, [topicId, ...ids]
+			)).map((r) => r.id)
 			: []
 	)
 	const existingQuizEntryIds = new Set(
 		ids.length
 			? (await sqlite.all(
-				`SELECT entry_id FROM direct_quiz WHERE username = ? AND entry_id IN (${placeholders})`,
-				[usernameNanking, ...ids]
+				`SELECT entry_id FROM direct_quiz WHERE topic_id = ? AND username = ? AND entry_id IN (${placeholders})`,
+				[topicId, usernameNanking, ...ids]
 			)).map((r) => r.entry_id)
 			: []
 	)
@@ -225,21 +229,21 @@ async function main(configPath, username, malClientId, usernameNanking) {
 			'INSERT OR IGNORE INTO accounts (username, display_login, password_hash, salt) VALUES (?, ?, NULL, NULL)'
 		).run(usernameNanking, usernameNanking)
 
-		const insertEntry = db.prepare('INSERT OR IGNORE INTO entries (id, name, image) VALUES (?, ?, ?)')
+		const insertEntry = db.prepare('INSERT OR IGNORE INTO entries (topic_id, id, name, image) VALUES (?, ?, ?, ?)')
 		for(const candidate of toCreateEntries) {
 			new Entry(candidate.entryId, candidate.name) // throws if the id format is somehow invalid
 			const imagePath = existsSync(getEntryImageFilePath(dataDir, candidate.entryId))
 				? '/entryImages/' + candidate.entryId.replace(':', '/') + '.png'
 				: 'assets/unknown.svg'
-			createdEntries += insertEntry.run(candidate.entryId, candidate.name, imagePath).changes
+			createdEntries += insertEntry.run(topicId, candidate.entryId, candidate.name, imagePath).changes
 		}
 
 		const insertQuiz = db.prepare(
-			'INSERT OR IGNORE INTO direct_quiz (username, entry_id, value, ts) VALUES (?, ?, ?, ?)'
+			'INSERT OR IGNORE INTO direct_quiz (topic_id, username, entry_id, value, ts) VALUES (?, ?, ?, ?, ?)'
 		)
 		for(const candidate of toCreateQuiz) {
 			createdQuiz += insertQuiz.run(
-				usernameNanking, candidate.entryId, (candidate.score - 1) / 9, Date.now()
+				topicId, usernameNanking, candidate.entryId, (candidate.score - 1) / 9, Date.now()
 			).changes
 		}
 	})

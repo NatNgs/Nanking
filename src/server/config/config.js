@@ -40,6 +40,9 @@ try {
  */
 const CONFIG = {
 	ENV_NAME,
+	// Simulates the client always sending this topic - the client stays fully
+	// unaware of topics until routes actually take a topic path segment.
+	DEFAULT_TOPIC:         'anime',
 	PORT:                  +(localConfig.port                  || 8053                          ),
 	CERT_KEY_PATH:         p(localConfig?.cert?.keyPath        || null                          ),
 	CERT_CERT_PATH:        p(localConfig?.cert?.certPath       || null                          ),

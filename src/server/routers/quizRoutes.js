@@ -8,6 +8,7 @@ import { getEntryById } from '../repository/entriesRepository.js'
 import { saveUser } from '../repository/userRepository.js'
 import { getUserScores, saveUserScores } from '../repository/userEntryRepository.js'
 import { getSqlite } from '../data/db.js'
+import CONFIG from '../config/config.js'
 
 const quizRouter = express.Router()
 quizRouter.use(requireAuthentication)
@@ -29,8 +30,9 @@ function parseFiniteOr400(raw, res, fieldName) {
 
 quizRouter.get('/dual', async (req, res) => {
 	const sqlite = getSqlite()
-	req.user.entries = await getUserScores(sqlite, req.user.username)
-	const pair = await pickDualPair(sqlite, req.user)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	req.user.entries = await getUserScores(sqlite, topicId, req.user.username)
+	const pair = await pickDualPair(sqlite, topicId, req.user)
 	if(!pair) return res.status(409).send('Not enough scored entries for a dual quiz')
 	res.json(pair)
 })
@@ -44,8 +46,9 @@ quizRouter.get('/dual', async (req, res) => {
  */
 quizRouter.post('/dual/suggest', async (req, res) => {
 	const sqlite = getSqlite()
-	req.user.entries = await getUserScores(sqlite, req.user.username)
-	const candidate = await pickSingleCandidate(sqlite, req.user, {
+	const topicId = CONFIG.DEFAULT_TOPIC
+	req.user.entries = await getUserScores(sqlite, topicId, req.user.username)
+	const candidate = await pickSingleCandidate(sqlite, topicId, req.user, {
 		fixedEntryId: req.body.fixed ?? null,
 		excludeIds: req.body.exclude || [],
 	})
@@ -55,7 +58,8 @@ quizRouter.post('/dual/suggest', async (req, res) => {
 
 quizRouter.post('/direct', async (req, res, next) => {
 	const sqlite = getSqlite()
-	const entry = await getEntryById(sqlite, req.body.entry)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const entry = await getEntryById(sqlite, topicId, req.body.entry)
 	if(!entry) return res.status(404).send('Entry not found')
 
 	const score = parseFiniteOr400(req.body.score, res, 'score')
@@ -65,23 +69,25 @@ quizRouter.post('/direct', async (req, res, next) => {
 	} catch {
 		return res.status(400).send('Invalid score')
 	}
-	await saveUser(sqlite, req.user)
+	await saveUser(sqlite, topicId, req.user)
 	next()
 })
 quizRouter.delete('/direct', async (req, res, next) => {
 	const sqlite = getSqlite()
-	const entry = await getEntryById(sqlite, req.body.entry)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const entry = await getEntryById(sqlite, topicId, req.body.entry)
 	if(!entry) return res.status(404).send('Entry not found')
 
 	req.user.removeQuiz(new DirectQuiz(entry))
-	await saveUser(sqlite, req.user)
+	await saveUser(sqlite, topicId, req.user)
 	next()
 })
 
 quizRouter.post('/dual', async (req, res, next) => {
 	const sqlite = getSqlite()
-	const neg = await getEntryById(sqlite, req.body.neg)
-	const pos = await getEntryById(sqlite, req.body.pos)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const neg = await getEntryById(sqlite, topicId, req.body.neg)
+	const pos = await getEntryById(sqlite, topicId, req.body.pos)
 	if(!neg || !pos) return res.status(404).send('Entry not found')
 
 	const value = parseFiniteOr400(req.body.value, res, 'value')
@@ -92,17 +98,18 @@ quizRouter.post('/dual', async (req, res, next) => {
 	} catch {
 		return res.status(400).send('Invalid value')
 	}
-	await saveUser(sqlite, req.user)
+	await saveUser(sqlite, topicId, req.user)
 	next()
 })
 quizRouter.delete('/dual', async (req, res, next) => {
 	const sqlite = getSqlite()
-	const neg = await getEntryById(sqlite, req.body.neg)
-	const pos = await getEntryById(sqlite, req.body.pos)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const neg = await getEntryById(sqlite, topicId, req.body.neg)
+	const pos = await getEntryById(sqlite, topicId, req.body.pos)
 	if(!neg || !pos) return res.status(404).send('Entry not found')
 
 	req.user.removeQuiz(new DualQuiz(neg, pos))
-	await saveUser(sqlite, req.user)
+	await saveUser(sqlite, topicId, req.user)
 	next()
 })
 
@@ -115,26 +122,28 @@ quizRouter.delete('/dual', async (req, res, next) => {
  * score of whichever entry just lost its last vote (computeUserScores only
  * keeps entries still referenced by a live quiz).
  */
-async function recomputeAndPersist(sqlite, user) {
-	let scores = await getUserScores(sqlite, user.username)
+async function recomputeAndPersist(sqlite, topicId, user) {
+	let scores = await getUserScores(sqlite, topicId, user.username)
 	let totalChange = 1
 	for(let it=0 ; it<100 && totalChange > 0.005 ; it++) {
 		;({scores, totalChange} = computeUserScores(user.quiz, scores))
 	}
 	user.entries = scores
-	await saveUserScores(sqlite, user.username, scores)
+	await saveUserScores(sqlite, topicId, user.username, scores)
 }
 
 // Action to perform after a successful quiz
 quizRouter.post('/{*type}', async (req, res) => {
 	const sqlite = getSqlite()
-	await recomputeAndPersist(sqlite, req.user)
-	await returnUserData(sqlite, req, res)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	await recomputeAndPersist(sqlite, topicId, req.user)
+	await returnUserData(sqlite, topicId, req, res)
 })
 quizRouter.delete('/{*type}', async (req, res) => {
 	const sqlite = getSqlite()
-	await recomputeAndPersist(sqlite, req.user)
-	await returnUserData(sqlite, req, res)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	await recomputeAndPersist(sqlite, topicId, req.user)
+	await returnUserData(sqlite, topicId, req, res)
 })
 
 export default quizRouter

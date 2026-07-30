@@ -2,15 +2,18 @@ import CONFIG from '../config/config.js'
 import { getUser, getAllUsernames } from '../repository/userRepository.js'
 import { getAllEntriesWithScores, saveEntry } from '../repository/entriesRepository.js'
 import { getUserScores, saveUserScores } from '../repository/userEntryRepository.js'
+import { getAllTopicIds } from '../repository/topicsRepository.js'
 
 let computationTimeoutHandler = null
 
 /**
- * Periodic score computation cycle: reloads every username/user it needs
- * straight from SQLite, computes and persists each user's scores (one
- * getUser + one getUserScores per user, no double load), collects every
- * entry's contributing scores along the way, then finalizes global scores in
- * one pass - see computeGlobalScores().
+ * Periodic score computation cycle: runs once per existing topic, one after
+ * another (never concurrently - each topic's users/entries are fully
+ * independent, but there's no benefit worth the added complexity of
+ * parallelizing this), before scheduling the next full round over every
+ * topic again. Accounts are global (not topic-scoped, see getAllUsernames()),
+ * so the same username list is walked once per topic, but every score
+ * computed and persisted is scoped to that topic alone.
  */
 async function launchComputation(sqlite) {
 	if(computationTimeoutHandler) {
@@ -18,25 +21,40 @@ async function launchComputation(sqlite) {
 		computationTimeoutHandler = null
 	}
 
+	const topicIds = await getAllTopicIds(sqlite)
+	for(const topicId of topicIds) {
+		await computeTopicScores(sqlite, topicId)
+	}
+
+	// Planify next computation
+	computationTimeoutHandler = setTimeout(() => launchComputation(sqlite), CONFIG.SCORE_COMPUTE_INTERVAL)
+}
+
+/**
+ * Reloads every username/user it needs straight from SQLite for `topicId`,
+ * computes and persists each user's scores (one getUser + one getUserScores
+ * per user, no double load), collects every entry's contributing scores
+ * along the way, then finalizes global scores in one pass - see
+ * computeGlobalScores(). Extracted from launchComputation() so the periodic
+ * cycle can run this once per existing topic.
+ */
+async function computeTopicScores(sqlite, topicId) {
 	const usernames = await getAllUsernames(sqlite)
 	const scoresByEntry = {} // entryId: [user1Score, user2Score, ...]
 	for(const username of usernames) {
-		const user = await getUser(sqlite, username)
+		const user = await getUser(sqlite, topicId, username)
 		if(!user) continue
 
-		const previousScores = await getUserScores(sqlite, username)
+		const previousScores = await getUserScores(sqlite, topicId, username)
 		const {scores} = computeUserScores(user.quiz, previousScores)
-		await saveUserScores(sqlite, username, scores)
+		await saveUserScores(sqlite, topicId, username, scores)
 
 		for(const entryId in scores) {
 			(scoresByEntry[entryId] ??= []).push(scores[entryId])
 		}
 	}
 
-	await computeGlobalScores(sqlite, scoresByEntry)
-
-	// Planify next computation
-	computationTimeoutHandler = setTimeout(() => launchComputation(sqlite), CONFIG.SCORE_COMPUTE_INTERVAL)
+	await computeGlobalScores(sqlite, topicId, scoresByEntry)
 }
 
 /**
@@ -106,8 +124,8 @@ function computeUserScores(quiz, previousScores) {
  * launchComputation() while it recomputes every user - this function only
  * finalizes it (stretch 0-1 + save), it never reloads users itself.
  */
-async function computeGlobalScores(sqlite, scoresByEntry) {
-	const entries = await getAllEntriesWithScores(sqlite)
+async function computeGlobalScores(sqlite, topicId, scoresByEntry) {
+	const entries = await getAllEntriesWithScores(sqlite, topicId)
 	const entriesById = new Map(entries.map((e) => [e.id, e]))
 
 	// Average all users scores
@@ -133,7 +151,7 @@ async function computeGlobalScores(sqlite, scoresByEntry) {
 	for(const entryId in averages) {
 		const entry = entriesById.get(entryId)
 		entry.globalScore = max === min ? 0.5 : (averages[entryId] - min) / (max - min)
-		await saveEntry(sqlite, entry)
+		await saveEntry(sqlite, topicId, entry)
 	}
 }
 

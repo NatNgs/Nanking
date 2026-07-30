@@ -9,6 +9,7 @@ import { getSqlite } from '../data/db.js'
 import { listEntries } from '../services/entryService.js'
 import { searchTags } from '../services/tagService.js'
 import { paginate, compareBy } from '../lib/pagination.js'
+import CONFIG from '../config/config.js'
 
 const apiRouter = express.Router()
 
@@ -63,11 +64,13 @@ apiRouter.post('/logout', (req, res) => {
 })
 apiRouter.get('/entries', async (req, res) => {
 	const {q, sort, order, page, limit} = req.query
-	res.json(await listEntries(getSqlite(), {q, sort, order, page, limit}))
+	const topicId = CONFIG.DEFAULT_TOPIC
+	res.json(await listEntries(getSqlite(), topicId, {q, sort, order, page, limit}))
 })
 apiRouter.post('/tags/search', async (req, res) => {
 	const {q, notOnEntity, notHavingAsParent, notHavingAsChild, order, page, limit} = req.body || {}
-	const tags = await searchTags(getSqlite(), {q, notOnEntity, notHavingAsParent, notHavingAsChild})
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const tags = await searchTags(getSqlite(), topicId, {q, notOnEntity, notHavingAsParent, notHavingAsChild})
 	const mapped = tags.map((tag) => ({id: tag.id, label: tag.label}))
 	// If q is given, searchTag already sorted by relevance (name length): don't re-sort.
 	const sorted = q ? mapped : [...mapped].sort(compareBy((t) => t.label, order || 'asc'))

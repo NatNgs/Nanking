@@ -9,8 +9,8 @@ import { paginate, compareBy } from '../lib/pagination.js'
  * display them (AccountPage "My inputs"). Mirrors resolveEntryTags in
  * tagService.js.
  */
-async function enrichVoteWithLabels(sqlite, voteJson) {
-	const label = async (entryId) => (await getEntryById(sqlite, entryId))?.name ?? null
+async function enrichVoteWithLabels(sqlite, topicId, voteJson) {
+	const label = async (entryId) => (await getEntryById(sqlite, topicId, entryId))?.name ?? null
 	if(voteJson.type === 'direct') {
 		return {...voteJson, entryLabel: await label(voteJson.entry)}
 	}
@@ -28,8 +28,8 @@ async function enrichVoteWithLabels(sqlite, voteJson) {
  * scoresComputerService's design notes) - loaded here rather than recomputed,
  * so scoredEntriesCount always matches user_entry as of the last recompute.
  */
-async function returnUserData(sqlite, req, res) {
-	req.user.entries = await getUserScores(sqlite, req.user.username)
+async function returnUserData(sqlite, topicId, req, res) {
+	req.user.entries = await getUserScores(sqlite, topicId, req.user.username)
 	res.json({
 		username: req.user.displayLogin || req.user.username,
 		scoredEntriesCount: Object.keys(req.user.entries).length,
@@ -42,10 +42,10 @@ async function returnUserData(sqlite, req, res) {
  * GET /api/user/me/quiz. `type` ('direct' | 'dual') optionally restricts to
  * one quiz kind, e.g. for the "recent inputs" mini-tables on NewEntryForm/DualQuiz.
  */
-async function getUserQuizPaginated(sqlite, user, {type, page, limit} = {}) {
+async function getUserQuizPaginated(sqlite, topicId, user, {type, page, limit} = {}) {
 	const paginated = user.getQuizPaginated({type, page, limit})
 	const items = []
-	for(const item of paginated.items) items.push(await enrichVoteWithLabels(sqlite, item))
+	for(const item of paginated.items) items.push(await enrichVoteWithLabels(sqlite, topicId, item))
 	return {...paginated, items}
 }
 
@@ -58,7 +58,7 @@ async function getUserQuizPaginated(sqlite, user, {type, page, limit} = {}) {
  * label/image/globalScore in one batch — using the min/max computed over the
  * full entries set, never materializing the whole stretched list.
  */
-async function paginateUserEntries(sqlite, userEntries, {sort, order, page, limit} = {}) {
+async function paginateUserEntries(sqlite, topicId, userEntries, {sort, order, page, limit} = {}) {
 	const rawEntries = Object.entries(userEntries) // [[entryId, rawScore], ...]
 	const values = Object.values(userEntries)
 	const minUserScore = Math.min(...values)
@@ -67,7 +67,7 @@ async function paginateUserEntries(sqlite, userEntries, {sort, order, page, limi
 
 	let entriesById
 	if(sort === 'label' || sort === 'globalScore') {
-		entriesById = await getEntriesByIds(sqlite, rawEntries.map(([id]) => id))
+		entriesById = await getEntriesByIds(sqlite, topicId, rawEntries.map(([id]) => id))
 	}
 
 	let sortKey
@@ -79,7 +79,7 @@ async function paginateUserEntries(sqlite, userEntries, {sort, order, page, limi
 
 	const {items, page: p, limit: l, total, hasMore} = paginate(rawEntries, {page, limit})
 
-	const pageEntriesById = await getEntriesByIds(sqlite, items.map(([id]) => id))
+	const pageEntriesById = await getEntriesByIds(sqlite, topicId, items.map(([id]) => id))
 	const stretchedItems = items.map(([entryId, rawScore]) => {
 		const entry = pageEntriesById.get(entryId)
 		return {
@@ -100,28 +100,29 @@ async function paginateUserEntries(sqlite, userEntries, {sort, order, page, limi
  * scoresComputerService's design notes) - loaded here, never recomputed on
  * read.
  */
-async function getUserEntities(sqlite, user, {sort, order, page, limit} = {}) {
-	const scores = await getUserScores(sqlite, user.username)
-	return paginateUserEntries(sqlite, scores, {sort, order, page, limit})
+async function getUserEntities(sqlite, topicId, user, {sort, order, page, limit} = {}) {
+	const scores = await getUserScores(sqlite, topicId, user.username)
+	return paginateUserEntries(sqlite, topicId, scores, {sort, order, page, limit})
 }
 
 /**
  * Public profile data for `username`: paginated computed scores only (never
  * manual scores). Returns null if the account does not exist.
  */
-async function getPublicUserData(sqlite, username, {sort, order, page, limit} = {}) {
+async function getPublicUserData(sqlite, topicId, username, {sort, order, page, limit} = {}) {
 	const lookupKey = username.trim().toLowerCase()
 	const account = await getAccount(sqlite, lookupKey)
 	if(!account || account.hash == null) return null
 
-	const scores = await getUserScores(sqlite, lookupKey)
-	const paginatedEntities = await paginateUserEntries(sqlite, scores, {sort, order, page, limit})
+	const scores = await getUserScores(sqlite, topicId, lookupKey)
+	const paginatedEntities = await paginateUserEntries(sqlite, topicId, scores, {sort, order, page, limit})
 	return {username: await getDisplayLogin(sqlite, lookupKey), ...paginatedEntities}
 }
 
 /**
  * Permanently deletes an account and all of its user data (cascades to
- * direct_quiz/dual_quiz via SQLite's ON DELETE CASCADE).
+ * direct_quiz/dual_quiz via SQLite's ON DELETE CASCADE). Not topic-scoped:
+ * removing the account removes it - and every topic's data for it - entirely.
  */
 async function deleteAccount(sqlite, username) {
 	await removeAccount(sqlite, username.trim().toLowerCase())

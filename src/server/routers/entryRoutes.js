@@ -8,6 +8,7 @@ import { getEntryByName, getEntryById } from '../repository/entriesRepository.js
 import { getSqlite } from '../data/db.js'
 import { getUserScores } from '../repository/userEntryRepository.js'
 import { respondWithData, sendByResult } from './routeHelpers.js'
+import CONFIG from '../config/config.js'
 import fs from 'fs'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -23,8 +24,8 @@ const respondWithEntryData = respondWithData(getEntryData, 'Entry not found')
  * field must load the last persisted scores first (see
  * scoresComputerService's design notes: never recomputed on read).
  */
-async function withUserScores(sqlite, user) {
-	if(user) user.entries = await getUserScores(sqlite, user.username)
+async function withUserScores(sqlite, topicId, user) {
+	if(user) user.entries = await getUserScores(sqlite, topicId, user.username)
 	return user
 }
 
@@ -37,7 +38,8 @@ async function withUserScores(sqlite, user) {
 function requireCanEditEntry(entryIdParam = 'id') {
 	return async (req, res, next) => {
 		const sqlite = getSqlite()
-		const entry = await getEntryById(sqlite, req.params[entryIdParam])
+		const topicId = CONFIG.DEFAULT_TOPIC
+		const entry = await getEntryById(sqlite, topicId, req.params[entryIdParam])
 		if(!entry) return res.status(404).send('Entry not found')
 		if(!canEditEntry(req.user, entry)) return res.status(403).send('Forbidden')
 		next()
@@ -50,29 +52,32 @@ entryRoutes.put('/new', requireAuthentication, async (req, res) => {
 	if(!(req.body.name || '').trim()) return res.status(400).send('Invalid name')
 
 	const sqlite = getSqlite()
+	const topicId = CONFIG.DEFAULT_TOPIC
 	// Check if such entry already exists
-	const entry = await getEntryByName(sqlite, req.body.name, true)
+	const entry = await getEntryByName(sqlite, topicId, req.body.name, true)
 	if(!entry) {
 		return res.status(500).send('Unknown error')
 	}
-	return respondWithEntryData(sqlite, entry.id, res, await withUserScores(sqlite, req.user))
+	return respondWithEntryData(sqlite, topicId, entry.id, res, await withUserScores(sqlite, topicId, req.user))
 })
 
 entryRoutes.patch('/:id/name', requireAuthentication, requireCanEditEntry(), async (req, res) => {
 	const sqlite = getSqlite()
-	const result = await renameEntry(sqlite, req.params.id, req.body.name)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const result = await renameEntry(sqlite, topicId, req.params.id, req.body.name)
 	if(sendByResult(res, result, {
 		not_found: {status: 404, message: 'Entry not found'},
 		invalid: {status: 400, message: 'Invalid name'},
 		conflict: {status: 409, message: 'An entry with this name already exists'},
 	})) return
-	return respondWithEntryData(sqlite, req.params.id, res, await withUserScores(sqlite, req.user))
+	return respondWithEntryData(sqlite, topicId, req.params.id, res, await withUserScores(sqlite, topicId, req.user))
 })
 
 entryRoutes.get('/:id/image.png', async (req, res) => {
 	const sqlite = getSqlite()
+	const topicId = CONFIG.DEFAULT_TOPIC
 	// Find image related to this entry
-	const entry = await getEntryById(sqlite, req.params.id)
+	const entry = await getEntryById(sqlite, topicId, req.params.id)
 	if(!entry) return res.status(404).send('Entry not found')
 
 	const entryImagePath = getEntryImageFilePath(entry.id)
@@ -93,43 +98,48 @@ entryRoutes.patch('/:id/image', requireAuthentication, requireCanEditEntry(), (r
 	if(!req.file) return res.status(400).send('Missing image')
 
 	const sqlite = getSqlite()
-	const result = await updateEntryImage(sqlite, req.params.id, req.file.buffer)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const result = await updateEntryImage(sqlite, topicId, req.params.id, req.file.buffer)
 	if(sendByResult(res, result, {
 		not_found: {status: 404, message: 'Entry not found'},
 		invalid: {status: 400, message: 'Invalid or too large image'},
 	})) return
-	return respondWithEntryData(sqlite, req.params.id, res, await withUserScores(sqlite, req.user))
+	return respondWithEntryData(sqlite, topicId, req.params.id, res, await withUserScores(sqlite, topicId, req.user))
 })
 
 entryRoutes.delete('/:id', requireAuthentication, async (req, res) => {
 	const sqlite = getSqlite()
-	const result = await deleteEntry(sqlite, req.params.id, req.user)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const result = await deleteEntry(sqlite, topicId, req.params.id, req.user)
 	if(sendByResult(res, result, {not_found: {status: 404, message: 'Entry not found'}})) return
 	res.status(200).send('ok')
 })
 
 entryRoutes.post('/:id/tags', requireAuthentication, requireCanEditEntry(), async (req, res) => {
 	const sqlite = getSqlite()
-	const result = await addTagToEntry(sqlite, req.params.id, req.body.tagId)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const result = await addTagToEntry(sqlite, topicId, req.params.id, req.body.tagId)
 	if(sendByResult(res, result, {
 		not_found: {status: 404, message: 'Entry or tag not found'},
 		already_covered: {status: 409, message: 'Entry is already covered by this tag'},
 	})) return
-	return respondWithEntryData(sqlite, req.params.id, res, await withUserScores(sqlite, req.user))
+	return respondWithEntryData(sqlite, topicId, req.params.id, res, await withUserScores(sqlite, topicId, req.user))
 })
 
 entryRoutes.delete('/:id/tags/:tagId', requireAuthentication, requireCanEditEntry(), async (req, res) => {
 	const sqlite = getSqlite()
-	const result = await removeTagFromEntry(sqlite, req.params.id, req.params.tagId)
+	const topicId = CONFIG.DEFAULT_TOPIC
+	const result = await removeTagFromEntry(sqlite, topicId, req.params.id, req.params.tagId)
 	if(sendByResult(res, result, {not_found: {status: 404, message: 'Entry not found'}})) return
-	return respondWithEntryData(sqlite, req.params.id, res, await withUserScores(sqlite, req.user))
+	return respondWithEntryData(sqlite, topicId, req.params.id, res, await withUserScores(sqlite, topicId, req.user))
 })
 
 // Public, declared last: attaches req.user only if a valid session is present
 
 entryRoutes.get('/:id', attachUserIfAuthenticated, async (req, res) => {
 	const sqlite = getSqlite()
-	return respondWithEntryData(sqlite, req.params.id, res, await withUserScores(sqlite, req.user))
+	const topicId = CONFIG.DEFAULT_TOPIC
+	return respondWithEntryData(sqlite, topicId, req.params.id, res, await withUserScores(sqlite, topicId, req.user))
 })
 
 export default entryRoutes

@@ -7,19 +7,20 @@ import {
 } from '../services/userService.js'
 import { verifyPassword } from '../repository/accountsRepository.js'
 import { getSqlite } from '../data/db.js'
+import CONFIG from '../config/config.js'
 
 const userRouter = express.Router()
 
 userRouter.get('/me', requireAuthentication, apiLimiter, async (req, res) => {
-	await returnUserData(getSqlite(), req, res)
+	await returnUserData(getSqlite(), CONFIG.DEFAULT_TOPIC, req, res)
 })
 userRouter.get('/me/entities', requireAuthentication, apiLimiter, async (req, res) => {
 	const {sort, order, page, limit} = req.query
-	res.json(await getUserEntities(getSqlite(), req.user, {sort, order, page, limit}))
+	res.json(await getUserEntities(getSqlite(), CONFIG.DEFAULT_TOPIC, req.user, {sort, order, page, limit}))
 })
 userRouter.get('/me/quiz', requireAuthentication, apiLimiter, async (req, res) => {
 	const {type, page, limit} = req.query
-	res.json(await getUserQuizPaginated(getSqlite(), req.user, {type, page, limit}))
+	res.json(await getUserQuizPaginated(getSqlite(), CONFIG.DEFAULT_TOPIC, req.user, {type, page, limit}))
 })
 userRouter.delete('/me', requireAuthentication, apiLimiter, async (req, res) => {
 	const sqlite = getSqlite()
@@ -43,7 +44,7 @@ userRouter.delete('/me', requireAuthentication, apiLimiter, async (req, res) => 
 // Public route, declared last so its generic :username pattern never shadows /me or /entry
 userRouter.get('/:username', publicProfileLimiter, async (req, res) => {
 	const {sort, order, page, limit} = req.query
-	const data = await getPublicUserData(getSqlite(), req.params.username, {sort, order, page, limit})
+	const data = await getPublicUserData(getSqlite(), CONFIG.DEFAULT_TOPIC, req.params.username, {sort, order, page, limit})
 	if(!data) {
 		console.warn(req.originalUrl, '=> 404 (Unknown user)')
 		return res.status(404).send('User not found')
