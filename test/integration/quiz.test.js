@@ -170,26 +170,81 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 
 	/**
 	 * Reads the current pair's labels (the pairing is randomized, so this must
-	 * happen right before voting), clicks the given vote button, waits for the
-	 * next pair to be picked (voting re-enabled) as the submit signal, then
-	 * asserts a row matching the vote's CONTENT (entities + operator) appears in
-	 * the Random Quiz page's own "recent inputs" mini-table - never by position,
-	 * since a repeated pair replaces (not appends) an existing vote, and the
-	 * mini-table only ever keeps the last 5 anyway.
+	 * happen right before voting), clicks the given vote button, waits for
+	 * voting to be re-enabled (the button's `disabled` attribute clears once
+	 * vote() -> refreshUserData() -> fetchNewPair() has fully settled - see
+	 * DualQuiz.jsx) as the submit signal, then asserts a row matching the
+	 * vote's CONTENT (entities + operator) appears in the Random Quiz page's
+	 * own "recent inputs" mini-table - never by position, since a repeated
+	 * pair replaces (not appends) an existing vote, and the mini-table only
+	 * ever keeps the last 5 anyway.
+	 *
+	 * The previous version waited for the clicked button to become "visible"
+	 * again as its submit signal - a no-op wait, since dual-quiz-bt3 buttons
+	 * are only ever disabled, never removed from the DOM, so that locator was
+	 * already satisfied before the click. This made the test race the vote's
+	 * full round-trip (persist + refetch) against a 5s timeout on the
+	 * following row assertion alone, flaky under CI load.
 	 */
 	async function voteAndCheck(buttonText, expectedOp) {
-		await page.locator('.dual-quiz-pair-table').waitFor({state: 'visible', timeout: 5000})
+		// The Randomize buttons/pickers render immediately (see DualQuiz.jsx),
+		// but the pair itself loads asynchronously - wait for the entry labels,
+		// not just the table, before reading them.
+		await page.locator('.dual-quiz-left .entryLabel').waitFor({state: 'visible', timeout: 5000})
+		await page.locator('.dual-quiz-right .entryLabel').waitFor({state: 'visible', timeout: 5000})
 		const leftLabel = await page.locator('.dual-quiz-left .entryLabel').innerText()
 		const rightLabel = await page.locator('.dual-quiz-right .entryLabel').innerText()
 
-		await page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`).click()
-		await page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`).waitFor({state: 'visible', timeout: 5000})
+		const button = page.locator(`.dual-quiz-bt3:has-text("${buttonText}")`)
+		await button.click()
+		// Waits for a full disabled -> enabled cycle, not just "enabled": right
+		// after the click, the button may still read as enabled for a moment
+		// (React hasn't committed isVoting=true yet), so waiting on "enabled"
+		// alone could pass immediately, before the vote's own round-trip
+		// (persist + refetch) ever starts.
+		await page.waitForFunction(
+			(text) => {
+				const btn = [...document.querySelectorAll('.dual-quiz-bt3')].find((b) => b.textContent.includes(text))
+				return btn?.disabled
+			},
+			buttonText,
+			{timeout: 10000},
+		)
+		await page.waitForFunction(
+			(text) => {
+				const btn = [...document.querySelectorAll('.dual-quiz-bt3')].find((b) => b.textContent.includes(text))
+				return btn && !btn.disabled
+			},
+			buttonText,
+			{timeout: 10000},
+		)
 
+		// The server always persists a dual vote with neg/pos in alphanumeric
+		// id order (see normalizeDualQuiz()), flipping the operator if that
+		// means swapping left/right - so "left OP right" may come back
+		// rendered as its reversed-but-equivalent form "right OP' left"
+		// (</> swapped, = stays =). Accept either rendering: which one
+		// actually happened depends on the two entries' generated ids, not on
+		// anything this test controls.
+		const reversedOp = expectedOp === '<' ? '>' : expectedOp === '>' ? '<' : '='
 		const voteText = `${leftLabel} ${expectedOp} ${rightLabel}`
+		const reversedVoteText = `${rightLabel} ${reversedOp} ${leftLabel}`
 		const row = recentVoteRow('.dual-quiz', voteText)
-		await row.waitFor({state: 'visible', timeout: 5000})
-		assert.equal(await row.locator('td').nth(0).innerText(), 'dual')
-		assert.equal((await row.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), voteText)
+		const reversedRow = recentVoteRow('.dual-quiz', reversedVoteText)
+		try {
+			await Promise.race([
+				row.waitFor({state: 'visible', timeout: 10000}),
+				reversedRow.waitFor({state: 'visible', timeout: 10000}),
+			])
+		} catch (err) {
+			const html = await page.locator('.dual-quiz .recent-votes-table').innerHTML().catch(() => '(table not found)')
+			console.error('DEBUG voteText=', JSON.stringify(voteText), 'table HTML=', html)
+			throw err
+		}
+		const matchedText = await row.count() ? voteText : reversedVoteText
+		const matchedRow = await row.count() ? row : reversedRow
+		assert.equal(await matchedRow.locator('td').nth(0).innerText(), 'dual')
+		assert.equal((await matchedRow.locator('.voteDetail').innerText()).replace(/\s+/g, ' ').trim(), matchedText)
 	}
 
 	test('opening Dual mode and voting "<" (right preferred) records the vote', async () => {
@@ -203,6 +258,31 @@ describe('Quiz integration flow', {concurrency: false}, () => {
 
 	test('Dual mode: voting "^ Choose" (left preferred) records the vote', async () => {
 		await voteAndCheck('^ Choose', '>')
+	})
+
+	test('Dual mode: "Randomize" on the left side only changes the left entry', async () => {
+		await page.locator('.dual-quiz-left .entryLabel').waitFor({state: 'visible', timeout: 5000})
+		const rightLabelBefore = await page.locator('.dual-quiz-right .entryLabel').innerText()
+
+		await page.locator('.dual-quiz-left button.dual-quiz-randomize').click()
+		await page.waitForFunction(() => {
+			const btn = document.querySelector('.dual-quiz-left button.dual-quiz-randomize')
+			return btn && !btn.disabled
+		}, {timeout: 10000})
+
+		await page.locator('.dual-quiz-left .entryLabel').waitFor({state: 'visible', timeout: 5000})
+		const rightLabelAfter = await page.locator('.dual-quiz-right .entryLabel').innerText()
+		assert.equal(rightLabelAfter, rightLabelBefore)
+	})
+
+	test('Dual mode: "Randomize both" changes the pair and re-enables voting', async () => {
+		await page.locator('.dual-quiz-randomize-both').click()
+		await page.waitForFunction(() => {
+			const btn = document.querySelector('.dual-quiz-randomize-both')
+			return btn && !btn.disabled
+		}, {timeout: 10000})
+		await page.locator('.dual-quiz-left .entryLabel').waitFor({state: 'visible', timeout: 5000})
+		await page.locator('.dual-quiz-right .entryLabel').waitFor({state: 'visible', timeout: 5000})
 	})
 
 	test('create "Temporary test element" at 69% on the quiz page', async () => {

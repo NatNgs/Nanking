@@ -5,7 +5,7 @@ import {
 	returnUserData, returnPublicUserData as getPublicUserData,
 	getUserEntities, getUserQuizPaginated, deleteAccount,
 } from '../services/userService.js'
-import { verifyPassword } from '../data/accountsRepository.js'
+import { verifyPassword } from '../repository/accountsRepository.js'
 import { getSqlite } from '../data/db.js'
 
 const userRouter = express.Router()

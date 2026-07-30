@@ -1,11 +1,11 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
-import { Entry } from '../../../src/server/data/entriesModel.js'
+import { Entry } from '../../../src/server/model/entriesModel.js'
 import {
 	getEntryByName, getEntryByNameIgnoreCase, searchEntry, getEntryById,
 	getEntriesByIds, getAllEntriesWithScores, saveEntry, deleteEntry,
-} from '../../../src/server/data/entriesRepository.js'
+} from '../../../src/server/repository/entriesRepository.js'
 
 describe('Entry id format validation', () => {
 	test('accepts a source-prefixed id', () => {

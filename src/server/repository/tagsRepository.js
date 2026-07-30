@@ -1,4 +1,4 @@
-import { Tag } from './tagsModel.js'
+import { Tag } from '../model/tagsModel.js'
 import { toLikePattern } from './entriesRepository.js'
 
 function rowToTag(row, parentsByTag) {

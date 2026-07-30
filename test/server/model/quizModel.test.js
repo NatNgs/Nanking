@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { Entry } from '../../../src/server/data/entriesModel.js'
-import { DirectQuiz, DualQuiz } from '../../../src/server/data/quizModel.js'
+import { Entry } from '../../../src/server/model/entriesModel.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/model/quizModel.js'
 
 describe('DirectQuiz.referencesEntry', () => {
 	test('returns true for the entry it was created with', () => {

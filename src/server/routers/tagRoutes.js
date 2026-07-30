@@ -5,7 +5,7 @@ import {
 	getParentTree, getChildTree, getEntriesForTag,
 } from '../services/tagService.js'
 import { getSqlite } from '../data/db.js'
-import { computeUserScores } from '../services/scoresComputerService.js'
+import { getUserScores } from '../repository/userEntryRepository.js'
 import { respondWithData, sendByResult } from './routeHelpers.js'
 import { paginate } from '../lib/pagination.js'
 
@@ -75,9 +75,10 @@ tagRoutes.get('/:id/entries', attachUserIfAuthenticated, async (req, res) => {
 	if(!data) return res.status(404).send('Tag not found')
 
 	// req.user is loaded fresh per-request with an empty user.entries (see
-	// authenticate.js) - recompute before getEntriesForTag() reads it to
-	// enrich each entry with the caller's own score.
-	if(req.user) await computeUserScores(sqlite, req.user)
+	// authenticate.js) - load the last persisted scores before
+	// getEntriesForTag() reads them to enrich each entry with the caller's
+	// own score.
+	if(req.user) req.user.entries = await getUserScores(sqlite, req.user.username)
 
 	const {sort, order, page, limit} = req.query
 	// already sorted (globalScore desc by default)

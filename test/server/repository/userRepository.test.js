@@ -4,10 +4,10 @@ import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
 import {
 	getUser, userExists, anyUserReferencesEntry, removeUserReferencesToEntry,
 	saveUser, getAllUsernames, normalizeDualQuiz,
-} from '../../../src/server/data/userRepository.js'
-import { getEntryByName } from '../../../src/server/data/entriesRepository.js'
-import { addAccount } from '../../../src/server/data/accountsRepository.js'
-import { DirectQuiz, DualQuiz } from '../../../src/server/data/quizModel.js'
+} from '../../../src/server/repository/userRepository.js'
+import { getEntryByName } from '../../../src/server/repository/entriesRepository.js'
+import { addAccount } from '../../../src/server/repository/accountsRepository.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/model/quizModel.js'
 
 describe('userRepository', () => {
 	const db = useSqliteFixture()

@@ -1,10 +1,12 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
-import { getEntryByName, saveEntry } from '../../../src/server/data/entriesRepository.js'
-import { addAccount, getAccount } from '../../../src/server/data/accountsRepository.js'
-import { getUser, saveUser } from '../../../src/server/data/userRepository.js'
-import { DirectQuiz } from '../../../src/server/data/quizModel.js'
+import { getEntryByName, saveEntry } from '../../../src/server/repository/entriesRepository.js'
+import { addAccount, getAccount } from '../../../src/server/repository/accountsRepository.js'
+import { getUser, saveUser } from '../../../src/server/repository/userRepository.js'
+import { saveUserScores } from '../../../src/server/repository/userEntryRepository.js'
+import { DirectQuiz } from '../../../src/server/model/quizModel.js'
+import { computeUserScores } from '../../../src/server/services/scoresComputerService.js'
 import {
 	returnUserData, returnPublicUserData, getUserEntities, getUserQuizPaginated, deleteAccount,
 } from '../../../src/server/services/userService.js'
@@ -13,6 +15,14 @@ function fakeRes() {
 	const res = {}
 	res.json = (body) => { res.body = body; return res }
 	return res
+}
+
+/** Persists `user`'s current quiz as its user_entry scores, mirroring what
+ * quizRoutes.js's recomputeAndPersist() does right after a real vote. */
+async function persistScores(sqlite, user) {
+	const {scores} = computeUserScores(user.quiz, {})
+	user.entries = scores
+	await saveUserScores(sqlite, user.username, scores)
 }
 
 describe('userService', () => {
@@ -28,6 +38,7 @@ describe('userService', () => {
 			user.displayLogin = 'Bobby'
 			user.quiz.push(new DirectQuiz(entry, 0.5))
 			await saveUser(sqlite, user)
+			await persistScores(sqlite, user)
 
 			const res = fakeRes()
 			await returnUserData(sqlite, {user}, res)
@@ -60,6 +71,7 @@ describe('userService', () => {
 			const user = await getUser(sqlite, 'bobby')
 			user.quiz.push(new DirectQuiz(a, 0), new DirectQuiz(b, 1))
 			await saveUser(sqlite, user)
+			await persistScores(sqlite, user)
 
 			const result = await getUserEntities(sqlite, user, {page: 1, limit: 10})
 
@@ -74,6 +86,7 @@ describe('userService', () => {
 			const user = await getUser(sqlite, 'bobby')
 			user.quiz.push(new DirectQuiz(zebra, 0.5), new DirectQuiz(apple, 0.5))
 			await saveUser(sqlite, user)
+			await persistScores(sqlite, user)
 
 			const result = await getUserEntities(sqlite, user, {sort: 'label', order: 'asc', page: 1, limit: 10})
 
@@ -101,6 +114,7 @@ describe('userService', () => {
 			const user = await getUser(sqlite, 'bobby')
 			user.quiz.push(new DirectQuiz(entry, 1))
 			await saveUser(sqlite, user)
+			await persistScores(sqlite, user)
 
 			const data = await returnPublicUserData(sqlite, 'bobby', {page: 1, limit: 10})
 

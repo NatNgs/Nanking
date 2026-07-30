@@ -1,8 +1,7 @@
-import { getAccount, getDisplayLogin, removeAccount } from '../data/accountsRepository.js'
-import { getUser } from '../data/userRepository.js'
-import { getEntryById, getEntriesByIds } from '../data/entriesRepository.js'
+import { getAccount, getDisplayLogin, removeAccount } from '../repository/accountsRepository.js'
+import { getEntryById, getEntriesByIds } from '../repository/entriesRepository.js'
+import { getUserScores } from '../repository/userEntryRepository.js'
 import { paginate, compareBy } from '../lib/pagination.js'
-import { computeUserScores } from './scoresComputerService.js'
 
 /**
  * Enriches a serialized vote (toJson()) with the labels of the entries it
@@ -24,13 +23,13 @@ async function enrichVoteWithLabels(sqlite, voteJson) {
 /**
  * Serializes the current user's data for the HTTP response. Kept light:
  * neither user_scores (see GET /api/user/me/entities) nor the vote history
- * (see GET /api/user/me/quiz) - both are paginated separately. user.entries is
- * never persisted (see scoresComputerService's design notes) - recomputed
- * here so scoredEntriesCount reflects the user's current vote history, not
- * whatever computeUserScores() call (if any) happened earlier in this request.
+ * (see GET /api/user/me/quiz) - both are paginated separately. user.entries
+ * reflects the last persisted computeUserScores() run (see
+ * scoresComputerService's design notes) - loaded here rather than recomputed,
+ * so scoredEntriesCount always matches user_entry as of the last recompute.
  */
 async function returnUserData(sqlite, req, res) {
-	await computeUserScores(sqlite, req.user)
+	req.user.entries = await getUserScores(sqlite, req.user.username)
 	res.json({
 		username: req.user.displayLogin || req.user.username,
 		scoredEntriesCount: Object.keys(req.user.entries).length,
@@ -97,12 +96,13 @@ async function paginateUserEntries(sqlite, userEntries, {sort, order, page, limi
 
 /**
  * Paginated scores for the current user, backing GET /api/user/me/entities.
- * user.entries is never persisted (see scoresComputerService's design notes)
- * - always recomputed here from the user's own vote history before pagination.
+ * user.entries reflects the last persisted computeUserScores() run (see
+ * scoresComputerService's design notes) - loaded here, never recomputed on
+ * read.
  */
 async function getUserEntities(sqlite, user, {sort, order, page, limit} = {}) {
-	await computeUserScores(sqlite, user)
-	return paginateUserEntries(sqlite, user.entries, {sort, order, page, limit})
+	const scores = await getUserScores(sqlite, user.username)
+	return paginateUserEntries(sqlite, scores, {sort, order, page, limit})
 }
 
 /**
@@ -114,9 +114,8 @@ async function getPublicUserData(sqlite, username, {sort, order, page, limit} = 
 	const account = await getAccount(sqlite, lookupKey)
 	if(!account || account.hash == null) return null
 
-	const user = await getUser(sqlite, lookupKey)
-	await computeUserScores(sqlite, user)
-	const paginatedEntities = await paginateUserEntries(sqlite, user.entries, {sort, order, page, limit})
+	const scores = await getUserScores(sqlite, lookupKey)
+	const paginatedEntities = await paginateUserEntries(sqlite, scores, {sort, order, page, limit})
 	return {username: await getDisplayLogin(sqlite, lookupKey), ...paginatedEntities}
 }
 

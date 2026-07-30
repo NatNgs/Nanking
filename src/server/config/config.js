@@ -41,14 +41,14 @@ try {
 const CONFIG = {
 	ENV_NAME,
 	PORT:                  +(localConfig.port                  || 8053                          ),
-	CERT_KEY_PATH:         p(localConfig?.cert?.keyPath         || null                          ),
-	CERT_CERT_PATH:        p(localConfig?.cert?.certPath        || null                          ),
+	CERT_KEY_PATH:         p(localConfig?.cert?.keyPath        || null                          ),
+	CERT_CERT_PATH:        p(localConfig?.cert?.certPath       || null                          ),
 	DB_PATH:               p(localConfig.dbPath                || './data/NankingServerData.gz' ),
 	SQLITE_PATH:           p(localConfig.sqlitePath            || './data/nanking.sqlite'       ),
 	CLIENT_DIST_PATH:      p(localConfig.clientDistPath        || './dist/client'               ),
 	DATA_DIR:              p(localConfig.dataDir               || './data'                      ),
 	TOKEN_VALIDITY_LIMIT:  +(localConfig?.token?.validityLimit || (16 * 60 * 60)                ) * 1000,
-	SESSION_SECRET:          localConfig?.session?.secret       || null                          ,
+	SESSION_SECRET:         (localConfig?.session?.secret      || null                          ),
 	SHUTDOWN_TIMEOUT:      +(localConfig.shutdownTimeout       || (60)                          ) * 1000,
 	SCORE_COMPUTE_INTERVAL:+(localConfig.scoreComputeInterval  || (3)                           ) * 1000,
 	RATE_LIMIT: {

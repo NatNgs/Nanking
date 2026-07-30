@@ -1,5 +1,5 @@
-import { getAccount } from '../data/accountsRepository.js'
-import { getUser } from '../data/userRepository.js'
+import { getAccount } from '../repository/accountsRepository.js'
+import { getUser } from '../repository/userRepository.js'
 import { getSqlite } from '../data/db.js'
 
 /**

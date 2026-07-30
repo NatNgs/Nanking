@@ -1,5 +1,5 @@
-import { User } from './userModel.js'
-import { DirectQuiz, DualQuiz } from './quizModel.js'
+import { User } from '../model/userModel.js'
+import { DirectQuiz, DualQuiz } from '../model/quizModel.js'
 import { getEntriesByIds } from './entriesRepository.js'
 
 /**

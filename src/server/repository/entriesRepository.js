@@ -1,4 +1,4 @@
-import { Entry } from './entriesModel.js'
+import { Entry } from '../model/entriesModel.js'
 
 /**
  * Converts a `searchInput` using the app's existing wildcard convention

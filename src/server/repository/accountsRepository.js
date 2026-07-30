@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { hashWithSalt, USER_REGEX } from './accountsModel.js'
+import { hashWithSalt, USER_REGEX } from '../model/accountsModel.js'
 
 /** Returns {username, displayLogin, hash, salt, isAdmin}, or null if unknown. */
 async function getAccount(sqlite, username) {
@@ -28,7 +28,7 @@ async function addAccount(sqlite, user, pwd) {
 	if(!user.match(USER_REGEX)) return false
 
 	const existing = await getAccount(sqlite, user)
-	if(existing && existing.hash != null) return false // already registered, real credentials
+	if(existing?.hash != null) return false // already registered, real credentials
 
 	const salt = randomBytes(16).toString('hex')
 	const hash = hashWithSalt(pwd, salt)
@@ -73,7 +73,7 @@ async function login(sqlite, user, pwd) {
 	if(!user.match(USER_REGEX)) return false
 
 	const account = await getAccount(sqlite, user)
-	if(!account || account.hash == null) {
+	if(account?.hash == null) {
 		console.warn('Failed login (account does not exist)', user)
 		return false
 	}
@@ -97,7 +97,7 @@ async function verifyPassword(sqlite, user, pwd) {
 	if(!user.match(USER_REGEX)) return false
 
 	const account = await getAccount(sqlite, user)
-	if(!account || account.hash == null) return false
+	if(account?.hash == null) return false
 
 	const hash = hashWithSalt(pwd, account.salt)
 	return timingSafeEqual(Buffer.from(hash), Buffer.from(account.hash))

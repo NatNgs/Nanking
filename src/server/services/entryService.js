@@ -1,7 +1,7 @@
 import {
 	getEntryById, getEntryByNameIgnoreCase, searchEntry, getAllEntriesWithScores, saveEntry, deleteEntry as deleteEntryFromDb,
-} from '../data/entriesRepository.js'
-import { anyUserReferencesEntry, removeUserReferencesToEntry } from '../data/userRepository.js'
+} from '../repository/entriesRepository.js'
+import { anyUserReferencesEntry, removeUserReferencesToEntry } from '../repository/userRepository.js'
 import { processImageUpload, saveEntryImage, deleteEntryImage } from './entryImageService.js'
 import { resolveEntryTags } from './tagService.js'
 import { paginate, compareBy } from '../lib/pagination.js'

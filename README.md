@@ -178,9 +178,25 @@ usual.
 ## Rate-limiting
 
 Implemented via `express-rate-limit` (`src/server/middleware/rateLimit.js`), with four
-distinct limiters, all overridable via `rateLimit.<name>.limit` / `.windowSeconds` -
-see [Configuration](#configuration). Details (per-limiter defaults, keying, rationale)
-moved to [TODO.md](TODO.md#rate-limiting).
+distinct limiters (defaults below, all overridable via `rateLimit.<name>.limit` /
+`.windowSeconds`) :
+
+| Limiter | Default | Keyed by | Applies to |
+|---|---|---|---|
+| `loginLimiter` | 6 req / 60s | IP | `POST /api/login` - slows down brute-force attempts on account passwords |
+| `apiLimiter` | 120 req / 60s | authenticated username, falls back to IP | every route under `/api` |
+| `publicProfileLimiter` | 30 req / 60s | IP | `GET /api/user/:username` (public profile), in addition to `apiLimiter` |
+| `pageLimiter` | 60 req / 60s | IP | non-API routes (`/`, static files) |
+
+Username-based keying (where used) avoids penalizing multiple users behind the same
+NAT/proxy.
+
+Limiter state is kept in memory (the default `MemoryStore`), sufficient for a
+single-instance server like this one; revisit only if the server is ever run as
+multiple instances behind a load-balancer, in which case a shared store would be
+needed. Exceeding the limit returns `429 Too Many Requests` with a `Retry-After`
+header so the client can inform the user rather than silently failing.
+
 
 ## TODO list and improvement suggestions
 

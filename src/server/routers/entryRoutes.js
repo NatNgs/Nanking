@@ -4,9 +4,9 @@ import requireAuthentication, { attachUserIfAuthenticated } from '../middleware/
 import { getEntryData, canEditEntry, renameEntry, updateEntryImage, deleteEntry } from '../services/entryService.js'
 import { getEntryImageFilePath } from '../services/entryImageService.js'
 import { addTagToEntry, removeTagFromEntry } from '../services/tagService.js'
-import { getEntryByName, getEntryById } from '../data/entriesRepository.js'
+import { getEntryByName, getEntryById } from '../repository/entriesRepository.js'
 import { getSqlite } from '../data/db.js'
-import { computeUserScores } from '../services/scoresComputerService.js'
+import { getUserScores } from '../repository/userEntryRepository.js'
 import { respondWithData, sendByResult } from './routeHelpers.js'
 import fs from 'fs'
 
@@ -19,12 +19,12 @@ const respondWithEntryData = respondWithData(getEntryData, 'Entry not found')
 
 /**
  * req.user is loaded fresh from SQLite per-request (see authenticate.js) with
- * an empty user.entries - unlike the old always-in-memory model, nothing here
- * keeps it recomputed in the background, so every route that serves
- * getEntryData()'s userScore field must recompute it first.
+ * an empty user.entries - every route that serves getEntryData()'s userScore
+ * field must load the last persisted scores first (see
+ * scoresComputerService's design notes: never recomputed on read).
  */
 async function withUserScores(sqlite, user) {
-	if(user) await computeUserScores(sqlite, user)
+	if(user) user.entries = await getUserScores(sqlite, user.username)
 	return user
 }
 

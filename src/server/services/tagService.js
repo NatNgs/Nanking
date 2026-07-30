@@ -2,8 +2,8 @@ import {
 	getTagById, getTagsByIds, getTagByLabelIgnoreCase, getTagByLabel, searchTag,
 	getDirectChildren, getDirectChildrenForTagIds, getAllTags,
 	getDescendantIds, getAncestorIds, addParent, removeParent, saveTag,
-} from '../data/tagsRepository.js'
-import { getEntryById, getEntriesByIds, getAllEntriesWithScores, saveEntry } from '../data/entriesRepository.js'
+} from '../repository/tagsRepository.js'
+import { getEntryById, getEntriesByIds, getAllEntriesWithScores, saveEntry } from '../repository/entriesRepository.js'
 import { compareBy } from '../lib/pagination.js'
 
 /**

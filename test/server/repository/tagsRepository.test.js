@@ -1,13 +1,13 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
-import { Tag } from '../../../src/server/data/tagsModel.js'
+import { Tag } from '../../../src/server/model/tagsModel.js'
 import {
 	getTagByLabel, getTagByLabelIgnoreCase, searchTag, getTagById, getTagsByIds,
 	getAncestorIds, getDescendantIds, getDirectChildren, wouldCreateCycle,
 	addParent, removeParent, pruneOrphanTagIds, saveTag, deleteTag,
-} from '../../../src/server/data/tagsRepository.js'
-import { getEntryByName, saveEntry } from '../../../src/server/data/entriesRepository.js'
+} from '../../../src/server/repository/tagsRepository.js'
+import { getEntryByName, saveEntry } from '../../../src/server/repository/entriesRepository.js'
 
 describe('Tag id format validation', () => {
 	test('accepts a "t:" prefixed id', () => {

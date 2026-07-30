@@ -1,13 +1,13 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
-import { getEntryByName, getEntryById, saveEntry } from '../../../src/server/data/entriesRepository.js'
+import { getEntryByName, getEntryById, saveEntry } from '../../../src/server/repository/entriesRepository.js'
 import {
 	getTagData, renameTag, getOrCreateTag, addTagParent, removeTagParent,
 	getParentTree, getChildTree, getEntriesForTag, isTagCoveredByEntry,
 	addTagToEntry, removeTagFromEntry, resolveEntryTags, searchTags,
 } from '../../../src/server/services/tagService.js'
-import { getTagByLabel, getTagById } from '../../../src/server/data/tagsRepository.js'
+import { getTagByLabel, getTagById } from '../../../src/server/repository/tagsRepository.js'
 
 describe('tagService', () => {
 	const db = useSqliteFixture()

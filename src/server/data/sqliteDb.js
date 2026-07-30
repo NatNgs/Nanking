@@ -72,6 +72,22 @@ CREATE TABLE IF NOT EXISTS dual_quiz (
 	UNIQUE (username, neg_id, pos_id)
 );
 
+-- Données propres à la relation user<->entry. Pour l'instant, seule la
+-- colonne score (dernier score personnel connu, recomputed by
+-- computeUserScores() right after a quiz mutation or during the global cycle
+-- - never recomputed on read). Nommée sans suffixe "_scores" car destinée à
+-- accueillir d'autres attributs par la suite (ex. un alias personnalisé pour
+-- l'entrée). A row exists only for an entry the user has voted on (directly
+-- or via a dual); rows for quiz-less entries are pruned by the same
+-- recompute pass that creates missing ones.
+CREATE TABLE IF NOT EXISTS user_entry (
+	username TEXT NOT NULL REFERENCES accounts(username) ON DELETE CASCADE,
+	entry_id TEXT NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+	score    REAL NOT NULL DEFAULT 0.5,
+	PRIMARY KEY (username, entry_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_entry_entry ON user_entry(entry_id);
+
 -- Backs the 'n:<seq>'/'t:<seq>' id convention with a strictly-increasing,
 -- never-reused counter per prefix (see entriesRepository/tagsRepository's
 -- nextIdForPrefix()) - one atomic UPDATE instead of the old "count rows, probe

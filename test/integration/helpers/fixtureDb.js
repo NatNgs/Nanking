@@ -74,6 +74,16 @@ async function buildFixtureDb(path, username) {
 		insertDirectQuiz.run(username, 'n:1', 0.2, 2)
 		insertDirectQuiz.run(username, 'n:2', 0.6, 3)
 
+		// user_entry is never recomputed on read (see scoresComputerService's
+		// design notes) - seed it here too, or the account would show no score
+		// at all until the next global computation cycle picks it up.
+		const insertUserEntry = db.prepare(
+			'INSERT INTO user_entry (username, entry_id, score) VALUES (?, ?, ?)'
+		)
+		insertUserEntry.run(username, 'n:0', 0.9)
+		insertUserEntry.run(username, 'n:1', 0.2)
+		insertUserEntry.run(username, 'n:2', 0.6)
+
 		// Entry/tag rows above were inserted with explicit ids, bypassing
 		// getEntryByName()/getTagByLabel() (the only normal callers of the
 		// id_sequences counter) - resync it now, or the test's first UI-driven

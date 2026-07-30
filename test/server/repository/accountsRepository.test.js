@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
 import {
 	getAccount, addAccount, getDisplayLogin, isAdmin, login, verifyPassword, removeAccount,
-} from '../../../src/server/data/accountsRepository.js'
+} from '../../../src/server/repository/accountsRepository.js'
 
 describe('accountsRepository', () => {
 	const db = useSqliteFixture()

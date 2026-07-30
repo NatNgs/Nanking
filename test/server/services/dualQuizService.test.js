@@ -1,8 +1,8 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
-import { getEntryByName } from '../../../src/server/data/entriesRepository.js'
-import { pickPair, weightFor, pickDualPair } from '../../../src/server/services/dualQuizService.js'
+import { getEntryByName, saveEntry } from '../../../src/server/repository/entriesRepository.js'
+import { pickPair, weightFor, pickDualPair, pickSingleCandidate } from '../../../src/server/services/dualQuizService.js'
 
 describe('weightFor', () => {
 	test('at abs=0, weight is 10', () => {
@@ -93,5 +93,77 @@ describe('pickDualPair', () => {
 		for(const side of [pair.left, pair.right]) {
 			assert.ok('id' in side && 'label' in side && 'image' in side && 'score' in side)
 		}
+	})
+})
+
+describe('pickSingleCandidate', () => {
+	const db = useSqliteFixture()
+	let sqlite
+	beforeEach(() => { sqlite = db.sqlite })
+
+	test('excludes fixedEntryId and excludeIds from the draw', async (t) => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const b = await getEntryByName(sqlite, 'B', true)
+		const c = await getEntryByName(sqlite, 'C', true)
+		const user = {entries: {[a.id]: 0.2, [b.id]: 0.5, [c.id]: 0.8}}
+
+		t.mock.method(Math, 'random', () => 0)
+		const candidate = await pickSingleCandidate(sqlite, user, {fixedEntryId: a.id, excludeIds: [b.id]})
+		assert.equal(candidate.id, c.id)
+	})
+
+	test('picks by proximity to fixedEntryId when scored candidates remain', async (t) => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const b = await getEntryByName(sqlite, 'B', true)
+		const c = await getEntryByName(sqlite, 'C', true)
+		// b is much closer to a's score than c is
+		const user = {entries: {[a.id]: 0.5, [b.id]: 0.55, [c.id]: 5}}
+
+		t.mock.method(Math, 'random', () => 0) // picks the first candidate in cumulative (proximity) order
+		const candidate = await pickSingleCandidate(sqlite, user, {fixedEntryId: a.id})
+		assert.equal(candidate.id, b.id)
+	})
+
+	test('picks by own score (step 1) when no fixedEntryId is given', async (t) => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const b = await getEntryByName(sqlite, 'B', true)
+		const user = {entries: {[a.id]: 0, [b.id]: 10}}
+
+		t.mock.method(Math, 'random', () => 0) // rnd=0 -> first bucket in cumulative order
+		const candidate = await pickSingleCandidate(sqlite, user, {})
+		assert.equal(candidate.id, a.id)
+	})
+
+	test('falls back to entries never compared by the user, weighted by global_score, '
+		+ 'when no scored candidate is left', async () => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const unseen = await getEntryByName(sqlite, 'Unseen', true)
+		unseen.globalScore = 0.9
+		await saveEntry(sqlite, unseen)
+		const user = {entries: {[a.id]: 0.5}}
+
+		// Only scored entry (a) is both fixed and excluded -> falls back to unseen
+		const candidate = await pickSingleCandidate(sqlite, user, {fixedEntryId: a.id, excludeIds: [a.id]})
+		assert.equal(candidate.id, unseen.id)
+	})
+
+	test('never mixes scored and unscored entries in the fallback draw', async (t) => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const b = await getEntryByName(sqlite, 'B', true)
+		await getEntryByName(sqlite, 'Unseen', true)
+		const user = {entries: {[a.id]: 0.2, [b.id]: 0.8}}
+
+		// Scored candidates remain (b, once a is fixed) -> must NOT fall back to Unseen
+		t.mock.method(Math, 'random', () => 0)
+		const candidate = await pickSingleCandidate(sqlite, user, {fixedEntryId: a.id})
+		assert.equal(candidate.id, b.id)
+	})
+
+	test('returns null when there is truly no candidate anywhere', async () => {
+		const a = await getEntryByName(sqlite, 'A', true)
+		const user = {entries: {[a.id]: 0.5}}
+
+		const candidate = await pickSingleCandidate(sqlite, user, {fixedEntryId: a.id, excludeIds: [a.id]})
+		assert.equal(candidate, null)
 	})
 })

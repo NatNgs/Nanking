@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { existsSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { Jimp } from 'jimp'
 import CONFIG from '../../../src/server/config/config.js'
-import { Entry } from '../../../src/server/data/entriesModel.js'
+import { Entry } from '../../../src/server/model/entriesModel.js'
 import {
 	processImageUpload, saveEntryImage, deleteEntryImage, EntryImageError,
 } from '../../../src/server/services/entryImageService.js'

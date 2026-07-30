@@ -1,10 +1,8 @@
 import { test, describe, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useSqliteFixture } from '../../helpers/sqliteTestSetup.js'
-import { getEntryByName, getEntryById, saveEntry } from '../../../src/server/data/entriesRepository.js'
-import { addAccount } from '../../../src/server/data/accountsRepository.js'
-import { getUser, saveUser } from '../../../src/server/data/userRepository.js'
-import { DirectQuiz, DualQuiz } from '../../../src/server/data/quizModel.js'
+import { getEntryByName, getEntryById } from '../../../src/server/repository/entriesRepository.js'
+import { DirectQuiz, DualQuiz } from '../../../src/server/model/quizModel.js'
 import { computeUserScores, computeGlobalScores } from '../../../src/server/services/scoresComputerService.js'
 
 function assertFinite(value, message) {
@@ -17,77 +15,72 @@ describe('scoresComputerService', () => {
 	let sqlite
 	beforeEach(() => { sqlite = db.sqlite })
 
-	async function makeUser(username, quizFactory) {
-		await addAccount(sqlite, username, 'hashedpwd')
-		const user = await getUser(sqlite, username)
-		if(quizFactory) user.quiz = await quizFactory()
-		return user
-	}
-
 	describe('computeUserScores', () => {
-		test('averages a single default vote with the entry\'s global score', async () => {
-			const entry = await getEntryByName(sqlite, 'A', true)
-			entry.globalScore = 0.5
-			await saveEntry(sqlite, entry)
-			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 1)])
+		test('averages a single default vote with the entry\'s global score', () => {
+			const entry = { id: 'n:0', globalScore: 0.5 }
+			const {scores} = computeUserScores([new DirectQuiz(entry, 1)], {})
 
-			await computeUserScores(sqlite, user)
-
-			assertFinite(user.entries[entry.id])
-			assert.equal(user.entries[entry.id], (1 + 0.5) / 2)
+			assertFinite(scores[entry.id])
+			assert.equal(scores[entry.id], (1 + 0.5) / 2)
 		})
 
-		test('never produces NaN/undefined/null even with a single entry', async () => {
-			const entry = await getEntryByName(sqlite, 'A', true)
-			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 0)])
+		test('never produces NaN/undefined/null even with a single entry', () => {
+			const entry = { id: 'n:0', globalScore: 0.5 }
+			const {scores} = computeUserScores([new DirectQuiz(entry, 0)], {})
 
-			await computeUserScores(sqlite, user)
-
-			assertFinite(user.entries[entry.id])
+			assertFinite(scores[entry.id])
 		})
 
-		test('averages a dual vote against both entries\' global scores', async () => {
-			const a = await getEntryByName(sqlite, 'A', true)
-			const b = await getEntryByName(sqlite, 'B', true)
-			const user = await makeUser('bobby', () => [new DualQuiz(a, b, 1)])
+		test('averages a dual vote against both entries\' global scores', () => {
+			const a = { id: 'n:0', globalScore: 0.5 }
+			const b = { id: 'n:1', globalScore: 0.5 }
+			const {scores} = computeUserScores([new DualQuiz(a, b, 1)], {})
 
-			await computeUserScores(sqlite, user)
-
-			assertFinite(user.entries[a.id])
-			assertFinite(user.entries[b.id])
+			assertFinite(scores[a.id])
+			assertFinite(scores[b.id])
 		})
 
-		test('re-running with an already-computed score keeps averaging with the global score, no NaN', async () => {
-			const entry = await getEntryByName(sqlite, 'A', true)
-			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 0)])
+		test('re-running with an already-computed score keeps averaging with the global score, no NaN', () => {
+			const entry = { id: 'n:0', globalScore: 0.5 }
+			const quiz = [new DirectQuiz(entry, 0)]
 
-			await computeUserScores(sqlite, user)
-			await computeUserScores(sqlite, user)
-			await computeUserScores(sqlite, user)
+			let {scores} = computeUserScores(quiz, {})
+			;({scores} = computeUserScores(quiz, scores))
+			;({scores} = computeUserScores(quiz, scores))
 
-			assertFinite(user.entries[entry.id])
+			assertFinite(scores[entry.id])
 		})
 
-		test('does not persist user.entries anywhere - recomputed fresh from votes each time', async () => {
-			const entry = await getEntryByName(sqlite, 'A', true)
-			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 1)])
-			await computeUserScores(sqlite, user)
-			await saveUser(sqlite, user)
+		test('drops an entry no longer referenced by any quiz', () => {
+			const entry = { id: 'n:0', globalScore: 0.5 }
+			const {scores} = computeUserScores([], {[entry.id]: 0.7})
 
-			const reloaded = await getUser(sqlite, 'bobby')
-			assert.deepEqual(reloaded.entries, {}) // freshly loaded, not yet recomputed
-			await computeUserScores(sqlite, reloaded)
-			assert.equal(reloaded.entries[entry.id], user.entries[entry.id])
+			assert.equal(Object.hasOwn(scores, entry.id), false)
+		})
+
+		test('totalChange is 0 once the score has stabilized', () => {
+			const entry = { id: 'n:0', globalScore: 0.5 }
+			const quiz = [new DirectQuiz(entry, 0)]
+
+			const first = computeUserScores(quiz, {})
+			const second = computeUserScores(quiz, first.scores)
+
+			assert.equal(second.totalChange, 0)
+		})
+
+		test('totalChange counts a newly appearing entry at its full score', () => {
+			const entry = { id: 'n:0', globalScore: 0.5 }
+			const {scores, totalChange} = computeUserScores([new DirectQuiz(entry, 1)], {})
+
+			assert.equal(totalChange, scores[entry.id])
 		})
 	})
 
 	describe('computeGlobalScores', () => {
 		test('falls back to 0.5 when there is a single entry (no variance to stretch)', async () => {
 			const entry = await getEntryByName(sqlite, 'A', true)
-			const user = await makeUser('bobby', () => [new DirectQuiz(entry, 0.3)])
-			await saveUser(sqlite, user)
 
-			await computeGlobalScores(sqlite)
+			await computeGlobalScores(sqlite, {[entry.id]: [0.3]})
 
 			const reloaded = await getEntryById(sqlite, entry.id)
 			assert.equal(reloaded.globalScore, 0.5)
@@ -96,10 +89,8 @@ describe('scoresComputerService', () => {
 		test('falls back to 0.5 when every entry\'s score is tied', async () => {
 			const a = await getEntryByName(sqlite, 'A', true)
 			const b = await getEntryByName(sqlite, 'B', true)
-			const user = await makeUser('bobby', () => [new DirectQuiz(a, 0.4), new DirectQuiz(b, 0.4)])
-			await saveUser(sqlite, user)
 
-			await computeGlobalScores(sqlite)
+			await computeGlobalScores(sqlite, {[a.id]: [0.4], [b.id]: [0.4]})
 
 			assert.equal((await getEntryById(sqlite, a.id)).globalScore, 0.5)
 			assert.equal((await getEntryById(sqlite, b.id)).globalScore, 0.5)
@@ -108,10 +99,8 @@ describe('scoresComputerService', () => {
 		test('stretches distinct scores to the full 0-1 range', async () => {
 			const a = await getEntryByName(sqlite, 'A', true)
 			const b = await getEntryByName(sqlite, 'B', true)
-			const user = await makeUser('bobby', () => [new DirectQuiz(a, 0), new DirectQuiz(b, 1)])
-			await saveUser(sqlite, user)
 
-			await computeGlobalScores(sqlite)
+			await computeGlobalScores(sqlite, {[a.id]: [0], [b.id]: [1]})
 
 			const reloadedA = await getEntryById(sqlite, a.id)
 			const reloadedB = await getEntryById(sqlite, b.id)
@@ -124,7 +113,7 @@ describe('scoresComputerService', () => {
 		test('keeps an entry alive with its previous global_score unchanged when it has no real user score yet', async () => {
 			const entry = await getEntryByName(sqlite, 'A', true)
 
-			await computeGlobalScores(sqlite)
+			await computeGlobalScores(sqlite, {})
 
 			const reloaded = await getEntryById(sqlite, entry.id)
 			assert.ok(reloaded, 'a freshly created, not-yet-voted-on entry must survive a computation cycle')
@@ -133,24 +122,14 @@ describe('scoresComputerService', () => {
 
 		test('never leaves a NaN globalScore after repeated cycles, even starting from a single entry', async () => {
 			const a = await getEntryByName(sqlite, 'A', true)
-			await addAccount(sqlite, 'bobby', 'hashedpwd')
-			let user = await getUser(sqlite, 'bobby')
-			user.quiz = [new DirectQuiz(a, 0)]
-			await saveUser(sqlite, user)
 
-			await computeUserScores(sqlite, user)
-			await computeGlobalScores(sqlite)
+			await computeGlobalScores(sqlite, {[a.id]: [0]})
 			assertFinite((await getEntryById(sqlite, a.id)).globalScore)
 
 			const b = await getEntryByName(sqlite, 'B', true)
-			user = await getUser(sqlite, 'bobby')
-			user.quiz.push(new DirectQuiz(b, 1))
-			await saveUser(sqlite, user)
-
 			for(let i = 0; i < 3; i++) {
-				user = await getUser(sqlite, 'bobby')
-				await computeUserScores(sqlite, user)
-				await computeGlobalScores(sqlite)
+				const currentA = await getEntryById(sqlite, a.id)
+				await computeGlobalScores(sqlite, {[a.id]: [currentA.globalScore], [b.id]: [1]})
 			}
 
 			assertFinite((await getEntryById(sqlite, a.id)).globalScore)
