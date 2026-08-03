@@ -6,15 +6,30 @@
 
 ## Ideas
 
-- Fix that React-select (tag picker, new entry picker) behavior (tests show often fails to compute/display the suggestions; clears itself when click on already inputed text; ...), and align the confirm button next to it (even try to make the + button with white background such as it looks like to be part of the picker) => Maybe the solution is to create my own picker with suggestions
+- Style:
+	- EntryPage : Merge the 'x' button with the same style and without margin to the right of the tags divs (look like the x is within the tag)
+	- Error page : Add margin 1em more to the top of the text (for example "Page not found" title is too close to the header)
+	- When entry table is empty, display a single row with full colspan, displaying "Nothing to show" in gray and centered in the div
+		- Hide the right scores panel if user have less than 3 different entries listed
+		- Minimum resized width to 300px, and maximum width to 50vw
+	- Global scores, New entry, Dual buttons to be moved to the header
+- Add footer, fixed on the page, same color as the page content, displaying link to sources (github) and current app version (to get from package.json) aligned to the right of the footer. 90% tall text, gray color, hide overflow, no line break
+- Set the right panel with personal scores to be resizable by drag&drop on its border left (import/use a dedicated component to avoid reimplementing the wheel)
 - Display on authenticated users' entry pages, the tree of what pushes their scores up or down (all the duals and the related scores)
-- Create a category of tags "MetaTags", that can have only MetaTags as parents, and cannot have scores (only serve to group subTags or entries)
-- Create a generic item object, and all Entries, Tags and Metatags inherit it (that seems possible, and so is logic to do)
 - Allow users to have a personal display name for entries (that only show for them), with a button to reset to default name
 	- After that, rename button will only apply to current user (no more renaming the whole entity) -- Admin still have a 'rename for everybody' button to change the overall entity name
 	- Also does not allow non-admin to modify entity image if any other user than them have any quiz completed with this entity (only allow for self created entities) -- Admin always have the right to
 - Share filtered user table: Make public link /user/usename filtrable with query params to filter/sort the content (for example ?hasTag=french to only show french items from the username list)
 - Ranking updates: Record the previous x scores of every entry. Display an arrow (green up/red down/none) if the entry score changed significantly (to be defined) in the previous 24h (to be defined too). Allow to sort global score page by this value (how much does its score increased since 24h ago). Mark new entries (less than 24h of data) as 'New', and sorted like "Increased score by 2" (no score can increase by more than 1, this make them sort first when ordered by score change DESC)
+- New quiz "DislikeQuiz" : Set the user to mark an item as liked, disliked or ignored
+	- When computing scores : if disliked, personal score is set to -1, no score computation to be done (ignore other quizes)
+		-> Support negative scores. They will never be displayed. In global ranking, a negative scored entry is hidden too. When stretching, ignore negative scored entries (strech on positive scored ones only)
+	- If ignored or disliked : do not suggest these entries in user recommendations or in dual random selection. Do not display the entry in global scores and user score right panel
+	- If liked : nothing special, consider the entry as scored by the user (with default score 0.5 if no other quiz made)
+	- Display on Global scores and /user/<username>, when user is connected, buttons "thumb up" / "eye stiked-out" / "thumb down" next to entries displayed, to do the quiz. Already liked entries still show the 3 buttons but with the thumb up pressed and green background.
+	- On /user/<username>, add a checkbox to display disliked and ignored entries (self disliked and ignored, not ignored/disliked by the page's user); by default unchecked. If unchecked, hide disliked/ignored entries from the page. If checked, display them, with the 3 buttons like/ignore/dislike. If an entry is already liked/ignores/disliked by current user (not the one of the page), let the corresponding button pressed (like display with green background, ignore display in purple, dislike displayed in red). Clicking on an unpressed button change the DislikeQuiz value. Clicking on an already pressed button remove the corresponding DislikeQuiz. Do not update the page on change (only update the buttons positions), to let the user change his mind if needed (If 'show ignored/disliked' is unchecked and user clicks on 'hide' on an entity, do not remove the row immediatly. Wait for user to refresh the page)
+	- When entry is added (newEntry page or dualQuiz page), set it to liked by default (if no previous dislikedQuiz already set for this entry)
+	- When entry is ignored, consider it as not scored by the user (ignore all user quiz when computing user scores). When entry is disliked, set is score to -1 and ignore all other user quiz when computing user scores.
 - Proper mobile dispay mode
 - Administration options
 	- Merging entities - on entries page: have an entry picker, and 'Merge this into other' and 'Merge other into this': Remove the entry (either the other or this one depending on the button clicked), find all users quiz on it and replace the removed by the other entity (If conflicts, remove the quiz of the removed entity and keep the one of the remaining one)
@@ -25,6 +40,16 @@
 - Permissions management: Create some real permissions management, to help for example ban a user for some permissions for some time if needed ("this user cannot do suggestions for the next 7 days", "this user is not allowed to login until next year" for example) - Admin page of the user will display a form to modify a specific user permissions.
 	- Create a moderator role (or multiple?), that can see the different admin options. Only admins can access the permission management window. Moderators may access to accept/deny suggestions, rename/merge items, change images, etc.
 - Add a space for comments under tags/entries. Every logged-in user can set their message (only one per user), that other users will se on the entry page. Carefulness required (should absolutely sanitize what user write, no html/javascript should ever be interpreted)
+- User recommendations
+	- Create a new page for users to get personal recommendations
+	- On accessing this page, display a loading, and request server to compute them
+	- Compute like user scores, but append to current user quizes, all the quiz of other users except quizes that would be "equal" to the one the current user has done (exclude direct quizes from others if current user have direct quiz on the same item; exclude dual from others if current user have a dual with both the same entries)
+		- ignore other users quizes including entries they ignored/disliked
+	- Recurse multiple time until score stabilizes (maximum score change of any element is under 0.01)
+	- Only at the end, exclude items the current user already has any quiz on, has ignored or has disliked; and return all others items with their computed recommended score
+	- Store this result in a 1h cache (not in database). Give the cached value if requested within that hour
+	- Display like/ignore/dislike buttons on this page results
+
 
 ## Feature: Multiple topics
 

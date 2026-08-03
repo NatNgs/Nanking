@@ -25,7 +25,7 @@
 	align-items: stretch;
 	padding-right: 1em;
 }
-.labelled label, .labelled span {
+.labelled label, .labelled > span {
 	font-size: 80%;
 	white-space: nowrap;
 	overflow: hidden;

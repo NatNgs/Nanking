@@ -177,7 +177,8 @@ function EntryPage() {
 						searchFilter={{notOnEntity: entry.id}}
 						onAdd={onAddTag}
 						disabled={isBusy}
-						placeholder="Add a tag..."
+						placeholder="Find a new tag to add..."
+						submitLabel="+"
 						className="entry-tag-picker"
 					/>
 				)}

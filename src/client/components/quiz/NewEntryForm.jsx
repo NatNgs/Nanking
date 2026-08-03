@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
-import AsyncCreatableSelect from 'react-select/async-creatable'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiGet, apiPut, apiPost } from '../../hooks/useApi.js'
 import { useUserContext } from '../../context/UserContext.jsx'
-import { useAsyncSearchOptions } from '../../hooks/useAsyncSearchOptions.js'
-import { asyncSelectStyles, ASYNC_SELECT_NO_INDICATORS } from '../../lib/reactSelectStyles.js'
+import AutocompleteInput from '../common/AutocompleteInput.jsx'
 import RecentVotesTable from './RecentVotesTable.jsx'
 import './NewEntryForm.css'
 
@@ -12,19 +10,17 @@ function NewEntryForm({scoreFormatter}) {
 	const [newEntryName, setNewEntryName] = useState('')
 	const [newEntryScore, setNewEntryScore] = useState(10)
 	const [errorMessage, setErrorMessage] = useState('')
+	const nameInputRef = useRef(null)
 
-	const fetchCandidates = useCallback(
+	const fetchSuggestions = useCallback(
 		(q) => q ? apiGet(`/entries?q=${q}`).then((r) => r.items) : Promise.resolve([]),
 		[],
 	)
-	const {
-		suggested: suggestedEntries, loadOptions: onSuggestionsFetchRequested, isNewOption: isNewEntry,
-	} = useAsyncSearchOptions(fetchCandidates)
 
 	async function handleNewEntry() {
-		if(!newEntryName) {
+		const name = newEntryName.trim()
+		if(!name) {
 			setErrorMessage('Entry name is empty')
-			// Make input focus
 			return
 		}
 		if(newEntryScore < scoreFormatter.min || newEntryScore > scoreFormatter.max) {
@@ -32,16 +28,18 @@ function NewEntryForm({scoreFormatter}) {
 			return
 		}
 
-		let entry = suggestedEntries.find((entry) => entry.label.toLowerCase() === newEntryName)
+		const matches = await fetchSuggestions(name)
+		let entry = matches.find((candidate) => candidate.label.toLowerCase() === name.toLowerCase())
 		if(!entry) {
 			// Call to create the new entry
-			entry = await apiPut('/entry/new', {name: newEntryName})
+			entry = await apiPut('/entry/new', {name})
 		}
 
 		await apiPost('/quiz/direct', {entry: entry.id, score: scoreFormatter.toNorm(newEntryScore)})
 		await refreshUserData()
 		bumpEntriesVersion()
 		setNewEntryName('')
+		nameInputRef.current?.reset()
 	}
 
 
@@ -56,19 +54,12 @@ function NewEntryForm({scoreFormatter}) {
 			<div className="content">
 				<div className="labelled">
 					<label for="name">Entry name:</label>
-					<AsyncCreatableSelect
-						loadOptions={onSuggestionsFetchRequested}
-						cacheOptions
-						name="name"
-						isClearable={true}
-						onChange={(e) => setNewEntryName(e?.label)}
-						createOptionPosition="first"
-						formatCreateLabel={(inputValue) => `(New) ${inputValue}`}
-						isValidNewOption={isNewEntry}
-						noOptionsMessage={() => null}
+					<AutocompleteInput
+						ref={nameInputRef}
+						fetchSuggestions={fetchSuggestions}
+						onValueChange={setNewEntryName}
+						allowNew
 						placeholder="Search for an entry..."
-						components={ASYNC_SELECT_NO_INDICATORS}
-						styles={asyncSelectStyles()}
 					/>
 				</div>
 				<div className="labelled">

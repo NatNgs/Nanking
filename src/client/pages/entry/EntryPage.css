@@ -61,6 +61,9 @@
 	align-items: center;
 	gap: 0.25em;
 }
+.entry-tag-picker {
+	flex-basis: 100%;
+}
 .entry-page-title {
 	display: flex;
 	width: 100%;

@@ -1,0 +1,146 @@
+.autocomplete-input {
+	position: relative;
+	display: inline-block;
+	width: 100%;
+}
+
+.autocomplete-input-row {
+	display: flex;
+	align-items: stretch;
+	width: 100%;
+}
+
+/* The whole row (input + submit button) reads as a single field, so the
+   hover shadow normally applied per-element (see index.css) is moved here
+   and suppressed on the individual input/button below. */
+.autocomplete-input-row:hover {
+	box-shadow: 0 0 0.1em black;
+	border-radius: 4px;
+}
+
+.autocomplete-input-field {
+	display: flex;
+	align-items: center;
+	flex: 1;
+	min-width: 0;
+	box-sizing: border-box;
+	cursor: text;
+	border: 1px solid gray;
+	border-radius: 4px;
+	padding: 0.4em 0.6em;
+	background: white;
+}
+
+.autocomplete-input-row > .autocomplete-input-submit {
+	border-radius: 4px;
+}
+
+.autocomplete-input-row:has(.autocomplete-input-submit) .autocomplete-input-field {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.autocomplete-input-row:has(.autocomplete-input-submit) .autocomplete-input-submit {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	border-left: none;
+}
+
+.autocomplete-input-prefix {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	/* Reserves the "(New)" text's width (the widest of the two prefix states)
+	   so the field doesn't resize/reflow switching between it, the spinner,
+	   and empty */
+	min-width: 5ch;
+	margin-left: 0.3em;
+	color: #666;
+	background: white;
+	white-space: nowrap;
+}
+
+.autocomplete-input-new {
+	font-style: italic;
+}
+
+/* Grayed out to signal it isn't part of the selectable label itself. */
+.autocomplete-input > ul .autocomplete-input-new {
+	color: #bbb;
+}
+
+.autocomplete-input-spinner {
+	height: 1em;
+	width: 1em;
+	flex: 0 0 auto;
+}
+
+.autocomplete-input-field > input {
+	flex: 1;
+	min-width: 0;
+	border: none;
+	outline: none;
+	padding: 0;
+	font-size: inherit;
+	background: transparent;
+}
+
+.autocomplete-input-field > input:not(:disabled):hover {
+	box-shadow: none;
+}
+
+.autocomplete-input-row > .autocomplete-input-submit:not(:disabled):hover {
+	box-shadow: none;
+}
+
+.autocomplete-input-submit {
+	flex: 0 0 auto;
+	box-sizing: border-box;
+	border: 1px solid gray;
+	background: #f4f4f4;
+	cursor: pointer;
+	padding: 0.4em 0.6em;
+}
+
+.autocomplete-input-submit:disabled {
+	cursor: default;
+	color: gray;
+	background: #eee;
+}
+
+.autocomplete-input > ul {
+	display: none;
+	position: absolute;
+	z-index: 10;
+	top: 100%;
+	left: 0;
+	right: 0;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	background: white;
+	border: 1px solid gray;
+	border-top: none;
+	max-height: 16em;
+	overflow-y: auto;
+}
+
+.autocomplete-input > ul.open {
+	display: block;
+}
+
+.autocomplete-input > ul > li {
+	padding: 0.4em 0.6em;
+	cursor: pointer;
+}
+
+.autocomplete-input > ul > li.status {
+	cursor: default;
+	color: gray;
+	font-style: italic;
+}
+
+.autocomplete-input > ul > li.highlighted {
+	background-color: #eee;
+}
