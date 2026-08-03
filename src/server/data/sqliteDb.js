@@ -96,14 +96,14 @@ CREATE TABLE IF NOT EXISTS dual_quiz (
 	FOREIGN KEY (topic_id, pos_id) REFERENCES entries(topic_id, id)
 );
 
--- Données propres à la relation user<->entry. Pour l'instant, seule la
--- colonne score (dernier score personnel connu, recomputed by
--- computeUserScores() right after a quiz mutation or during the global cycle
--- - never recomputed on read). Nommée sans suffixe "_scores" car destinée à
--- accueillir d'autres attributs par la suite (ex. un alias personnalisé pour
--- l'entrée). A row exists only for an entry the user has voted on (directly
--- or via a dual); rows for quiz-less entries are pruned by the same
--- recompute pass that creates missing ones.
+-- Data specific to the user<->entry relationship. For now, only the score
+-- column (last known personal score, recomputed by computeUserScores()
+-- right after a quiz mutation or during the global cycle - never recomputed
+-- on read). Named without a "_scores" suffix since it's meant to eventually
+-- hold other attributes too (e.g. a personal alias for the entry). A row
+-- exists only for an entry the user has voted on (directly or via a dual);
+-- rows for quiz-less entries are pruned by the same recompute pass that
+-- creates missing ones.
 CREATE TABLE IF NOT EXISTS user_entry (
 	username TEXT NOT NULL REFERENCES accounts(username) ON DELETE CASCADE,
 	topic_id TEXT NOT NULL,

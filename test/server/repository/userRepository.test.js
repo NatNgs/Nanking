@@ -24,12 +24,14 @@ describe('userRepository', () => {
 			assert.equal(await getUser(sqlite, TOPIC, 'ghost'), null)
 		})
 
-		test('getUser returns null for a ghost account with no credentials yet', async () => {
+		test('getUser loads a ghost account (no credentials yet) same as a real one - only HTTP auth cares', async () => {
 			await sqlite.run(
 				"INSERT INTO accounts (username, display_login, password_hash, salt) VALUES ('ghosty', 'Ghosty', NULL, NULL)"
 			)
-			assert.equal(await userExists(sqlite, 'ghosty'), false)
-			assert.equal(await getUser(sqlite, TOPIC, 'ghosty'), null)
+			assert.equal(await userExists(sqlite, 'ghosty'), true)
+			const user = await getUser(sqlite, TOPIC, 'ghosty')
+			assert.equal(user.username, 'ghosty')
+			assert.deepEqual(user.quiz, [])
 		})
 
 		test('getUser returns a User with an empty quiz for a fresh account', async () => {
@@ -167,13 +169,13 @@ describe('userRepository', () => {
 	})
 
 	describe('getAllUsernames', () => {
-		test('lists only real accounts, excluding ghosts', async () => {
+		test('lists every account, including ghosts - their imported quiz history must contribute to scores too', async () => {
 			await addAccount(sqlite, 'bobby', 'hashedpwd')
 			await sqlite.run(
 				"INSERT INTO accounts (username, display_login, password_hash, salt) VALUES ('ghosty', 'Ghosty', NULL, NULL)"
 			)
 			const usernames = await getAllUsernames(sqlite)
-			assert.deepEqual(usernames, ['bobby'])
+			assert.deepEqual(usernames.sort(), ['bobby', 'ghosty'])
 		})
 	})
 

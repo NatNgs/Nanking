@@ -14,11 +14,16 @@ function normalizeDualQuiz(negId, posId, value) {
 	return negId <= posId ? {negId, posId, value} : {negId: posId, posId: negId, value: -value}
 }
 
-/** True if a username has a real (non-ghost) account row. */
+/**
+ * True if `username` has any account row, ghost (no credentials, e.g. from a
+ * data import) or real. Score computation must include a ghost's quiz
+ * history same as a real user's - only HTTP authentication itself cares about
+ * the credentials/ghost distinction, and already checks it independently
+ * (see middleware/authenticate.js's own account.hash == null guard, run
+ * before getUser() is ever reached).
+ */
 async function userExists(sqlite, username) {
-	const row = await sqlite.get(
-		'SELECT 1 FROM accounts WHERE username = ? AND password_hash IS NOT NULL', [username]
-	)
+	const row = await sqlite.get('SELECT 1 FROM accounts WHERE username = ?', [username])
 	return !!row
 }
 
@@ -72,11 +77,13 @@ async function loadUserQuiz(sqlite, topicId, username) {
 }
 
 /**
- * Loads a user (account + full quiz history for `topicId`) at the demand of
- * a single request/cycle. Returns null if the account doesn't exist (or is a
- * ghost with no credentials yet) - callers must treat that as "not
- * authenticated", never silently fabricate an empty User (unlike the old
- * lazy-create getUser()).
+ * Loads a user (account + full quiz history for `topicId`) at the demand of a
+ * single request/cycle. Returns null if the account doesn't exist at all -
+ * callers needing an HTTP-authenticated user must check credentials
+ * themselves first (see middleware/authenticate.js), never silently
+ * fabricate an empty User (unlike the old lazy-create getUser()). A ghost
+ * account (no credentials yet, e.g. from a data import) still loads fine
+ * here - see userExists()'s own docstring.
  */
 async function getUser(sqlite, topicId, username) {
 	if(!await userExists(sqlite, username)) return null
@@ -172,9 +179,13 @@ async function saveUser(sqlite, topicId, user) {
 	})
 }
 
-/** Every username with a real account, for the periodic score computation job. */
+/**
+ * Every username with an account row, ghost or real, for the periodic score
+ * computation job - a ghost's imported quiz history must contribute to
+ * scores same as a real user's (see userExists()'s own docstring).
+ */
 async function getAllUsernames(sqlite) {
-	const rows = await sqlite.all('SELECT username FROM accounts WHERE password_hash IS NOT NULL')
+	const rows = await sqlite.all('SELECT username FROM accounts')
 	return rows.map((r) => r.username)
 }
 

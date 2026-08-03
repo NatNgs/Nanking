@@ -1,15 +1,40 @@
+import { existsSync } from 'node:fs'
+import { SqliteConnection } from '../data/sqliteDb.js'
+import CONFIG from '../config/config.js'
+
 /**
- * Point d'entrée unique pour les migrations de base de données. Appelée au
- * lancement du serveur, avant l'ouverture de la connexion SQLite (voir
- * server.js) : chaque migration nécessaire doit s'exécuter sur le fichier
- * brut avant que sqliteDb.js n'applique son schéma courant.
+ * First-run initialization: a database file that doesn't exist yet gets its
+ * schema created (SqliteConnection's constructor runs sqliteDb.js's
+ * openDatabase(), which applies SCHEMA) and its first topic seeded from
+ * config (CONFIG.DEFAULT_TOPIC) - without this, every route/job assuming at
+ * least one topic exists (e.g. entries.topic_id's FOREIGN KEY REFERENCES
+ * topics(id)) would fail on a brand new install. Detected here (existsSync),
+ * rather than in sqliteDb.js itself, since "did the file exist before this
+ * process touched it" can only be observed before anything opens it - see
+ * SqliteConnection's own docstring history on this point.
+ */
+function ensureDefaultTopic() {
+	if(existsSync(CONFIG.SQLITE_PATH)) return
+
+	const conn = new SqliteConnection(CONFIG.SQLITE_PATH)
+	conn.db.prepare(
+		'INSERT OR IGNORE INTO topics (id, label) VALUES (?, ?)'
+	).run(CONFIG.DEFAULT_TOPIC, CONFIG.DEFAULT_TOPIC)
+	conn.db.close()
+}
+
+/**
+ * Single entry point for database migrations. Called at server startup,
+ * before the SQLite connection opens (see server.js): every migration must
+ * run against the raw file before sqliteDb.js applies its current schema.
  *
- * Actuellement sans effet : aucune migration n'est requise depuis la base
- * SQLite à jour. Quand une migration deviendra nécessaire (changement de
- * schéma sur une base existante), l'ajouter ici et l'appeler depuis cette
- * fonction, dans l'ordre chronologique des versions de schéma.
+ * Currently only seeds the first topic (see ensureDefaultTopic()). When
+ * another migration becomes necessary (a schema change on an existing
+ * database), add it here and call it from this function, in chronological
+ * order of schema versions.
  */
 function tryToMigrate() {
+	ensureDefaultTopic()
 }
 
 export { tryToMigrate }
