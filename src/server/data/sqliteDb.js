@@ -169,11 +169,19 @@ function migrateToTopics(db) {
 
 		// Order matters: entries/tags first (nothing below references topics
 		// besides them), then whatever references entries/tags.
+		// global_score may not exist yet on a database created before that
+		// column's own migration (further below in openDatabase()): this
+		// function always runs first, so entries (about to be renamed to
+		// entries_old by rebuildTable) can predate it.
+		const oldEntryColumns = db.prepare('PRAGMA table_info(entries)').all()
+		const hasGlobalScore = oldEntryColumns.some((col) => col.name === 'global_score')
 		rebuildTable(db, 'entries', `
 			topic_id TEXT NOT NULL REFERENCES topics(id), id TEXT NOT NULL, name TEXT NOT NULL,
 			image TEXT NOT NULL DEFAULT 'assets/unknown.svg', global_score REAL NOT NULL DEFAULT 0.5,
 			PRIMARY KEY (topic_id, id)
-		`, `SELECT '${LEGACY_DATA_TOPIC}', id, name, image, global_score FROM entries_old`)
+		`, hasGlobalScore
+			? `SELECT '${LEGACY_DATA_TOPIC}', id, name, image, global_score FROM entries_old`
+			: `SELECT '${LEGACY_DATA_TOPIC}', id, name, image, 0.5 FROM entries_old`)
 
 		rebuildTable(db, 'tags', `
 			topic_id TEXT NOT NULL REFERENCES topics(id), id TEXT NOT NULL, label TEXT NOT NULL,
