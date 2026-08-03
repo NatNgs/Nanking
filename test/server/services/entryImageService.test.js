@@ -2,6 +2,7 @@ import { test, describe, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
 import { Jimp } from 'jimp'
+import sharp from 'sharp'
 import CONFIG from '../../../src/server/config/config.js'
 import { Entry } from '../../../src/server/model/entriesModel.js'
 import {
@@ -19,6 +20,10 @@ async function makePngBuffer(width, height) {
 	return image.getBuffer('image/png')
 }
 
+async function makeWebpBuffer(width, height) {
+	return sharp({create: {width, height, channels: 3, background: {r: 255, g: 0, b: 0}}}).webp().toBuffer()
+}
+
 describe('processImageUpload', () => {
 	test('rejects a buffer larger than 5MB', async () => {
 		const oversized = Buffer.alloc(5 * 1024 * 1024 + 1)
@@ -29,7 +34,7 @@ describe('processImageUpload', () => {
 		await assert.rejects(() => processImageUpload(Buffer.from('not an image')), EntryImageError)
 	})
 
-	test('converts a valid image to PNG', async () => {
+	test('converts a valid image to PNG without resizing when its largest side is already under 200px', async () => {
 		const input = await makePngBuffer(50, 50)
 		const output = await processImageUpload(input)
 		const decoded = await Jimp.read(output)
@@ -37,18 +42,59 @@ describe('processImageUpload', () => {
 		assert.equal(decoded.height, 50)
 	})
 
-	test('downscales an oversized image to fit within 200x200, preserving ratio', async () => {
+	test('crops the largest side by half (centered) then scales it down to 200px', async () => {
+		// gap = 400-200 = 200, cropAmount = 100 -> cropped to 300x200 (centered),
+		// then scaleToFit(200,200) keeps the 300:200 ratio -> 200x133
 		const input = await makePngBuffer(400, 200)
 		const output = await processImageUpload(input)
 		const decoded = await Jimp.read(output)
-		assert.ok(decoded.width <= 200)
-		assert.ok(decoded.height <= 200)
 		assert.equal(decoded.width, 200)
-		assert.equal(decoded.height, 100)
+		assert.equal(decoded.height, 133)
 	})
 
-	test('never upscales an image already smaller than 200x200', async () => {
+	test('never upscales an image already smaller than 200x200 (only converts to PNG)', async () => {
 		const input = await makePngBuffer(50, 30)
+		const output = await processImageUpload(input)
+		const decoded = await Jimp.read(output)
+		assert.equal(decoded.width, 50)
+		assert.equal(decoded.height, 30)
+	})
+
+	test('converts to PNG (even from an already-PNG source) without resizing right at the 200px boundary', async () => {
+		const input = await makePngBuffer(200, 150)
+		const output = await processImageUpload(input)
+		const decoded = await Jimp.read(output)
+		assert.equal(decoded.width, 200)
+		assert.equal(decoded.height, 150)
+	})
+
+	test('clamps the smallest side to 200px for the crop calculation, so an elongated image is not over-cropped', async () => {
+		// smallest side (100) is clamped to 200 for the crop math: gap = 400-200 = 200,
+		// cropAmount = 100 -> cropped to 300x100 (centered), then scaleToFit(200,200) -> 200x67
+		const input = await makePngBuffer(400, 100)
+		const output = await processImageUpload(input)
+		const decoded = await Jimp.read(output)
+		assert.equal(decoded.width, 200)
+		assert.equal(decoded.height, 67)
+	})
+
+	test('accepts an image right at the 4x max aspect ratio', async () => {
+		const input = await makePngBuffer(800, 200)
+		await assert.doesNotReject(() => processImageUpload(input))
+	})
+
+	test('rejects an image wider than 4x its height', async () => {
+		const input = await makePngBuffer(801, 200)
+		await assert.rejects(() => processImageUpload(input), EntryImageError)
+	})
+
+	test('rejects an image taller than 4x its width', async () => {
+		const input = await makePngBuffer(200, 801)
+		await assert.rejects(() => processImageUpload(input), EntryImageError)
+	})
+
+	test('converts a webp image to PNG (Jimp has no built-in webp decoder, sharp is used as a fallback)', async () => {
+		const input = await makeWebpBuffer(50, 30)
 		const output = await processImageUpload(input)
 		const decoded = await Jimp.read(output)
 		assert.equal(decoded.width, 50)

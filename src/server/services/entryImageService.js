@@ -1,4 +1,5 @@
 import { Jimp } from 'jimp'
+import sharp from 'sharp'
 import { mkdirSync, unlinkSync, existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
@@ -6,6 +7,7 @@ import CONFIG from '../config/config.js'
 
 const MAX_UPLOAD_SIZE = 5 * 1024 * 1024
 const MAX_SIDE = 200
+const MAX_ASPECT_RATIO = 4
 
 class EntryImageError extends Error {}
 
@@ -23,8 +25,25 @@ function getEntryImageFilePath(entryId) {
 
 /**
  * Validates and normalizes an uploaded image: rejects oversized or unreadable
- * buffers, converts to PNG, and downscales to fit within 200x200 without
- * ever upscaling a smaller image (aspect ratio preserved).
+ * buffers, converts to PNG, and resizes it to a square-ish 200px thumbnail.
+ *
+ * If the image's largest side is already under 200px, it is left as-is
+ * (never upscaled) - only converted to PNG. Otherwise, the largest side is
+ * first cropped by half, centered (e.g. a portrait image has its top and
+ * bottom trimmed equally), shrinking the gap between both sides by half
+ * before the whole image is scaled down so its largest side becomes exactly
+ * 200px - a plain scaleToFit would keep a very elongated image's aspect
+ * ratio (e.g. a 1000x100 poster shrinks to 200x20), this crop step brings
+ * every thumbnail closer to a 200x200 square first. The smallest side is
+ * never treated as narrower than 200px for this crop calculation (even if it
+ * actually is), or a very elongated image would get cropped down to almost
+ * nothing before the resize.
+ *
+ * Also rejects an image whose largest side is more than 4x its smallest
+ * (e.g. a 800x100 banner): the crop step above only trims the gap by half,
+ * so anything beyond that ratio would still end up cropped down to a sliver
+ * before the resize - better to reject upfront than silently produce a
+ * near-unusable thumbnail.
  */
 async function processImageUpload(buffer) {
 	if(buffer.length > MAX_UPLOAD_SIZE) {
@@ -35,10 +54,34 @@ async function processImageUpload(buffer) {
 	try {
 		image = await Jimp.read(buffer)
 	} catch {
-		throw new EntryImageError('Invalid image')
+		// Jimp has no built-in webp decoder - retry via sharp (libvips), which
+		// does, converting to PNG first so Jimp can take over for the resize.
+		try {
+			const pngBuffer = await sharp(buffer).png().toBuffer()
+			image = await Jimp.read(pngBuffer)
+		} catch {
+			throw new EntryImageError('Invalid image')
+		}
 	}
 
-	if(image.width > MAX_SIDE || image.height > MAX_SIDE) {
+	const largestSide = Math.max(image.width, image.height)
+	const smallestSideRaw = Math.min(image.width, image.height)
+	if(largestSide > smallestSideRaw * MAX_ASPECT_RATIO) {
+		throw new EntryImageError('Image aspect ratio too extreme')
+	}
+
+	if(largestSide > MAX_SIDE) {
+		const smallestSide = Math.max(smallestSideRaw, MAX_SIDE)
+		// Total amount trimmed off the largest side (x' = x - (x-y)/2), split
+		// evenly between both ends so the kept block stays centered.
+		const gap = largestSide - smallestSide
+		const cropAmount = Math.round(gap / 2)
+		const cropPerSide = Math.round(cropAmount / 2)
+		if(image.width > image.height) {
+			image = image.crop({x: cropPerSide, y: 0, w: image.width - cropAmount, h: image.height})
+		} else {
+			image = image.crop({x: 0, y: cropPerSide, w: image.width, h: image.height - cropAmount})
+		}
 		image = image.scaleToFit({w: MAX_SIDE, h: MAX_SIDE})
 	}
 

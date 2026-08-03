@@ -12,6 +12,7 @@ import session from 'express-session'
 import CONFIG from './config/config.js'
 import { openSqlite } from './data/sqliteDb.js'
 import { setSqlite } from './data/db.js'
+import { tryToMigrate } from './update/migrate.js'
 
 import { pageLimiter } from './middleware/rateLimit.js'
 import apiRouter from './routers/apiRoutes.js'
@@ -19,11 +20,14 @@ import apiRouter from './routers/apiRoutes.js'
 import { launchComputation } from './services/scoresComputerService.js'
 
 
-// Explicitly open the one production SQLite connection (running the one-shot
-// legacy JSON import, if any - see sqliteDb.js/migrateFromJson.js), and hand
-// it to db.js before anything else touches persisted data. Deliberately not
-// done at either module's top level - see sqliteDb.js's own openSqlite()
-// docstring for why.
+// Runs any pending database migration before the SQLite connection opens -
+// see update/migrate.js.
+tryToMigrate()
+
+// Explicitly open the one production SQLite connection, and hand it to db.js
+// before anything else touches persisted data. Deliberately not done at
+// either module's top level - see sqliteDb.js's own openSqlite() docstring
+// for why.
 const SQLITE = await openSqlite(CONFIG.SQLITE_PATH)
 setSqlite(SQLITE)
 

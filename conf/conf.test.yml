@@ -1,6 +1,5 @@
 port: 8153
 
-dbPath: ./test/tmp/NankingServerData.test.gz
 sqlitePath: ./test/tmp/nanking.test.sqlite
 dataDir: ./test/tmp/data
 

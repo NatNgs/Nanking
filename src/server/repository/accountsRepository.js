@@ -16,9 +16,9 @@ async function getAccount(sqlite, username) {
 
 /**
  * Registers `user`, or attaches credentials to an existing ghost account
- * (imported quiz data with no credentials yet, password_hash IS NULL - see
- * migrateFromJson.js). Returns true on success, false if the login is
- * invalid/missing or an account with real credentials already exists.
+ * (quiz data with no credentials yet, password_hash IS NULL). Returns true on
+ * success, false if the login is invalid/missing or an account with real
+ * credentials already exists.
  */
 async function addAccount(sqlite, user, pwd) {
 	if(!user || !pwd) return false

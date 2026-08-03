@@ -5,9 +5,9 @@ import CONFIG from '../../../src/server/config/config.js'
  * Builds a pre-filled SQLite file at `path` (same schema as the real server -
  * see sqliteDb.js) so the tags integration test can start from a rich,
  * already-scored state instead of rebuilding tags/entries/votes from scratch
- * through the UI for every test. Writes SQL directly (like migrateFromJson.js)
- * rather than going through the *Repository.js modules: this needs its own
- * throwaway connection, separate from the production one threaded through
+ * through the UI for every test. Writes SQL directly rather than going
+ * through the *Repository.js modules: this needs its own throwaway
+ * connection, separate from the production one threaded through
  * db.js's setSqlite().
  *
  * Contains only entries/tags/quiz data and a ghost account row (no

@@ -8,8 +8,7 @@ import { getEntriesByIds } from './entriesRepository.js'
  * the same pair (see DualQuiz.equals()), which the schema's
  * UNIQUE(username, neg_id, pos_id) constraint alone doesn't catch - this
  * normalization makes the constraint sufficient on its own, with no separate
- * lookup needed to detect the reversed duplicate. Shared by saveUser() and
- * migrateFromJson.js, which must agree on the same convention.
+ * lookup needed to detect the reversed duplicate.
  */
 function normalizeDualQuiz(negId, posId, value) {
 	return negId <= posId ? {negId, posId, value} : {negId: posId, posId: negId, value: -value}

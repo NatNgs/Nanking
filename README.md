@@ -25,8 +25,7 @@ Every value has a default, overridable via the config file:
 |---|---|---|
 | `port` | `8053` | Port the server listens on |
 | `cert.keyPath` / `cert.certPath` | *(none)* | TLS private key/certificate - see below |
-| `dbPath` | `data/NankingServerData.gz` | Legacy gzip-compressed JSON database, imported once - see below |
-| `sqlitePath` | `data/nanking.sqlite` | SQLite database file (source of truth once created) |
+| `sqlitePath` | `data/nanking.sqlite` | SQLite database file (source of truth) |
 | `clientDistPath` | `dist/client` | Compiled React app served as static files |
 | `token.validityLimit` | 16 hours (seconds) | Session cookie max age (`express-session`'s `cookie.maxAge`, sliding - see below) |
 | `session.secret` | *(none - insecure placeholder, warns)* | Secret used to sign the session ID cookie - see below |
@@ -71,13 +70,9 @@ session:
 ```
 
 **Database**: the server persists to a SQLite file (`sqlitePath`, via Node's native
-`node:sqlite`), never to the legacy JSON file directly. On startup:
-
-- If the SQLite file already exists, it is loaded as-is - `dbPath` is ignored entirely.
-- If it doesn't exist yet, a fresh SQLite database is created, and the legacy JSON
-  file (`dbPath`), if present, is imported into it once. The JSON file is then renamed
-  to `<dbPath>.imported` so it's obviously no longer live; the server never reads
-  it again afterwards.
+`node:sqlite`). On startup, any pending schema migration runs first (see
+`src/server/update/migrate.js`), then the SQLite file is opened, creating its schema
+if it doesn't exist yet.
 
 See `src/server/data/sqliteDb.js` for the schema and `src/server/services/
 persistenceService.js` for the read/write logic. The in-memory data model
